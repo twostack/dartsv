@@ -62,4 +62,12 @@ In the root folder of this project, run the shell script :
 ### Acknowledgement
 A debt of gratitude is owed to the developers acknowledged in the LICENSE file. Without the hard work of individuals working on earlier library and node implementations like Bitcoin Core, Bitcoin Cash, MoneyButton/BSV, BitcoinJ and many more, this library would likely not have come to fruition. Thank you. 
 
+### Contact
+You can reach the author at : 
+* @beardpappa on Twitter
+* $beardpappa (to buy me a beer)
+* stephan@werkswinkel.com
+
+
+
 
