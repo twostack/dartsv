@@ -11,7 +11,7 @@ This library therefore lacks , and will not implement :
 * Check Datasig (OP_CHECKDATASIG) 
 
 Current Supported features are : 
-* P2PKH Transactions
+* P2PKH Transactions (building and spending from)
 * Data-only Transactions (untested)
 * HD Key Derivation (BIP32)
 * Original Bitcoin Address format 
