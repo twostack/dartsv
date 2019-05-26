@@ -15,6 +15,7 @@ Current Supported features are :
 * Data-only Transactions (untested)
 * HD Key Derivation (BIP32)
 * Original Bitcoin Address format 
+* Transaction Signing
 
 Pending Features : 
 * Script Interpreter (high priority)
