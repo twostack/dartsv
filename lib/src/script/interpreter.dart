@@ -1,6 +1,35 @@
+import 'dart:collection';
+
 import 'package:dartsv/dartsv.dart';
 
-class Interpreter{
+
+class Stack {
+    Queue<String> _queue = new Queue<String>();
+
+    void push(String item) {
+        _queue.addLast(item);
+    }
+
+    int get length => _queue.length;
+
+    void removeAll() {
+        this._queue.clear();
+    }
+
+    Stack slice() {
+        return this;
+    }
+
+    String peek() {
+        return _queue.last;
+    }
+
+    String pop() {
+        return _queue.removeLast();
+    }
+}
+
+class Interpreter {
 
     static final MAX_SCRIPT_ELEMENT_SIZE = 520;
     static final MAXIMUM_ELEMENT_SIZE = 4;
@@ -115,9 +144,171 @@ class Interpreter{
      */
     static final SEQUENCE_LOCKTIME_MASK = 0x0000ffff;
 
+    Stack _stack = new Stack();
+    Stack _altStack = new Stack();
+    int _pc = 0;
+    int _pbegincodehash = 0;
+    int _nOpCount = 0;
+    List _vfExec = List();
+    String _errStr = "";
+    int _flags = 0;
+
+    /**/
+    SVScript _script;
+    Transaction _tx;
+    int _nin;
+    BigInt _satoshis;
+
+    /**/
 
 
-//
+    Stack get stack => _stack;
+
+    Stack get altstack => _altStack;
+
+    int get pc => _pc;
+
+    int get pbegincodehash => _pbegincodehash;
+
+    int get nOpCount => 0;
+
+    List get vfExec => _vfExec; //???
+    String get errstr => _errStr;
+
+    int get flags => _flags;
+
+    bool verifyScript(SVScript scriptSig, SVScript scriptPubkey, {Transaction tx = null, int nin = 0, int flags = 0, BigInt satoshis}) {
+        if (tx == null) {
+            tx = new Transaction();
+        }
+
+
+        // If FORKID is enabled, we also ensure strict encoding.
+        if (flags & Interpreter.SCRIPT_ENABLE_SIGHASH_FORKID == 0) {
+            flags |= Interpreter.SCRIPT_VERIFY_STRICTENC;
+
+            // If FORKID is enabled, we need the input amount.
+            if (satoshis == BigInt.zero) {
+                throw ScriptException('internal error - need satoshis to verify FORKID transactions');
+            }
+        }
+
+
+        this._script = scriptSig;
+        this._tx = tx;
+        this._nin = nin;
+        this._flags = flags;
+        this._satoshis = satoshis;
+
+        var stackCopy;
+
+        if ((flags & Interpreter.SCRIPT_VERIFY_SIGPUSHONLY) != 0 && !scriptSig.isPushOnly()) {
+            this._errStr = 'SCRIPT_ERR_SIG_PUSHONLY';
+            return false;
+        };
+
+        // evaluate scriptSig
+        if (!this.evaluate()) {
+            return false;
+        }
+
+        if (flags & Interpreter.SCRIPT_VERIFY_P2SH != 0) {
+            stackCopy = this.stack.slice();
+        }
+
+        var stack = this.stack;
+        this.initialize();
+        this.set({
+            "script": scriptPubkey,
+            "stack": stack,
+            "tx": tx,
+            "nin": nin,
+            "flags": flags,
+            "satoshis": satoshis
+        });
+
+        // evaluate scriptPubkey
+        if (!this.evaluate()) {
+            return false;
+        }
+
+        if (this.stack.length == 0) {
+            this._errStr = 'SCRIPT_ERR_EVAL_FALSE_NO_RESULT';
+            return false;
+        }
+
+        String buf = this.stack.peek(); //[this.stack.length - 1];
+        if (!_castToBool(buf)) {
+            this._errStr = 'SCRIPT_ERR_EVAL_FALSE_IN_STACK';
+            return false;
+        }
+
+        // Additional validation for spend-to-script-hash transactions:
+        if ((flags & Interpreter.SCRIPT_VERIFY_P2SH == 0) && scriptPubkey.isScriptHashOut()) {
+            // scriptSig must be literals-only or validation fails
+            if (!scriptSig.isPushOnly()) {
+                this._errStr = 'SCRIPT_ERR_SIG_PUSHONLY';
+                return false;
+            }
+
+            // stackCopy cannot be empty here, because if it was the
+            // P2SH  HASH <> EQUAL  scriptPubKey would be evaluated with
+            // an empty stack and the EvalScript above would return false.
+            if (stackCopy.length == 0) {
+                throw new InterpreterException('internal error - stack copy empty');
+            }
+
+            var redeemScriptSerialized = stackCopy.peek(); // [stackCopy.length - 1];
+            var redeemScript = SVScript(redeemScriptSerialized);
+            stackCopy.pop();
+
+            this.initialize();
+            this.set({
+                "script": redeemScript,
+                "stack": stackCopy,
+                "tx": tx,
+                "nin": nin,
+                "flags": flags,
+                "satoshisBN": satoshis
+            });
+
+            // evaluate redeemScript
+            if (!this.evaluate()) {
+                return false;
+            }
+
+            if (stackCopy.length == 0) {
+                this._errStr = 'SCRIPT_ERR_EVAL_FALSE_NO_P2SH_STACK';
+                return false;
+            }
+
+            if (!_castToBool(stackCopy.peek())) {
+                this._errStr = 'SCRIPT_ERR_EVAL_FALSE_IN_P2SH_STACK';
+                return false;
+            }
+        }
+
+        // The CLEANSTACK check is only performed after potential P2SH evaluation,
+        // as the non-P2SH evaluation of a P2SH script will obviously not result in
+        // a clean stack (the P2SH inputs remain). The same holds for witness
+        // evaluation.
+        if ((flags & Interpreter.SCRIPT_VERIFY_CLEANSTACK) != 0) {
+            // Disallow CLEANSTACK without P2SH, as otherwise a switch
+            // CLEANSTACK->P2SH+CLEANSTACK would be possible, which is not a
+            // softfork (and P2SH should be one).
+            if ((flags & Interpreter.SCRIPT_VERIFY_P2SH) == 0) {
+                throw new InterpreterException('internal error - CLEANSTACK without P2SH');
+            }
+
+            if (stackCopy.length != 1) {
+                this._errStr = 'SCRIPT_ERR_CLEANSTACK';
+                return false;
+            }
+        }
+
+        return true;
+    }
+
 // Ported from moneyButton-bsv, which in turn...
 // Translated from bitcoind's CheckSignatureEncoding
 //
@@ -133,7 +324,8 @@ class Interpreter{
             return true;
         }
 
-        if ((flags & (Interpreter.SCRIPT_VERIFY_DERSIG | Interpreter.SCRIPT_VERIFY_LOW_S | Interpreter.SCRIPT_VERIFY_STRICTENC)) != 0 && !SVSignature.isTxDER(buf)) {
+        if ((flags & (Interpreter.SCRIPT_VERIFY_DERSIG | Interpreter.SCRIPT_VERIFY_LOW_S | Interpreter.SCRIPT_VERIFY_STRICTENC)) != 0 &&
+            !SVSignature.isTxDER(buf)) {
             errStr = 'SCRIPT_ERR_SIG_DER_INVALID_FORMAT';
             return false;
         } else if ((flags & Interpreter.SCRIPT_VERIFY_LOW_S) != 0) {
@@ -164,5 +356,29 @@ class Interpreter{
 
         return true;
     }
+
+    void clearStacks() {
+        this._stack.removeAll();
+        this._altStack.removeAll();
+    }
+
+    bool evaluate() {
+        return false;
+    }
+
+    void initialize() {}
+
+    void set(Map map) {
+        this._script = map["script"];
+        this._tx = map["tx"];
+        this._nin = map["nin"];
+        this._flags = map["flags"];
+        this._satoshis = map["satoshis"];
+    }
+
+    bool _castToBool(String buf) {
+        return false;
+    }
+
 
 }

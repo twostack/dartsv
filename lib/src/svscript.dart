@@ -32,7 +32,9 @@ class SVScript {
     /// standard pubkeyScript for P2PKH
     /// FIXME: this constructor name bothers me
     SVScript.buildPublicKeyHashOut(Address fromAddress) {
-        var addressLength = HEX.decode(fromAddress.address).length;
+        var addressLength = HEX
+            .decode(fromAddress.address)
+            .length;
 
         var destAddress = fromAddress.address;
         //FIXME: Another hack. For some reason some addresses don't have proper ripemd160 hashes of the hex value. Fix later !
@@ -42,24 +44,27 @@ class SVScript {
         }
         this._script = sprintf("OP_DUP OP_HASH160 %s 0x%s OP_EQUALVERIFY OP_CHECKSIG", [addressLength, destAddress]);
         parse(this._script);
-
     }
 
     /// standard sigScript for P2PKH
     /// FIXME: this constructor name bothers me.
     SVScript.buildScriptSig(String signature, String pubKey){
-        var pubKeySize = HEX.decode(pubKey).length;
-        var signatureSize = HEX.decode(signature).length;
+        var pubKeySize = HEX
+            .decode(pubKey)
+            .length;
+        var signatureSize = HEX
+            .decode(signature)
+            .length;
         this._script = sprintf("%s 0x%s %s 0x%s", [signatureSize, signature, pubKeySize, pubKey]);
         parse(this._script);
-
     }
 
 
     SVScript.buildDataOut(String data) {
-
         var opcodenum;
-        var len = utf8.encode(data).length;
+        var len = utf8
+            .encode(data)
+            .length;
         var encodedData = HEX.encode(utf8.encode(data));
 
         if (len >= 0 && len < OpCodes.OP_PUSHDATA1) {
@@ -82,7 +87,6 @@ class SVScript {
         this._isDataOutFlag = true;
 
         parse(this._script);
-
     }
 
 
@@ -105,7 +109,6 @@ class SVScript {
     }
 
     void parse(String script) {
-
         if (script == null || script.isEmpty) return;
 
         var tokenList = script.split(" "); //split on spaces
@@ -117,7 +120,7 @@ class SVScript {
 
                 if (token.indexOf("0x") >= 0 || tokenList.length == 1) { //it's either a 0x-prefixed bit of data, or a hex string
                     encodedToken = token.replaceAll("0x", ""); //strip hex coding identifier if any
-                }else {
+                } else {
                     try { //try to parse value as int
 
                         var tokenVal = int.parse(encodedToken); //FIXME: Dear lord have mercy
@@ -152,7 +155,6 @@ class SVScript {
     ///       Transaction instances will then have to be injected with the specialized Script Template
     ///       which in turn is constructed by a factory method somewhere
     bool checkPubkeyHash(List<String> tokenList) {
-
         try {
             if (tokenList.length == 4) {
                 var signatureBuf = HEX.decode(tokenList[1]);
@@ -168,10 +170,17 @@ class SVScript {
             }
 
             return false;
-
-        }catch(ex){
+        } catch (ex) {
             return false;
         }
+    }
+
+    bool isPushOnly() {
+        return false;
+    }
+
+    bool isScriptHashOut() {
+        return false;
     }
 
 }
