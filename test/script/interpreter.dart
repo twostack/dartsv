@@ -45,14 +45,14 @@ void main() {
       expect(verified, isTrue);
       verified = Interpreter().verifyScript(SVScript.fromString(''), SVScript.fromString('OP_DEPTH OP_0 OP_EQUAL'));
       expect(verified, isTrue);
-//      verified = Interpreter().verify(Script('OP_1 OP_2'), Script('OP_2 OP_EQUALVERIFY OP_1 OP_EQUAL'))
-//      verified.should.equal(true)
-//      verified = Interpreter().verify(Script('9 0x000000000000000010'), Script(''))
-//      verified.should.equal(true)
-//      verified = Interpreter().verify(Script('OP_1'), Script('OP_15 OP_ADD OP_16 OP_EQUAL'))
-//      verified.should.equal(true)
-//      verified = Interpreter().verify(Script('OP_0'), Script('OP_IF OP_VER OP_ELSE OP_1 OP_ENDIF'))
-//      verified.should.equal(true)
+      verified = Interpreter().verifyScript(SVScript.fromString('OP_1 OP_2'), SVScript.fromString('OP_2 OP_EQUALVERIFY OP_1 OP_EQUAL'));
+      expect(verified, isTrue);
+      verified = Interpreter().verifyScript(SVScript.fromString('9 0x000000000000000010'), SVScript.fromString(''));
+      expect(verified, isTrue);
+      verified = Interpreter().verifyScript(SVScript.fromString('OP_1'), SVScript.fromString('OP_15 OP_ADD OP_16 OP_EQUAL'));
+      expect(verified, isTrue);
+      verified = Interpreter().verifyScript(SVScript.fromString('OP_0'), SVScript.fromString('OP_IF OP_VER OP_ELSE OP_1 OP_ENDIF'));
+      expect(verified, isTrue);
     });
   });
 }

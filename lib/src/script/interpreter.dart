@@ -535,7 +535,7 @@ class Interpreter {
         var chunk = this._script.chunks[this.pc];
         this._pc++; //FIXME: global var f*ckery. Looks like index pointer into script chunks
         var opcodenum = chunk.opcodenum;
-        if (!OpCodes.opcodeMap.containsValue(opcodenum)) {
+        if (opcodenum == null) {
             this._errStr = 'SCRIPT_ERR_UNDEFINED_OPCODE';
             return false;
         }
