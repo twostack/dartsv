@@ -774,4 +774,8 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
         this._nLockTime.setRange(1, 4, HEX.decode(blockHeight.toRadixString(16))) ;
     }
 
+    bool verifySignature(sig, pubkey, int nin, SVScript subscript, BigInt satoshis, int flags) {
+        return false;
+    }
+
 }

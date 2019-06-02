@@ -10,15 +10,51 @@ import 'dart:math';
 
 import 'package:dartsv/src/encoding/base58check.dart';
 
+class ScriptChunk{
+
+    List<int> _buf;
+    int _len;
+    int _opcodenum;
+
+    ScriptChunk(this._buf, this._len, this._opcodenum);
+
+    int get opcodenum => _opcodenum;
+
+    set opcodenum(int value) {
+        _opcodenum = value;
+    }
+
+    int get len => _len;
+
+    set len(int value) {
+        _len = value;
+    }
+
+    List<int> get buf => _buf;
+
+    set buf(List<int> value) {
+        _buf = value;
+    }
+
+
+}
+
 class SVScript {
 
     String _script = "";
+
+    List<ScriptChunk> _chunks = List();
 
     bool _isDataOutFlag = false;
 
     Uint8List _byteArray = Uint8List(0);
 
     var _isPubkeyHash = false;
+
+
+    SVScript.fromChunks(List<ScriptChunk> chunks) {
+        this._chunks = chunks;
+    }
 
     SVScript.fromByteArray(Uint8List buffer) {
         this._byteArray = buffer;
@@ -182,6 +218,18 @@ class SVScript {
     bool isScriptHashOut() {
         return false;
     }
+
+    List<ScriptChunk> get chunks => _chunks;
+
+  bool checkMinimalPush(int i) {
+      return false;
+  }
+
+  void findAndDelete(SVScript tmpScript) {
+
+  }
+
+
 
 }
 

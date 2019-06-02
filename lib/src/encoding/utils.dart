@@ -3,6 +3,8 @@ import 'package:pointycastle/digests/ripemd160.dart';
 import 'package:pointycastle/digests/sha256.dart';
 import 'dart:typed_data';
 
+import 'package:pointycastle/export.dart';
+
 List<int> sha256Twice(List<int> bytes) {
 
     var first = new SHA256Digest().process(Uint8List.fromList(bytes));
@@ -15,9 +17,19 @@ List<int> sha256(List<int> bytes){
    return new SHA256Digest().process(Uint8List.fromList(bytes)).toList();
 }
 
+List<int> sha1(List<int> bytes){
+    return new SHA1Digest().process(Uint8List.fromList(bytes)).toList();
+}
+
 List<int> hash160(List<int> bytes){
     List<int> shaHash = new SHA256Digest().process(Uint8List.fromList(bytes));
     var ripeHash = new RIPEMD160Digest().process(shaHash);
+    return ripeHash.toList();
+}
+
+
+List<int> ripemd160(List<int> bytes){
+    var ripeHash = new RIPEMD160Digest().process(bytes);
     return ripeHash.toList();
 }
 

@@ -8,7 +8,7 @@ void main() {
     test('should make a new interpreter', () {
       var interp = new Interpreter();
       expect(interp.stack.length, equals(0));
-      expect(interp.altstack.length, equals(0));
+      expect(interp.altStack.length, equals(0));
       expect(interp.pc, equals(0));
       expect(interp.pbegincodehash, equals(0));
       expect(interp.nOpCount, equals(0));
@@ -21,11 +21,11 @@ void main() {
       var interp = new Interpreter();
       interp.stack.push('stack');
       expect(interp.stack.length, equals(1));
-      interp.altstack.push('altstack');
-      expect(interp.altstack.length, equals(1));
+      interp.altStack.push('altstack');
+      expect(interp.altStack.length, equals(1));
       interp.clearStacks();
       expect(interp.stack.length, equals(0));
-      expect(interp.altstack.length, equals(0));
+      expect(interp.altStack.length, equals(0));
     });
   });
 
