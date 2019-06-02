@@ -10,6 +10,13 @@ import 'package:hex/hex.dart';
 class Stack {
     Queue<String> _queue = new Queue<String>();
 
+    Stack();
+
+    Stack.fromQueue(Queue<String> queue){
+        this._queue = Queue.from(queue);
+    }
+
+
     void push(String item) {
         _queue.addLast(item);
     }
@@ -21,7 +28,7 @@ class Stack {
     }
 
     Stack slice() {
-        return this;
+        return Stack.fromQueue(_queue);
     }
 
     //peek up to "index"
@@ -434,7 +441,16 @@ class Interpreter {
         this._altStack.removeAll();
     }
 
-    void initialize() {}
+    void initialize() {
+        this._stack = new Stack.fromQueue(Queue<String>());
+        this._altStack = new Stack.fromQueue(Queue<String>());
+        this._pc = 0;
+        this._pbegincodehash = 0;
+        this._nOpCount = 0;
+        this._vfExec = [];
+        this._errStr = '';
+        this._flags = 0;
+    }
 
     void set(Map map) {
         this._script = map["script"];
@@ -445,10 +461,15 @@ class Interpreter {
     }
 
     bool _castToBool(String buf) {
-        return false;
-    }
-
-    bool _step() {
+        for (var i = 0; i < buf.length; i++) {
+            if (buf[i] != 0) {
+                // can be negative zero
+                if (i == buf.length - 1 && buf[i] == 0x80) {
+                    return false;
+                }
+                return true;
+            }
+        }
         return false;
     }
 
@@ -456,7 +477,7 @@ class Interpreter {
     /// * Based on the inner loop of bitcoind's EvalScript function
     /// * bitcoind commit: b5d1b1092998bc95313856d535c632ea5a8f9104
     ///
-    bool step() {
+    bool _step() {
 //  var self = this;
 
         stacktop(int i) {
@@ -503,7 +524,7 @@ class Interpreter {
         bool fRequireMinimal = (this.flags & Interpreter.SCRIPT_VERIFY_MINIMALDATA) != 0; //FIXME: This is somehow used in JS BigNumber class
 
         // bool fExec = !count(vfExec.begin(), vfExec.end(), false);
-        bool fExec = this.vfExec.contains(false);
+        bool fExec = !this.vfExec.contains(false);
         var buf, buf1, buf2, spliced, n, x1, x2, bn, bn1, bn2, bufSig, bufPubkey, subscript;
         var sig, pubkey;
         var fValue, fSuccess;
