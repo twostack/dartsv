@@ -37,14 +37,14 @@ void main() {
       var si = Interpreter();
       verified = si.verifyScript(SVScript.fromString('OP_1'), SVScript.fromString('OP_1'));
       expect(verified, isTrue);
-//      verified = Interpreter().verify(Script('OP_1'), Script('OP_0'))
-//      verified.should.equal(false)
-//      verified = Interpreter().verify(Script('OP_0'), Script('OP_1'))
-//      verified.should.equal(true)
-//      verified = Interpreter().verify(Script('OP_CODESEPARATOR'), Script('OP_1'))
-//      verified.should.equal(true)
-//      verified = Interpreter().verify(Script(''), Script('OP_DEPTH OP_0 OP_EQUAL'))
-//      verified.should.equal(true)
+      verified = Interpreter().verifyScript(SVScript.fromString('OP_1'), SVScript.fromString('OP_0'));
+      expect(verified, isFalse);
+      verified = Interpreter().verifyScript(SVScript.fromString('OP_0'), SVScript.fromString('OP_1'));
+      expect(verified, isTrue);
+      verified = Interpreter().verifyScript(SVScript.fromString('OP_CODESEPARATOR'), SVScript.fromString('OP_1'));
+      expect(verified, isTrue);
+      verified = Interpreter().verifyScript(SVScript.fromString(''), SVScript.fromString('OP_DEPTH OP_0 OP_EQUAL'));
+      expect(verified, isTrue);
 //      verified = Interpreter().verify(Script('OP_1 OP_2'), Script('OP_2 OP_EQUALVERIFY OP_1 OP_EQUAL'))
 //      verified.should.equal(true)
 //      verified = Interpreter().verify(Script('9 0x000000000000000010'), Script(''))

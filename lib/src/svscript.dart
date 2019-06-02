@@ -67,6 +67,11 @@ class SVScript {
 
 
     SVScript.fromString(String script) {
+
+        if (script.trim().isEmpty){
+            return;
+        }
+
         var tokenList = script.split(" "); //split on spaces
 
         //encode tokens, leaving non-token elements intact

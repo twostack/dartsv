@@ -220,7 +220,7 @@ class Interpreter {
 
 
         // If FORKID is enabled, we also ensure strict encoding.
-        if (flags & Interpreter.SCRIPT_ENABLE_SIGHASH_FORKID == 0) {
+        if (flags & Interpreter.SCRIPT_ENABLE_SIGHASH_FORKID != 0) {
             flags |= Interpreter.SCRIPT_VERIFY_STRICTENC;
 
             // If FORKID is enabled, we need the input amount.
@@ -880,6 +880,10 @@ class Interpreter {
                 case OpCodes.OP_DEPTH:
                 // -- stacksize
                     buf = BigInt.from(this.stack.length).toRadixString(16);
+                    if (buf == "0") { //don't push zero, push empty string instead
+                        buf = "";
+                    }
+
                     this.stack.push(buf);
                     break;
 
