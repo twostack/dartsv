@@ -453,6 +453,8 @@ class Interpreter {
     }
 
     void set(Map map) {
+
+        this._stack = map["stack"];
         this._script = map["script"];
         this._tx = map["tx"];
         this._nin = map["nin"];
