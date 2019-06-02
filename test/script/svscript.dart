@@ -54,6 +54,19 @@ main() {
         });
       });
 
+  group('isPushOnly method', () {
+    test("should know these scripts are or aren't push only", () {
+      expect(SVScript.fromString('OP_NOP 1 0x01').isPushOnly(), isFalse);
+      expect(SVScript.fromString('OP_0').isPushOnly(), isTrue);
+      expect(SVScript.fromString('OP_0 OP_RETURN').isPushOnly(), isFalse);
+      expect(SVScript.fromString('OP_PUSHDATA1 5 0x1010101010').isPushOnly(), isTrue);
+      expect(SVScript.fromString('OP_PUSHDATA2 5 0x1010101010').isPushOnly(), isTrue);
+      expect(SVScript.fromString('OP_PUSHDATA4 5 0x1010101010').isPushOnly(), isTrue);
+      // like bitcoind, we regard OP_RESERVED as being "push only"
+      expect(SVScript('OP_RESERVED').isPushOnly(), isTrue);
+    });
+  });
+
     /*
 
   describe('#buildPublicKeyHashOut', function () {

@@ -250,7 +250,12 @@ class SVScript {
     }
 
     bool isPushOnly() {
-        return false;
+        return _chunks.fold(true, (prev, chunk) {
+            return prev && (chunk.opcodenum <= OpCodes.OP_16 ||
+                chunk.opcodenum == OpCodes.OP_PUSHDATA1 ||
+                chunk.opcodenum == OpCodes.OP_PUSHDATA2 ||
+                chunk.opcodenum == OpCodes.OP_PUSHDATA4);
+        });
     }
 
     bool isScriptHashOut() {
