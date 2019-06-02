@@ -44,6 +44,16 @@ main() {
         });
     });
 
+
+     group('fromString constructor', () {
+        test('should parse these known scripts', () {
+          expect(SVScript.fromString('OP_0 OP_PUSHDATA4 3 0x010203 OP_0').toString(), equals('OP_0 OP_PUSHDATA4 3 0x010203 OP_0'));
+          expect(SVScript.fromString('OP_0 OP_PUSHDATA2 3 0x010203 OP_0').toString(), equals('OP_0 OP_PUSHDATA2 3 0x010203 OP_0'));
+          expect(SVScript.fromString('OP_0 OP_PUSHDATA1 3 0x010203 OP_0').toString(), equals('OP_0 OP_PUSHDATA1 3 0x010203 OP_0'));
+          expect(SVScript.fromString('OP_0 3 0x010203 OP_0').toString(), equals('OP_0 3 0x010203 OP_0'));
+        });
+      });
+
     /*
 
   describe('#buildPublicKeyHashOut', function () {
@@ -258,14 +268,6 @@ describe('Script', function () {
     })
   })
 
-  describe('#fromString', function () {
-    it('should parse these known scripts', function () {
-      Script.fromString('OP_0 OP_PUSHDATA4 3 0x010203 OP_0').toString().should.equal('OP_0 OP_PUSHDATA4 3 0x010203 OP_0')
-      Script.fromString('OP_0 OP_PUSHDATA2 3 0x010203 OP_0').toString().should.equal('OP_0 OP_PUSHDATA2 3 0x010203 OP_0')
-      Script.fromString('OP_0 OP_PUSHDATA1 3 0x010203 OP_0').toString().should.equal('OP_0 OP_PUSHDATA1 3 0x010203 OP_0')
-      Script.fromString('OP_0 3 0x010203 OP_0').toString().should.equal('OP_0 3 0x010203 OP_0')
-    })
-  })
 
   describe('#toString', function () {
     it('should work with an empty script', function () {

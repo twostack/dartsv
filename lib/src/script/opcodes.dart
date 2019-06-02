@@ -283,4 +283,9 @@ class OpCodes {
   static const int OP_PUBKEY = 254;
   static const int OP_INVALIDOPCODE = 255;
 
+  static String fromNum(int opcodenum) {
+    var codeList = opcodeMap.entries.where((element) => element.value == opcodenum);
+    return codeList.last.key;
+  }
+
 }

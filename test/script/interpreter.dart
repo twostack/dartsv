@@ -35,7 +35,7 @@ void main() {
     test('should verify these trivial scripts', () {
       bool verified;
       var si = Interpreter();
-      verified = si.verifyScript(SVScript('OP_1'), SVScript('OP_1'));
+      verified = si.verifyScript(SVScript.fromString('OP_1'), SVScript.fromString('OP_1'));
       expect(verified, isTrue);
 //      verified = Interpreter().verify(Script('OP_1'), Script('OP_0'))
 //      verified.should.equal(false)

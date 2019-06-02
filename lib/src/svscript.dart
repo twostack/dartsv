@@ -10,7 +10,7 @@ import 'dart:math';
 
 import 'package:dartsv/src/encoding/base58check.dart';
 
-class ScriptChunk{
+class ScriptChunk {
 
     List<int> _buf;
     int _len;
@@ -64,6 +64,40 @@ class SVScript {
     SVScript(String script) {
         parse(script);
     }
+
+
+    SVScript.fromString(String script) {
+        var tokenList = script.split(" "); //split on spaces
+
+        //encode tokens, leaving non-token elements intact
+        for (var index = 0; index < tokenList.length;) {
+            var token = tokenList[index];
+            var opcode = token;
+            var opcodenum = OpCodes.opcodeMap[token];
+
+            if (opcodenum == null) {
+                opcodenum = int.parse(token);
+                if (opcodenum > 0 && opcodenum < OpCodes.OP_PUSHDATA1) {
+                    _chunks.add(ScriptChunk(HEX.decode(tokenList[index + 1].substring(2)), opcodenum, opcodenum));
+                    index = index + 2; //step by two
+                } else {
+                    throw new ScriptException('Invalid script: ' + script);
+                }
+            } else if (opcodenum == OpCodes.OP_PUSHDATA1 ||
+                opcodenum == OpCodes.OP_PUSHDATA2 ||
+                opcodenum == OpCodes.OP_PUSHDATA4) {
+                if (tokenList[index + 2].substring(0, 2) != '0x') {
+                    throw new ScriptException('Pushdata data must start with 0x');
+                }
+                _chunks.add(ScriptChunk(HEX.decode(tokenList[index + 2].substring(2)), int.parse(tokenList[index + 1], radix: 16), opcodenum));
+                index = index + 3; //step by three
+            } else {
+                chunks.add(ScriptChunk([], 0, opcodenum));
+                index = index + 1; //step by one
+            }
+        }
+    }
+
 
     /// standard pubkeyScript for P2PKH
     /// FIXME: this constructor name bothers me
@@ -137,6 +171,10 @@ class SVScript {
     bool get isPubkeyHash => this._isPubkeyHash;
 
     String toString() {
+        if (_chunks.isNotEmpty) {
+            return _chunks.fold("", (String prev, ScriptChunk chunk) => prev + _chunkToString(chunk)).trim();
+        }
+
         return this._script;
     }
 
@@ -221,15 +259,65 @@ class SVScript {
 
     List<ScriptChunk> get chunks => _chunks;
 
-  bool checkMinimalPush(int i) {
-      return false;
-  }
+    bool checkMinimalPush(int i) {
+        return false;
+    }
 
-  void findAndDelete(SVScript tmpScript) {
+    void findAndDelete(SVScript tmpScript) {
 
-  }
+    }
 
-
-
+    String _chunkToString(ScriptChunk chunk, {type = 'hex'}) {
+        var opcodenum = chunk.opcodenum;
+        var asm = (type == 'asm');
+        var str = '';
+        if (chunk.buf.isEmpty) {
+            // no data chunk
+            if (OpCodes.opcodeMap.containsValue(opcodenum)) {
+                if (asm) {
+                    /*
+        // A few cases where the opcode name differs from reverseMap
+        // aside from 1 to 16 data pushes.
+        if (opcodenum == 0) {
+          // OP_0 -> 0
+          str = str + ' 0'
+        } else if (opcodenum === 79) {
+          // OP_1NEGATE -> 1
+          str = str + ' -1'
+        } else {
+          str = str + ' ' + Opcode(opcodenum).toString()
+        }
+           */
+                } else {
+                    str = str + ' ' + OpCodes.fromNum(opcodenum);
+                }
+            } else {
+                var numstr = opcodenum.toRadixString(16);
+                if (numstr.length % 2 != 0) {
+                    numstr = '0' + numstr;
+                }
+                if (asm) {
+                    str = str + ' ' + numstr;
+                } else {
+                    str = str + ' ' + '0x' + numstr;
+                }
+            }
+        } else {
+            // data chunk
+            if (!asm && (opcodenum == OpCodes.OP_PUSHDATA1 ||
+                opcodenum == OpCodes.OP_PUSHDATA2 ||
+                opcodenum == OpCodes.OP_PUSHDATA4)) {
+                str = str + ' ' + OpCodes.fromNum(opcodenum);
+            }
+            if (chunk.len > 0) {
+                if (asm) {
+                    str = str + ' ' + HEX.encode(chunk.buf);
+                } else {
+                    str = str + ' ' + chunk.len.toString() + ' ' + '0x' + HEX.encode(chunk.buf);
+                }
+            }
+        }
+        return str;
+    }
 }
 
