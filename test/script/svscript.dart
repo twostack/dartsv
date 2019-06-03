@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:dartsv/dartsv.dart';
+import 'package:dartsv/src/script/P2PKHScriptPubkey.dart';
 import 'package:test/test.dart';
 
 main() {
@@ -34,7 +35,7 @@ main() {
 
         test('should create script from livenet address', () {
           var address = Address('1NaTVwXDDUJaXDQajoa9MqHhz4uTxtgK14');
-          SVScript script = SVScript.buildPublicKeyHashOut(address);
+          SVScript script = P2PKHScriptPubkey(address);
           expect(script, isNotNull);
           expect(script.toString(), equals('OP_DUP OP_HASH160 20 0xecae7d092947b7ee4998e254aa48900d26d2ce1d OP_EQUALVERIFY OP_CHECKSIG'));
 
@@ -63,7 +64,7 @@ main() {
       expect(SVScript.fromString('OP_PUSHDATA2 5 0x1010101010').isPushOnly(), isTrue);
       expect(SVScript.fromString('OP_PUSHDATA4 5 0x1010101010').isPushOnly(), isTrue);
       // like bitcoind, we regard OP_RESERVED as being "push only"
-      expect(SVScript('OP_RESERVED').isPushOnly(), isTrue);
+      expect(SVScript.fromString('OP_RESERVED').isPushOnly(), isTrue);
     });
   });
 

@@ -1,6 +1,10 @@
 
+import 'package:dartsv/dartsv.dart';
+import 'package:dartsv/src/privatekey.dart';
+import 'package:dartsv/src/script/P2PKHScriptPubkey.dart';
+import 'package:dartsv/src/script/P2PKHScriptSig.dart';
 import 'package:dartsv/src/script/interpreter.dart';
-import 'package:dartsv/src/svscript.dart';
+import 'package:dartsv/src/script/svscript.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -35,7 +39,7 @@ void main() {
     test('should verify these trivial scripts', () {
       bool verified;
       var si = Interpreter();
-      verified = si.verifyScript(SVScript.fromString('OP_1'), SVScript.fromString('OP_1'));
+      verified = si.verifyScript(P2PKHScriptSig.fromString('OP_1'), P2PKHScriptPubkey.fromString('OP_1'));
       expect(verified, isTrue);
       verified = Interpreter().verifyScript(SVScript.fromString('OP_1'), SVScript.fromString('OP_0'));
       expect(verified, isFalse);
@@ -54,6 +58,36 @@ void main() {
       verified = Interpreter().verifyScript(SVScript.fromString('OP_0'), SVScript.fromString('OP_IF OP_VER OP_ELSE OP_1 OP_ENDIF'));
       expect(verified, isTrue);
     });
+
+
+//    test('should verify these simple transaction', () {
+//      // first we create a transaction
+//      var privateKey = new SVPrivateKey.fromWIF('cSBnVM4xvxarwGQuAfQFwqDg9k5tErHUHzgWsEfD4zdwUasvqRVY');
+//      var publicKey = privateKey.publicKey;
+//      var fromAddress = publicKey.toAddress(NetworkType.TEST);
+//      var toAddress = Address('mrU9pEmAx26HcbKVrABvgL7AwA5fjNFoDc');
+//      var scriptPubkey = P2PKHScriptPubkey(fromAddress);
+//      var utxo = {
+//        "address": fromAddress,
+//        "txId": 'a477af6b2667c29670467e4e0728b685ee07b240235771862318e29ddbe58458',
+//        "outputIndex": 0,
+//        "scriptPubkey": scriptPubkey,
+//        "satoshis": BigInt.from(100000)
+//      };
+//      var tx = new Transaction()
+//        .spendFromMap(utxo)
+//        .spendTo(toAddress, BigInt.from(100000))
+//        .signWith(privateKey);
+//
+//      // we then extract the signature from the first input
+//      var inputIndex = 0;
+//      var signature = tx.getSignatures(privateKey)[inputIndex].signature;
+//
+//      var scriptSig = SVScript.buildPublicKeyHashIn(publicKey, signature);
+//      var flags = Interpreter.SCRIPT_VERIFY_P2SH | Interpreter.SCRIPT_VERIFY_STRICTENC;
+//      var verified = Interpreter().verifyScript(scriptSig, scriptPubkey, tx, inputIndex, flags);
+//      expect(verified, isTrue);
+//    });
   });
 }
 
@@ -141,34 +175,6 @@ describe('Interpreter', function () {
 
   describe('#verify', function () {
 
-    it('should verify these simple transaction', function () {
-      // first we create a transaction
-      var privateKey = new PrivateKey('cSBnVM4xvxarwGQuAfQFwqDg9k5tErHUHzgWsEfD4zdwUasvqRVY')
-      var publicKey = privateKey.publicKey
-      var fromAddress = publicKey.toAddress()
-      var toAddress = 'mrU9pEmAx26HcbKVrABvgL7AwA5fjNFoDc'
-      var scriptPubkey = Script.buildPublicKeyHashOut(fromAddress)
-      var utxo = {
-        address: fromAddress,
-        txId: 'a477af6b2667c29670467e4e0728b685ee07b240235771862318e29ddbe58458',
-        outputIndex: 0,
-        script: scriptPubkey,
-        satoshis: 100000
-      }
-      var tx = new Transaction()
-        .from(utxo)
-        .to(toAddress, 100000)
-        .sign(privateKey, 1)
-
-      // we then extract the signature from the first input
-      var inputIndex = 0
-      var signature = tx.getSignatures(privateKey, 1)[inputIndex].signature
-
-      var scriptSig = Script.buildPublicKeyHashIn(publicKey, signature)
-      var flags = Interpreter.SCRIPT_VERIFY_P2SH | Interpreter.SCRIPT_VERIFY_STRICTENC
-      var verified = Interpreter().verify(scriptSig, scriptPubkey, tx, inputIndex, flags)
-      verified.should.equal(true)
-    })
   })
 
   describe('#script debugger', function () {

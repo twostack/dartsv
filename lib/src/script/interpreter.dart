@@ -4,6 +4,7 @@ import 'dart:core';
 import 'dart:core' as prefix0;
 
 import 'package:dartsv/dartsv.dart';
+import 'package:dartsv/src/script/P2PKHScriptSig.dart';
 import 'package:hex/hex.dart';
 
 
@@ -295,7 +296,7 @@ class Interpreter {
             }
 
             var redeemScriptSerialized = stackCopy.peek(); // [stackCopy.length - 1];
-            var redeemScript = SVScript(redeemScriptSerialized);
+            var redeemScript = P2PKHScriptSig.fromString(redeemScriptSerialized);
             stackCopy.pop();
 
             this.initialize();
