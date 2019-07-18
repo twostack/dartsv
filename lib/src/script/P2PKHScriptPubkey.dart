@@ -7,7 +7,7 @@ import 'package:sprintf/sprintf.dart';
 
 import '../address.dart';
 
-class P2PKHScriptPubkey extends SVScript {
+class P2PKHScriptPubkey extends SVScript with ScriptPubkey{
   Address _fromAddress;
 
   P2PKHScriptPubkey(this._fromAddress);

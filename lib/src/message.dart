@@ -1,6 +1,5 @@
 import 'package:dartsv/dartsv.dart';
 
-//FIXME: I don't see the point of this class right now. Seems redundant
 class Message {
     String _message;
 

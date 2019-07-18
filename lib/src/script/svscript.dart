@@ -41,6 +41,14 @@ class ScriptChunk {
 
 }
 
+mixin ScriptSig{
+
+}
+
+mixin ScriptPubkey {
+
+}
+
 mixin ScriptBuilder {
     String buildScript();
 }

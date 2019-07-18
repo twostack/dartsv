@@ -3,10 +3,10 @@ import 'package:dartsv/src/script/svscript.dart';
 import 'package:hex/hex.dart';
 import 'package:sprintf/sprintf.dart';
 
-class P2PKHScriptSig extends SVScript with ScriptBuilder {
+class P2PKHScriptSig extends SVScript with ScriptSig{
 
   String _signature;
-  String _pubKey;
+  String _pubKey;    //FIXME: This should be an instance of ScriptSig
 
   P2PKHScriptSig.fromByteArray(List<int> buffer) : super.fromByteArray(buffer);
 
@@ -23,6 +23,7 @@ class P2PKHScriptSig extends SVScript with ScriptBuilder {
     return sprintf("%s 0x%s %s 0x%s", [signatureSize, _signature, pubKeySize, _pubKey]);
   }
 
+  String get signature => _signature;
 
 
 }

@@ -60,34 +60,38 @@ void main() {
     });
 
 
-//    test('should verify these simple transaction', () {
-//      // first we create a transaction
-//      var privateKey = new SVPrivateKey.fromWIF('cSBnVM4xvxarwGQuAfQFwqDg9k5tErHUHzgWsEfD4zdwUasvqRVY');
-//      var publicKey = privateKey.publicKey;
-//      var fromAddress = publicKey.toAddress(NetworkType.TEST);
-//      var toAddress = Address('mrU9pEmAx26HcbKVrABvgL7AwA5fjNFoDc');
-//      var scriptPubkey = P2PKHScriptPubkey(fromAddress);
-//      var utxo = {
-//        "address": fromAddress,
-//        "txId": 'a477af6b2667c29670467e4e0728b685ee07b240235771862318e29ddbe58458',
-//        "outputIndex": 0,
-//        "scriptPubkey": scriptPubkey,
-//        "satoshis": BigInt.from(100000)
-//      };
-//      var tx = new Transaction()
-//        .spendFromMap(utxo)
-//        .spendTo(toAddress, BigInt.from(100000))
-//        .signWith(privateKey);
-//
-//      // we then extract the signature from the first input
-//      var inputIndex = 0;
+    test('should verify these simple transaction', () {
+      // first we create a transaction
+      var privateKey = new SVPrivateKey.fromWIF('cSBnVM4xvxarwGQuAfQFwqDg9k5tErHUHzgWsEfD4zdwUasvqRVY');
+      var publicKey = privateKey.publicKey;
+      var fromAddress = publicKey.toAddress(NetworkType.TEST);
+      var toAddress = Address('mrU9pEmAx26HcbKVrABvgL7AwA5fjNFoDc');
+      var scriptPubkey = P2PKHScriptPubkey(fromAddress);
+      var utxo = {
+        "address": fromAddress,
+        "txId": 'a477af6b2667c29670467e4e0728b685ee07b240235771862318e29ddbe58458',
+        "outputIndex": 0,
+        "scriptPubkey": scriptPubkey,
+        "satoshis": BigInt.from(100000)
+      };
+      var tx = new Transaction()
+        .spendFromMap(utxo)
+        .spendTo(toAddress, BigInt.from(100000))
+        .signWith(privateKey);
+
+      // we then extract the signature from the first input
+      var inputIndex = 0;
+
+      var signature = (tx.inputs[0].script as P2PKHScriptSig).signature;
 //      var signature = tx.getSignatures(privateKey)[inputIndex].signature;
-//
+
+      var scriptSig = P2PKHScriptSig(signature, publicKey.toString());
 //      var scriptSig = SVScript.buildPublicKeyHashIn(publicKey, signature);
-//      var flags = Interpreter.SCRIPT_VERIFY_P2SH | Interpreter.SCRIPT_VERIFY_STRICTENC;
-//      var verified = Interpreter().verifyScript(scriptSig, scriptPubkey, tx, inputIndex, flags);
-//      expect(verified, isTrue);
-//    });
+      var flags = Interpreter.SCRIPT_VERIFY_P2SH | Interpreter.SCRIPT_VERIFY_STRICTENC;
+//      var verified = Interpreter().verifyScript(scriptSig, scriptPubkey, tx : tx, nin: inputIndex, flags); //FIXME: Why nin ?
+      var verified = Interpreter().verifyScript(scriptSig, scriptPubkey, tx : tx, nin: inputIndex, flags: flags);
+      expect(verified, isTrue);
+    });
   });
 }
 
