@@ -37,9 +37,9 @@ main() {
     }
 
     test('can sign a message', () {
-        var message2 = new Message(text);
+        var message2 = new Message(utf8.encode(text));
         var signature2 = message2.sign(privateKey);
-        var signature3 = Message(text).sign(privateKey);
+        var signature3 = Message(utf8.encode(text)).sign(privateKey);
         expect(signature2, isNotNull);
         expect(signature3, isNotNull);
     });
@@ -84,26 +84,26 @@ main() {
     */
 
     test('can sign a message (buffer representation of utf-8 string)', () {
-        var messageBuf = new Message(textBuffer);
+        var messageBuf = new Message(utf8.encode(textBuffer));
         var signatureBuffer1 = messageBuf.sign(privateKey);
-        var signatureBuffer2 = Message(textBuffer).sign(privateKey);
+        var signatureBuffer2 = Message(utf8.encode(textBuffer)).sign(privateKey);
         expect(signatureBuffer1, isNotNull);
         expect(signatureBuffer2, isNotNull);
         expect(messageBuf.verifyFromAddress(address, signatureBuffer1), isTrue);
         expect(messageBuf.verifyFromAddress(address, signatureBuffer2), isTrue);
     });
 
-    /*
 
     test('can sign a message (buffer representation of arbitrary data)', () {
-        var messageBuf = new Message(bufferData);
+        var messageBuf = new Message(base64Decode(bufferData));
         var signatureBuffer1 = messageBuf.sign(privateKey);
-        var signatureBuffer2 = Message(bufferData).sign(privateKey);
+        var signatureBuffer2 = Message(base64Decode(bufferData)).sign(privateKey);
         expect(signatureBuffer1, isNotNull);
         expect(signatureBuffer2, isNotNull);
-        expect(messageBuf.verifyFromAddress(address, signatureBuffer1), isTrue); //FIXME: Set proper expectation
+        expect(messageBuf.verifyFromAddress(address, signatureBuffer1), isTrue);
         expect(messageBuf.verifyFromAddress(address, signatureBuffer2), isTrue);
     });
+    /*
 
     test('can verify a message with signature', () {
         var message2 = new Message(text);

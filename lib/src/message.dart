@@ -8,7 +8,7 @@ import 'package:pointycastle/impl.dart';
 Bitcoin Signed Messages
  */
 class Message {
-    String _message;
+    List<int> _message;
     SVPrivateKey _privateKey;
 
 
@@ -18,15 +18,13 @@ class Message {
         List<int> buffer = List<int>();
 
         var prefix1 = MAGIC_BYTES.length;
-        var prefix2 = utf8
-            .encode(this._message)
-            .length;
-        var buf = HEX.encode([prefix1] + utf8.encode(MAGIC_BYTES) + [prefix2] + utf8.encode(this._message)); //FIXME: Validate this !
+        var prefix2 = this._message.length;
+        var buf = HEX.encode([prefix1] + utf8.encode(MAGIC_BYTES) + [prefix2] + this._message);
         var hash = sha256Twice(HEX.decode(buf));
         return hash;
     }
 
-    Message(String message) {
+    Message(List<int> message) {
         this._message = message;
     }
 
@@ -40,7 +38,7 @@ class Message {
         return base64Encode(compactSig);
     }
 
-    String get message => _message;
+    List<int> get message => _message;
 
     // sigBuffer - Base64-encoded Compact Signature
     bool verifyFromAddress(Address address, String sigBuffer) {
@@ -61,7 +59,7 @@ class Message {
         return this._verify(signature);
     }
 
-    bool verifyFromPublicKey(SVPublicKey publicKey, String message) {
+    bool verifyFromPublicKey(SVPublicKey publicKey, List<int> message) {
         this._message = message;
         SVSignature signature = SVSignature.fromPublicKey(publicKey);
 
