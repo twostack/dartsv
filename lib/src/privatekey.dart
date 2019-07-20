@@ -57,6 +57,7 @@ class SVPrivateKey {
     SVPrivateKey.fromBigInt(BigInt d){
         this._ecPrivateKey = _privateKeyFromBigInt(d);
         this._d = d;
+        this._hasCompressedPubKey = true;
         this._ecPublicKey = SVPublicKey.fromPrivateKey(this);
     }
 
