@@ -468,7 +468,10 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
             var sigHash = Sighash();
             var hash = sigHash.hash(this, sighashType, ndx, subscript, input.output.satoshis);
 
-            sig.sign(hash);
+            //FIXME: Revisit this issue surrounding the need to sign a reversed copy of the hash.
+            ///      Right now I've factored this out of signature.dart because "coupling" & "seperation of concerns".
+            var reversedHash = HEX.encode(HEX.decode(hash).reversed.toList());
+            sig.sign(reversedHash);
 
             var txSignature = sig.toTxFormat(); //signed hash with SighashType appended
 
@@ -478,7 +481,7 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
                 .toAddress()
                 .address; //FIXME: Address.address is a bad name !
             SVSignature verifier = SVSignature.fromPublicKey(SVPublicKey.fromHex(signerPubkey));
-            bool check = verifier.verify(hash, HEX.encode(signature));
+            bool check = verifier.verify(reversedHash, HEX.encode(signature));
 
             //if this test fails then something went horribly wrong
             if (check == false)

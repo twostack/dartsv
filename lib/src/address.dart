@@ -102,6 +102,7 @@ class Address {
   }
 
   get networkTypes => this._networkTypes;
+  get networkType => this._networkType;
 
   get addressType => this._addressType;
 
