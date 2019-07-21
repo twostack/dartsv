@@ -44,88 +44,87 @@ main() {
         expect(signature3, isNotNull);
     });
 
-    /* This test is unreliable at the moment because of exception handling inside test.
-       Figure out a better way to test this !
-       Hint: Occasionally fails with "Unable to find valid recovery factor error" :/
-
-    test('Public Key Recovery test', (){
-
-        var keyParams = ECKeyGeneratorParameters(ECCurve_secp256k1());
-        _secureRandom.seed(KeyParameter(_seed()));
-
-        var generator = ECKeyGenerator();
-        generator.init(ParametersWithRandom(keyParams, _secureRandom));
-
-        var keypair = generator.generateKeyPair();
-
-        ECPrivateKey privateKey = keypair.privateKey;
-        ECPublicKey publicKey = keypair.publicKey;
-
-        var messageBuf = new Message(textBuffer);
-        var derSig = messageBuf.sign(SVPrivateKey.fromBigInt(privateKey.d));
-
-        var bFoundKey = false;
-        SVSignature sig = SVSignature.fromDER(derSig);
-        for (int i = 0; i < 4; i++) {
-            var pubKey;
-            try {
-                pubKey = sig.recoverablePublicKey(i, messageBuf.magicHash());
-            }catch(e){
-                continue;
-            }
-
-            expect(pubKey.Q, equals(publicKey.Q));
-            bFoundKey = true;
-        }
-
-        expect(bFoundKey, true);
-
-    });
-    */
-
     test('can sign a message (buffer representation of utf-8 string)', () {
+        var addr = new Address('n1ZCYg9YXtB5XCZazLxSmPDa8iwJRZHhGx');
         var messageBuf = new Message(utf8.encode(textBuffer));
         var signatureBuffer1 = messageBuf.sign(privateKey);
-        var signatureBuffer2 = Message(utf8.encode(textBuffer)).sign(privateKey);
         expect(signatureBuffer1, isNotNull);
-        expect(signatureBuffer2, isNotNull);
-        expect(messageBuf.verifyFromAddress(address, signatureBuffer1), isTrue);
-        expect(messageBuf.verifyFromAddress(address, signatureBuffer2), isTrue);
+        expect(messageBuf.verifyFromAddress(addr, signatureBuffer1), isTrue);
     });
 
 
     test('can sign a message (buffer representation of arbitrary data)', () {
-        var messageBuf = new Message(base64Decode(bufferData));
-        var signatureBuffer1 = messageBuf.sign(privateKey);
-        var signatureBuffer2 = Message(base64Decode(bufferData)).sign(privateKey);
+        Message messageBuf = new Message(base64Decode(bufferData));
+        String signatureBuffer1 = messageBuf.sign(privateKey);
+        String signatureBuffer2 = Message(base64Decode(bufferData)).sign(privateKey);
         expect(signatureBuffer1, isNotNull);
         expect(signatureBuffer2, isNotNull);
         expect(messageBuf.verifyFromAddress(address, signatureBuffer1), isTrue);
         expect(messageBuf.verifyFromAddress(address, signatureBuffer2), isTrue);
     });
-    /*
 
     test('can verify a message with signature', () {
-        var message2 = new Message(text);
+        var message2 = new Message(utf8.encode(text));
         var signature2 = message2.sign(privateKey);
-
-        var message4 = new Message(text);
+        Message message4 = new Message(utf8.encode(text));
         expect(message4.verifyFromPublicKey(publicKey, signature2), isTrue);
     });
 
 
     test('can verify a message with existing signature', () {
-        var message5 = new Message(text);
+        var message5 = new Message(utf8.encode(text));
         expect(message5.verifyFromPublicKey(publicKey, signature), isTrue);
     });
 
 
     test('verify will correctly identify a bad signature', () {
-        var message8 = new Message(text);
+        var message8 = new Message(utf8.encode(text));
         expect(message8.verifyFromPublicKey(publicKey, badSignature), isFalse);
-//    should.exist(message8.error);
     });
 
+
+    test('can verify a message with address and generated signature string', () {
+        var message9 = new Message(utf8.encode(text));
+        var signature3 = Message(utf8.encode(text)).sign(privateKey);
+        expect(message9.verifyFromAddress(address, signature3), isTrue);
+    });
+
+
+    test('will not verify with address mismatch', () {
+        var message10 = new Message(utf8.encode(text));
+        expect(message10.verifyFromAddress(badAddress, signatureString), isFalse);
+    });
+
+
+    test('will verify with an uncompressed pubkey using verifyFromPublicKey()', () {
+        var privateKey = SVPrivateKey.fromWIF('5KYZdUEo39z3FPrtuX2QbbwGnNP5zTd7yyr2SC1j299sBCnWjss');
+        var message = new Message(utf8.encode('This is an example of a signed message.'));
+        var signature = message.sign(privateKey);
+        expect(message.verifyFromPublicKey(privateKey.publicKey, signature), isTrue);
+    });
+
+    test('will verify with an uncompressed pubkey using verifyFromAddress()', () {
+        var privateKey = SVPrivateKey.fromWIF('5KYZdUEo39z3FPrtuX2QbbwGnNP5zTd7yyr2SC1j299sBCnWjss');
+        var message = new Message(utf8.encode('This is an example of a signed message.'));
+        var signature = message.sign(privateKey);
+        expect(message.verifyFromAddress(privateKey.toAddress(), signature), isTrue);
+    });
+
+    test('should sign and verify', () {
+        var privateKey = SVPrivateKey.fromWIF('L3nrwRssVKMkScjejmmu6kmq4hSuUApJnFdW1hGvBP69jnQuKYCh');
+        var address = privateKey.toAddress();
+        var messageToSign = utf8.encode('this is the message that I want to sign');
+        var message = Message(messageToSign);
+        var signature = message.sign(privateKey);
+        expect(signature.toString(), equals('II5uoh3m0yQ+/5va+1acFQhPaEdTnFFiG/PiKpoC+kpgHbmIk3aWHQ6tyPGgNCUmKlSfwzcP6qVAxuUt0PwDzpg='));
+        expect(message.verifyFromAddress(address, signature), isTrue);
+    });
+
+    /*
+  it('can chain methods', function () {
+    var verified = Message(text).verify(address, signatureString)
+    verified.should.equal(true)
+  })
      */
 }
 
@@ -149,43 +148,11 @@ describe('Message', function () {
   var signature3
 
 
-  it('can verify a message with address and generated signature string', function () {
-    var message9 = new Message(text)
-    var verified = message9.verify(address, signature3)
-    should.not.exist(message9.error)
-    verified.should.equal(true)
-  })
 
-  it('will not verify with address mismatch', function () {
-    var message10 = new Message(text)
-    var verified = message10.verify(badAddress, signatureString)
-    should.exist(message10.error)
-    verified.should.equal(false)
-  })
 
-  it('will verify with an uncompressed pubkey', function () {
-    var privateKey = new bsv.PrivateKey('5KYZdUEo39z3FPrtuX2QbbwGnNP5zTd7yyr2SC1j299sBCnWjss')
-    var message = new Message('This is an example of a signed message.')
-    var signature = message.sign(privateKey)
-    var verified = message.verify(privateKey.toAddress(), signature)
-    verified.should.equal(true)
-  })
 
-  it('can chain methods', function () {
-    var verified = Message(text).verify(address, signatureString)
-    verified.should.equal(true)
-  })
 
   describe('@sign', function () {
-    it('should sign and verify', function () {
-      var privateKey = PrivateKey.fromString('L3nrwRssVKMkScjejmmu6kmq4hSuUApJnFdW1hGvBP69jnQuKYCh')
-      var address = privateKey.toAddress()
-      var message = 'this is the message that I want to sign'
-      var sig = Message.sign(message, privateKey)
-      sig.toString().should.equal('II5uoh3m0yQ+/5va+1acFQhPaEdTnFFiG/PiKpoC+kpgHbmIk3aWHQ6tyPGgNCUmKlSfwzcP6qVAxuUt0PwDzpg=')
-      var verify = Message.verify(message, address, sig)
-      verify.should.equal(true)
-    })
   })
 
   describe('#json', function () {

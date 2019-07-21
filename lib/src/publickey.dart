@@ -32,6 +32,7 @@ class SVPublicKey {
       _checkIfOnCurve(finalPoint); // a bit paranoid
 
       this._point = finalPoint;
+      this._publicKey = ECPublicKey((this._point), _domainParams);
   }
 
 
@@ -57,16 +58,16 @@ class SVPublicKey {
       return _decodePoint(HEX.encode(addressBytes));
   }
 
-  SVPublicKey.fromXY(BigInt x, BigInt y) {
+  SVPublicKey.fromXY(BigInt x, BigInt y, {bool compressed = true}) {
 
     //create a compressed point by default
-    var point = _domainParams.curve.createPoint(x, y, true);
+    var point = _domainParams.curve.createPoint(x, y, compressed);
 
     _checkIfOnCurve(point);
 
     this._point = point;
 
-    this._publicKey = ECPublicKey(point, _domainParams);
+    this._publicKey = ECPublicKey(this._point, _domainParams);
 
   }
 

@@ -28,7 +28,7 @@ class SVPrivateKey {
 
     BigInt _d;
     ECPrivateKey _ecPrivateKey;
-    SVPublicKey _ecPublicKey;
+    SVPublicKey _svPublicKey;
 
     //by default creates random Private Key
     SVPrivateKey({networkType: NetworkType.MAIN}) {
@@ -45,7 +45,7 @@ class SVPrivateKey {
 
         this._ecPrivateKey = keypair.privateKey;
         this._d = this._ecPrivateKey.d;
-        this._ecPublicKey = SVPublicKey.fromPrivateKey(this);
+        this._svPublicKey = SVPublicKey.fromPrivateKey(this);
     }
 
     Uint8List _seed() {
@@ -58,7 +58,7 @@ class SVPrivateKey {
         this._ecPrivateKey = _privateKeyFromBigInt(d);
         this._d = d;
         this._hasCompressedPubKey = true;
-        this._ecPublicKey = SVPublicKey.fromPrivateKey(this);
+        this._svPublicKey = SVPublicKey.fromPrivateKey(this);
     }
 
     SVPrivateKey.fromHex(String privhex, NetworkType networkType) {
@@ -68,7 +68,7 @@ class SVPrivateKey {
         this._networkType = networkType;
         this._ecPrivateKey = _privateKeyFromBigInt(d);
         this._d = d;
-        this._ecPublicKey = SVPublicKey.fromPrivateKey(this);
+        this._svPublicKey = SVPublicKey.fromPrivateKey(this);
     }
 
     SVPrivateKey.fromWIF(String knownKey){
@@ -143,7 +143,7 @@ class SVPrivateKey {
         this._ecPrivateKey = _privateKeyFromBigInt(d);
         this._d = d;
 
-        this._ecPublicKey = SVPublicKey.fromPrivateKey(this);
+        this._svPublicKey = SVPublicKey.fromPrivateKey(this);
     }
 
     _privateKeyFromBigInt(BigInt d){
@@ -183,9 +183,10 @@ class SVPrivateKey {
     }
 
 
+    //convenience method to retrieve an address
      Address toAddress({networkType: NetworkType.MAIN}) {
-
-        Address address = this._ecPublicKey.toAddress(this._networkType);
+        //FIXME: set network type to default parameter unless explicitly specified ?
+        Address address = this._svPublicKey.toAddress(this._networkType);
         return address;
     }
 
@@ -200,7 +201,7 @@ class SVPrivateKey {
 
 
     SVPublicKey get publicKey  {
-        return _ecPublicKey;
+        return _svPublicKey;
     }
 
     get isCompressed {

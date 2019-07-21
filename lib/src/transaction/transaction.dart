@@ -477,9 +477,7 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
 
             //sanity check to assert that we can verify the generated signature using our public key
             var signature = sig.toDER();
-            var signerPubkey = privateKey
-                .toAddress()
-                .address; //FIXME: Address.address is a bad name !
+            var signerPubkey = privateKey.publicKey.toString();
             SVSignature verifier = SVSignature.fromPublicKey(SVPublicKey.fromHex(signerPubkey));
             bool check = verifier.verify(reversedHash, HEX.encode(signature));
 

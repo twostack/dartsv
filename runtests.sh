@@ -1,5 +1,6 @@
 #!/bin/sh
 
+pub run test/message/message.dart
 pub run test/address.dart
 pub run test/hdkeys.dart
 pub run test/hdprivatekey.dart

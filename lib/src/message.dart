@@ -15,7 +15,6 @@ class Message {
     final MAGIC_BYTES = 'Bitcoin Signed Message:\n';
 
     List<int> magicHash() {
-        List<int> buffer = List<int>();
 
         var prefix1 = MAGIC_BYTES.length;
         var prefix2 = this._message.length;
@@ -44,26 +43,34 @@ class Message {
     bool verifyFromAddress(Address address, String sigBuffer) {
         SVSignature signature = SVSignature.fromCompact(base64Decode(sigBuffer), this.magicHash());
 
-        ECPublicKey ecPublicKey = signature.publicKey;
-        SVPublicKey svPublicKey = SVPublicKey.fromXY(ecPublicKey.Q.x.toBigInteger(), ecPublicKey.Q.y.toBigInteger());
+        SVPublicKey recoveredPubKey = signature.publicKey;
 
-        Address recoveredAddress = svPublicKey.toAddress(address.networkType);
+        Address recoveredAddress = recoveredPubKey.toAddress(address.networkType);
 
         //sanity check on address
         //FIXME : Why is toString() on "same" address returning different values
-        ///       AND why is toBase() == toString() !!!???
-        if (address.toBase58() != recoveredAddress.toString()) {
+        ///       AND why is toBase58() == toString() !!!???
+        if (address.toBase58() != recoveredAddress.toBase58()) {
             return false;
         }
 
         return this._verify(signature);
     }
 
-    bool verifyFromPublicKey(SVPublicKey publicKey, List<int> message) {
-        this._message = message;
-        SVSignature signature = SVSignature.fromPublicKey(publicKey);
+    //sigBuffer - Base64-encoded Compact Signature
+    bool verifyFromPublicKey(SVPublicKey publicKey, String sigBuffer) {
+
+        SVSignature signature = SVSignature.fromCompact(base64Decode(sigBuffer), this.magicHash());
+
+        SVPublicKey recoveredKey = signature.publicKey;
+
+        //sanity check on public key
+        if (recoveredKey.point != publicKey.point) {
+            return false;
+        }
 
         return this._verify(signature);
+
     }
 
     bool _verify(SVSignature signature) {

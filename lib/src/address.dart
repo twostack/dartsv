@@ -33,6 +33,7 @@ class Address {
       this._version = versionByte & 0xFF;
       this._networkTypes = Networks.getNetworkTypes(this._version);
       this._addressType = Networks.getAddressType(this._version);
+      this._networkType = Networks.getNetworkTypes(this._version)[0];
       var stripVersion = versionAndDataBytes.sublist(1, versionAndDataBytes.length);
       this._publicKeyHash = HEX.encode(stripVersion.map((elem) => elem.toUnsigned(8)).toList());
   }
@@ -48,23 +49,20 @@ class Address {
           versionByte = Networks.getNetworkVersion(NetworkAddressType.TEST_PKH);
 
       this._version = versionByte & 0XFF;
-      this._publicKeyHash = hexPubKey;
+      this._publicKeyHash = HEX.encode(hash160(HEX.decode(hexPubKey)));
       this._addressType = Networks.getAddressType(this._version);
       this._networkType = networkType;
   }
 
   Address.fromHex(String hexPubKey, NetworkType networkType){
       _createFromHex(hexPubKey, networkType);
-//      this._publicKeyHash = HEX.encode(utf8.encode(hexPubKey));
   }
 
 
   //TODO: WHAAAAA
   Address.fromCompressedPubKey(List<int> pubkeyBytes, NetworkType networkType) {
-
       _createFromHex(HEX.encode(pubkeyBytes), networkType);
-      this._publicKeyHash = HEX.encode(pubkeyBytes);
-
+      this._publicKeyHash = HEX.encode(hash160(pubkeyBytes));
   }
 
   Address.fromBase58(base58Address) {
@@ -83,16 +81,14 @@ class Address {
     return _getEncoded(rawHash);
   }
 
-  //TODO: Only perform this once. Subsequent calls should hit cached value
   String toString() {
 
-      List<int> rawAddress =
-      HEX.decode(this._publicKeyHash).map((elem) => elem.toSigned(8)).toList();
+      List<int> rawAddress = HEX.decode(this._publicKeyHash).map((elem) => elem.toSigned(8)).toList();
 
       //ripemd160(sha256(this._publicKey))
-      var hashAddress = hash160(rawAddress);
+//      var hashAddress = hash160(rawAddress);
 
-      return _getEncoded(hashAddress);
+      return _getEncoded(rawAddress);
 
   }
 
@@ -106,9 +102,8 @@ class Address {
 
   get addressType => this._addressType;
 
-  // FIXME: Using the "address" moniker here is ambiguous. *will* lead to incorrect useage
   /// @returns : hash160 value of the address. Not the publicly shareable address
-  get address => this._publicKeyHash;
+  get pubkeyHash160 => this._publicKeyHash;
 
   String _getEncoded(List<int> hashAddress) {
 

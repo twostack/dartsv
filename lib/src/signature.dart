@@ -29,8 +29,8 @@ class SVSignature {
     BigInt _s;
     String _rHex;
     String _sHex;
-    ECPrivateKey _privateKey;
-    ECPublicKey _publicKey;
+    SVPrivateKey _privateKey;
+    SVPublicKey _publicKey;
 
     int _nhashtype = 0;// = SighashType.SIGHASH_ALL | SighashType.SIGHASH_FORKID; //default to SIGHASH_ALL | SIGHASH_FORKID
 
@@ -88,7 +88,8 @@ class SVSignature {
         ECPrivateKey privKey = new ECPrivateKey(privateKey.privateKey, this._domainParams);
 //        _secureRandom.seed(KeyParameter(_seed()));
 
-        this._privateKey = privKey;
+        this._privateKey = privateKey;
+        this._compressed = privateKey.isCompressed;
 
         this._dsaSigner.init(true, PrivateKeyParameter(privKey));
     }
@@ -101,10 +102,8 @@ class SVSignature {
     }
 
     /// Indirect method of initializing from PublicKey for verify ONLY
-    /// TODO: Maybe this should not be a constructor ? We can't initialize the public key
-    /// ... which in turns means NO _dsaSigner.init()
+    /// buffer : Signature in Compact Signature form
     SVSignature.fromCompact(List<int> buffer, List<int> signedMessage){
-
 
         var compressed = true;
         var i = buffer.sublist(0, 1)[0] - 27 - 4;
@@ -134,7 +133,7 @@ class SVSignature {
         this._s = utils.decodeBigInt(b3);
 
         this._publicKey = this.recoverPublicKey(i, signedMessage);
-        this._dsaSigner.init(false, PublicKeyParameter(this._publicKey));
+        this._dsaSigner.init(false, PublicKeyParameter(new ECPublicKey(this._publicKey.point, _domainParams)));
     }
 
 
@@ -191,7 +190,7 @@ class SVSignature {
         return this.toString();
     }
 
-    ECPublicKey recoverPublicKey(int i, List<int> hashBuffer){
+    SVPublicKey recoverPublicKey(int i, List<int> hashBuffer){
 
         if(![0, 1, 2, 3].contains(i) ){
             throw new SignatureException('i must be equal to 0, 1, 2, or 3');
@@ -210,8 +209,8 @@ class SVSignature {
 
         // 1.1 Let x = r + jn
         BigInt x = isSecondKey ? r + n : r;
-        var yTilde = utils.encodeBigInt(x)[0];
-        ECPoint R = _domainParams.curve.decompressPoint(yTilde & 1, x);
+        var yTilde = i & 1;
+        ECPoint R = _domainParams.curve.decompressPoint(yTilde, x);
 
         // 1.4 Check that nR is at infinity
         ECPoint nR = R * n;
@@ -232,7 +231,7 @@ class SVSignature {
 
         ECPublicKey pubkey = ECPublicKey(Q, _domainParams);
 
-        return pubkey;
+        return SVPublicKey.fromXY(Q.x.toBigInteger(), Q.y.toBigInteger(), compressed: this._compressed);
     }
 
 
@@ -250,18 +249,18 @@ class SVSignature {
         this._toLowS();
 
         //calculate _i_
-        SVPublicKey publicKey = SVPrivateKey.fromBigInt(this._privateKey.d).publicKey;
+        SVPublicKey publicKey = this._privateKey.publicKey;
         for (var i = 0; i < 4; i++) {
             this._i = i;
-            ECPublicKey Qprime;
+            SVPublicKey Qprime;
             try {
                 Qprime = this.recoverPublicKey(i, decodedMessage);
             } catch (e) {
                 continue;
             }
 
-            if (Qprime.Q == publicKey.point) {
-                this._compressed = publicKey.isCompressed;
+            if (Qprime.point == publicKey.point) {
+                this._compressed = Qprime.isCompressed;
                 return this;
             }
         }
@@ -435,7 +434,7 @@ class SVSignature {
 
     BigInt get r => _r;
 
-    ECPublicKey get publicKey => _publicKey;
+    SVPublicKey get publicKey => _publicKey;
 
     int get i => _i;
 

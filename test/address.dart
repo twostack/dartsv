@@ -67,7 +67,7 @@ void main() {
             List.from(jsonData).forEach((item) {
                 if (!item[2]['isPrivkey']) {
                     var address = new Address(item[0]);
-                    expect(address.address, equals(item[1]));
+                    expect(address.pubkeyHash160, equals(item[1]));
 
                     var networkType = item[2]['isTestnet'] ? NetworkType.TEST : NetworkType.MAIN;
                     expect(address.networkTypes, contains(networkType));
