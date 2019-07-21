@@ -32,9 +32,9 @@ class SVScript {
     /// standard pubkeyScript for P2PKH
     /// FIXME: this constructor name bothers me
     SVScript.buildPublicKeyHashOut(Address fromAddress) {
-        var addressLength = HEX.decode(fromAddress.address).length;
+        var addressLength = HEX.decode(fromAddress.pubkeyHash160).length;
 
-        var destAddress = fromAddress.address;
+        var destAddress = fromAddress.pubkeyHash160;
         //FIXME: Another hack. For some reason some addresses don't have proper ripemd160 hashes of the hex value. Fix later !
         if (addressLength == 33) {
             addressLength = 20;
