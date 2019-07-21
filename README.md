@@ -15,7 +15,8 @@ Current Supported features are :
 * Data-only Transactions (untested)
 * HD Key Derivation (BIP32)
 * Original Bitcoin Address format 
-* Transaction Signing
+* Bitcoin Signed Messages
+* Bip39 Mnemonic Support (currently lacks test coverages)
 
 Pending Features : 
 * Script Interpreter (high priority)
@@ -45,7 +46,7 @@ String createWalletTxn(Address address, List<TransactionInput> utxosToSpendFrom,
 ```
 
 #### Installation 
-This library was built using the latest version (2.3.1) of the Dart SDK [https://dart.dev/tools/sdk](https://dart.dev/tools/sdk), but should work with *Dart SDK 2.1.x* onwards.  
+This library was built using version (2.3.1) of the Dart SDK [https://dart.dev/tools/sdk](https://dart.dev/tools/sdk), but should work with *Dart SDK 2.1.x* onwards.  
 Therefore, as a pre-requisite ensure that you have at least that version of the Dart SDK installed before proceeding.  
 
 Navigate to the root folder of this project, and pull the required supported Dart libraries using the `pub` package manager. 
