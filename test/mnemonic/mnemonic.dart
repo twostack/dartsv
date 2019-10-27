@@ -158,5 +158,26 @@ main(){
         expect( await validate(validPhrase2, Wordlist.FRENCH) , isTrue);
     });
 
+
+    test('derive a seed without a passphrase', () async {
+
+        var phrase = await Mnemonic().generateMnemonic();
+
+        var seed = Mnemonic().toSeed(phrase);
+        expect(seed, isNotNull);
+        expect(seed.length, equals(512 / 8));
+    });
+
+
+    test('derive a seed using a passphrase', () async {
+
+        var phrase = await Mnemonic().generateMnemonic();
+
+        var seed = Mnemonic().toSeed(phrase, 'my passphrase');
+        expect(seed, isNotNull);
+        expect(seed.length, equals(512 / 8));
+    });
+
+
 }
 

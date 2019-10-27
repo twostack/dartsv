@@ -170,7 +170,7 @@ class Mnemonic {
   /// Converts [mnemonic] code to seed.
   ///
   /// Returns Uint8List.
-  Uint8List mnemonicToSeed(String mnemonic, [String password = ""]) {
+  Uint8List toSeed(String mnemonic, [String password = ""]) {
     final mnemonicBuffer = utf8.encode(nfkd(mnemonic));
     final saltBuffer = utf8.encode(_salt(nfkd(password)));
     final pbkdf2 = KeyDerivator('SHA-512/HMAC/PBKDF2');
@@ -179,11 +179,12 @@ class Mnemonic {
     return pbkdf2.process(mnemonicBuffer);
   }
 
+
   /// Converts [mnemonic] code to seed, as hex string.
   ///
   /// Returns hex string.
-  String mnemonicToSeedHex(String mnemonic, [String password = ""]) {
-    return mnemonicToSeed(mnemonic, password).map((byte) {
+  String toSeedHex(String mnemonic, [String password = ""]) {
+    return toSeed(mnemonic, password).map((byte) {
       return byte.toRadixString(16).padLeft(2, '0');
     }).join('');
   }
