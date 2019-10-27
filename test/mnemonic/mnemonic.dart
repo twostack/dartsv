@@ -67,5 +67,55 @@ main(){
         expect(SPANISH_WORDS.contains(mnemonic3.split(' ')[2]), isTrue);
 
     });
+
+    test('english wordlist is complete', () async {
+        var wordList = await new Mnemonic().getWordList(Wordlist.ENGLISH);
+
+        expect(wordList.length, equals(2048));
+    });
+
+    test('spanish wordlist is complete', () async {
+        var wordList = await new Mnemonic().getWordList(Wordlist.SPANISH);
+
+        expect(wordList.length, equals(2048));
+    });
+
+    test('japanese wordlist is complete', () async {
+        var wordList = await new Mnemonic().getWordList(Wordlist.JAPANESE);
+
+        expect(wordList.length, equals(2048));
+    });
+
+
+    test('simplified chinese wordlist is complete', () async {
+        var wordList = await new Mnemonic().getWordList(Wordlist.CHINESE_SIMPLIFIED);
+
+        expect(wordList.length, equals(2048));
+    });
+
+    test('traditional chinese wordlist is complete', () async {
+        var wordList = await new Mnemonic().getWordList(Wordlist.CHINESE_TRADITIONAL);
+
+        expect(wordList.length, equals(2048));
+    });
+
+    test('french wordlist is complete', () async {
+        var wordList = await new Mnemonic().getWordList(Wordlist.FRENCH);
+
+        expect(wordList.length, equals(2048));
+    });
+
+
+    test('italian wordlist is complete', () async {
+        var wordList = await new Mnemonic().getWordList(Wordlist.ITALIAN);
+
+        expect(wordList.length, equals(2048));
+    });
+
+    test('korean wordlist is complete', () async {
+        var wordList = await new Mnemonic().getWordList(Wordlist.KOREAN);
+
+        expect(wordList.length, equals(2048));
+    });
 }
 

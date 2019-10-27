@@ -246,6 +246,10 @@ class Mnemonic {
     return true;
   }
 
+  Future<List<String>> getWordList(Wordlist wordList) async {
+    return _loadWordlist(wordList);
+  }
+
 }
 
 
