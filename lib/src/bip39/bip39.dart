@@ -38,6 +38,9 @@ class Mnemonic {
   static const String _INVALID_MNEMONIC = 'Invalid mnemonic';
   static const String _INVALID_CHECKSUM = 'Invalid checksum';
 
+  List<String> _wordRes ;
+
+
   Mnemonic({this.DEFAULT_WORDLIST = Wordlist.ENGLISH});
 
 
@@ -72,7 +75,6 @@ class Mnemonic {
 
   /// Converts [entropy] to mnemonic code.
   Future<String> entropyToMnemonic(Uint8List entropy) async {
-    Wordlist wordlist = DEFAULT_WORDLIST;
 
     if (entropy.length < 16) {
       throw ArgumentError(_INVALID_ENTROPY);
@@ -95,11 +97,11 @@ class Mnemonic {
         .map((match) => match.group(0))
         .toList(growable: false);
 
-    final wordRes = await _loadWordlist(wordlist);
+    this._wordRes = await _loadWordlist(DEFAULT_WORDLIST);
 
     return chunks
-        .map((binary) => wordRes[_binaryToByte(binary)])
-        .join(wordlist == Wordlist.JAPANESE ? '\u3000' : ' ');
+        .map((binary) => this._wordRes[_binaryToByte(binary)])
+        .join(DEFAULT_WORDLIST == Wordlist.JAPANESE ? '\u3000' : ' ');
   }
 
   String _deriveChecksumBits(Uint8List entropy) {
@@ -188,8 +190,7 @@ class Mnemonic {
 
   /// Converts [mnemonic] code to entropy.
   Future<Uint8List> mnemonicToEntropy(String mnemonic) async {
-    Wordlist wordlist = DEFAULT_WORDLIST;
-    final wordRes = await _loadWordlist(wordlist);
+    this._wordRes = await _loadWordlist(DEFAULT_WORDLIST);
     final words = nfkd(mnemonic).split(' ');
 
     if (words.length % 3 != 0) {
@@ -198,7 +199,7 @@ class Mnemonic {
 
     // convert word indices to 11bit binary strings
     final bits = words.map((word) {
-      final index = wordRes.indexOf(word);
+      final index = this._wordRes.indexOf(word);
       if (index == -1) {
         throw ArgumentError(_INVALID_MNEMONIC);
       }
@@ -244,6 +245,7 @@ class Mnemonic {
     }
     return true;
   }
+
 }
 
 
