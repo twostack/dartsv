@@ -1,5 +1,6 @@
 import 'package:dartsv/src/encoding/utils.dart';
-import 'package:dartsv/src/svscript.dart';
+import 'package:dartsv/src/script/P2PKHScriptSig.dart';
+import 'package:dartsv/src/script/svscript.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
 import 'package:hex/hex.dart';
 import 'package:sprintf/sprintf.dart';
@@ -16,10 +17,10 @@ class TransactionInput {
         this._utxo.satoshis = satoshis;
         this._utxo.prevTxId = txId;
         this._utxo.outputIndex = outputIndex;
-        this._utxo.script = SVScript(script);
+        this._utxo.script = SVScript.fromHex(script);
         this.sequenceNumber = sequenceNumber == 0 ? UINT_MAX - 1 : sequenceNumber;
 
-        this._isPubkeyHashInput = this._utxo.script.isPubkeyHash;
+        this._isPubkeyHashInput = this._utxo.script is P2PKHScriptSig;
     }
 
     BigInt get satoshis => output.satoshis;
@@ -31,7 +32,7 @@ class TransactionInput {
     SVScript get script => output.script;
 
     set script(SVScript script) {
-        this._isPubkeyHashInput = script.isPubkeyHash;
+        this._isPubkeyHashInput = script is P2PKHScriptSig;
         output.script = script;
     }
 

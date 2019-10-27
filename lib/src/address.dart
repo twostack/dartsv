@@ -23,6 +23,10 @@ class Address {
       _fromBase58(address);
   }
 
+  String get address {
+      return this._publicKeyHash;
+  }
+
   _fromBase58(String address){
 
       address = address.trim();

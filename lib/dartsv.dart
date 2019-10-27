@@ -15,7 +15,7 @@ export 'src/transaction/transaction_output.dart';
 export 'src/transaction/transaction_input.dart';
 export 'src/message.dart';
 export 'src/signature.dart';
-export 'src/svscript.dart';
+export 'src/script/svscript.dart';
 export 'src/encoding/utils.dart';
 export 'src/script/interpreter.dart';
 export 'src/script/opcodes.dart';
