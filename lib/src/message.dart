@@ -4,9 +4,6 @@ import 'package:dartsv/dartsv.dart';
 import 'package:hex/hex.dart';
 import 'package:pointycastle/impl.dart';
 
-/*
-Bitcoin Signed Messages
- */
 class Message {
     List<int> _message;
     SVPrivateKey _privateKey;

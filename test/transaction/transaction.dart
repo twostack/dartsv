@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:bip39/bip39.dart' as bip39; //third-party library. NOT PART OF DART-SV
 
 import 'package:dartsv/dartsv.dart';
+import 'package:dartsv/src/script/P2PKHScriptPubkey.dart';
 import 'package:dartsv/src/transaction/transaction_input.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
 import 'package:test/test.dart';
@@ -29,7 +30,7 @@ main() {
         "address": fromAddress,
         "txId": 'a477af6b2667c29670467e4e0728b685ee07b240235771862318e29ddbe58458',
         "outputIndex": 0,
-        "scriptPubKey": SVScript.buildPublicKeyHashOut(fromAddress).toString(),
+        "scriptPubKey": P2PKHScriptPubkey(fromAddress).toString(),
         "satoshis": BigInt.from(100000)
     };
 
@@ -37,7 +38,7 @@ main() {
         "address": fromAddress,
         "txId": 'a477af6b2667c29670467e4e0728b685ee07b240235771862318e29ddbe58458',
         "outputIndex": 0,
-        "scriptPubKey": SVScript.buildPublicKeyHashOut(fromAddress).toString(),
+        "scriptPubKey": P2PKHScriptPubkey(fromAddress).toString(),
         "satoshis": BigInt.from(1000000)
     };
 
@@ -48,7 +49,7 @@ main() {
         "address": fromAddress,
         "txId": "a477af6b2667c29670467e4e0728b685ee07b240235771862318e29ddbe58458",
         "outputIndex": 1,
-        "scriptPubKey": SVScript.buildPublicKeyHashOut(fromAddress).toString(),
+        "scriptPubKey": P2PKHScriptPubkey(fromAddress).toString(),
         "satoshis": BigInt.from(1e8)
     };
 
@@ -132,12 +133,12 @@ main() {
 
         expect(transaction.outputs.length, equals(2));
         expect(transaction.outputs[1].satoshis, equals(BigInt.from(472899)));
-        expect(transaction.outputs[1].script.toString(), equals(SVScript.buildPublicKeyHashOut(changeAddress).toString()));
+        expect(transaction.outputs[1].script.toString(), equals(P2PKHScriptPubkey(changeAddress).toString()));
         var actual = transaction
             .getChangeOutput()
             .script
             .toString();
-        var expected = SVScript.buildPublicKeyHashOut(changeAddress).toString();
+        var expected = P2PKHScriptPubkey(changeAddress).toString();
         expect(actual, equals(expected));
     });
 
@@ -189,26 +190,19 @@ main() {
             var from1 = {
                 "txId": '0000000000000000000000000000000000000000000000000000000000000000',
                 "outputIndex": 0,
-                "scriptPubKey": SVScript
-                    .buildPublicKeyHashOut(fromAddress)
-                    .script,
-
+                "scriptPubKey": P2PKHScriptPubkey(fromAddress).script,
                 "satoshis": BigInt.from(100000)
             };
             var from2 = {
                 "txId": '0000000000000000000000000000000000000000000000000000000000000001',
                 "outputIndex": 0,
-                "scriptPubKey": SVScript
-                    .buildPublicKeyHashOut(fromAddress)
-                    .script,
+                "scriptPubKey": P2PKHScriptPubkey(fromAddress).script,
                 "satoshis": BigInt.from(100000)
             };
             var from3 = {
                 "txId": '0000000000000000000000000000000000000000000000000000000000000001',
                 "outputIndex": 1,
-                "scriptPubKey": SVScript
-                    .buildPublicKeyHashOut(fromAddress)
-                    .script,
+                "scriptPubKey": P2PKHScriptPubkey(fromAddress).script,
                 "satoshis": BigInt.from(100000)
             };
             var tx = new Transaction()
@@ -271,7 +265,7 @@ main() {
 
         expect(transaction.outputs.length, equals(3));
         expect(transaction.outputs[2].satoshis, equals(BigInt.from(30000)));
-        expect(transaction.outputs[2].script.toString(), equals(SVScript.buildPublicKeyHashOut(changeAddress).toString()));
+        expect(transaction.outputs[2].script.toString(), equals(P2PKHScriptPubkey(changeAddress).toString()));
     });
 
 
@@ -660,7 +654,7 @@ main() {
 
                     var txOutputs = outputSet.map((output) {
                         var txOut = TransactionOutput();
-                        txOut.script = SVScript(output["script"]);
+                        txOut.script = P2PKHScriptPubkey.fromByteArray(utf8.encode(output["script"]));
                         txOut.satoshis = BigInt.from(output["value"]);
                         return txOut;
                     }).toList();

@@ -1,4 +1,5 @@
 import 'package:dartsv/dartsv.dart';
+import 'package:dartsv/src/script/P2PKHScriptSig.dart';
 import 'package:test/test.dart';
 import 'package:hex/hex.dart';
 import 'dart:io';
@@ -10,7 +11,7 @@ main() {
         var txhex2 = '02000000013ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a0000000042200000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000ffffffff0100f2052a010000001976a914a8d9e5fbb49e143db75614dd2189f03f1589727f88ac00000000';
         var txhex = '02000000010000000000000000000000000000000000000000000000000000000000000000ffffffff2e039b1e1304c0737c5b68747470733a2f2f6769746875622e636f6d2f62636578742f01000001c096020000000000ffffffff014a355009000000001976a91448b20e254c0677e760bab964aec16818d6b7134a88ac00000000';
         var tx = Transaction.fromHex(txhex);
-        var sighash = Sighash().hash(tx, SighashType.SIGHASH_ALL, 0, SVScript.empty(), BigInt.zero);
+        var sighash = Sighash().hash(tx, SighashType.SIGHASH_ALL, 0, SVScript.fromString(""), BigInt.zero);
 
         expect(sighash, equals('6829f7d44dfd4654749b8027f44c9381527199f78ae9b0d58ffc03fdab3c82f1'));
     });
@@ -27,7 +28,7 @@ main() {
                 if (vector.length != 1) {
                     var txbuf = vector[0];
                     var scriptbuf = vector[1];
-                    var subscript = SVScript(scriptbuf);
+                    var subscript = SVScript.fromHex(scriptbuf);
                     var nin = vector[2];
                     var nhashtype = vector[3];
                     // var nhashtype = vector[3]>>>0;
@@ -57,7 +58,7 @@ main() {
                 if (vector.length != 1) {
                     var txbuf = vector[0];
                     var scriptbuf = vector[1];
-                    var subscript = SVScript(scriptbuf);
+                    var subscript = SVScript.fromHex(scriptbuf);
                     var nin = vector[2];
                     var nhashtype = vector[3];
                     // var nhashtype = vector[3]>>>0;

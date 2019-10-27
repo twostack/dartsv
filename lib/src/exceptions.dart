@@ -109,4 +109,10 @@ class LockTimeException implements Exception {
     LockTimeException(this.cause);
 }
 
+class InterpreterException implements Exception {
+    String cause;
+
+    InterpreterException(this.cause);
+}
+
 

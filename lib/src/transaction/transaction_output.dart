@@ -1,6 +1,7 @@
 import 'package:dartsv/src/address.dart';
 import 'package:dartsv/src/encoding/utils.dart';
-import 'package:dartsv/src/svscript.dart';
+import 'package:dartsv/src/script/P2PKHScriptPubkey.dart';
+import 'package:dartsv/src/script/svscript.dart';
 import 'package:hex/hex.dart';
 import 'transaction.dart';
 import 'package:sprintf/sprintf.dart';
@@ -29,7 +30,7 @@ class TransactionOutput {
     Address get recipient => _recipient;
 
     set recipient(Address address) {
-        this._script = SVScript.buildPublicKeyHashOut(address);
+        this._script = P2PKHScriptPubkey(address);
         _recipient = address;
     }
 

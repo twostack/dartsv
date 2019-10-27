@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:dartsv/dartsv.dart';
+import 'package:dartsv/src/script/P2PKHScriptPubkey.dart';
 import 'package:test/test.dart';
 
 main() {
@@ -34,7 +35,7 @@ main() {
 
         test('should create script from livenet address', () {
           var address = Address('1NaTVwXDDUJaXDQajoa9MqHhz4uTxtgK14');
-          SVScript script = SVScript.buildPublicKeyHashOut(address);
+          SVScript script = P2PKHScriptPubkey(address);
           expect(script, isNotNull);
           expect(script.toString(), equals('OP_DUP OP_HASH160 20 0xecae7d092947b7ee4998e254aa48900d26d2ce1d OP_EQUALVERIFY OP_CHECKSIG'));
 
@@ -43,6 +44,29 @@ main() {
 //          expect(script.toAddress().toString(), equals('1NaTVwXDDUJaXDQajoa9MqHhz4uTxtgK14'));
         });
     });
+
+
+     group('fromString constructor', () {
+        test('should parse these known scripts', () {
+          expect(SVScript.fromString('OP_0 OP_PUSHDATA4 3 0x010203 OP_0').toString(), equals('OP_0 OP_PUSHDATA4 3 0x010203 OP_0'));
+          expect(SVScript.fromString('OP_0 OP_PUSHDATA2 3 0x010203 OP_0').toString(), equals('OP_0 OP_PUSHDATA2 3 0x010203 OP_0'));
+          expect(SVScript.fromString('OP_0 OP_PUSHDATA1 3 0x010203 OP_0').toString(), equals('OP_0 OP_PUSHDATA1 3 0x010203 OP_0'));
+          expect(SVScript.fromString('OP_0 3 0x010203 OP_0').toString(), equals('OP_0 3 0x010203 OP_0'));
+        });
+      });
+
+  group('isPushOnly method', () {
+    test("should know these scripts are or aren't push only", () {
+      expect(SVScript.fromString('OP_NOP 1 0x01').isPushOnly(), isFalse);
+      expect(SVScript.fromString('OP_0').isPushOnly(), isTrue);
+      expect(SVScript.fromString('OP_0 OP_RETURN').isPushOnly(), isFalse);
+      expect(SVScript.fromString('OP_PUSHDATA1 5 0x1010101010').isPushOnly(), isTrue);
+      expect(SVScript.fromString('OP_PUSHDATA2 5 0x1010101010').isPushOnly(), isTrue);
+      expect(SVScript.fromString('OP_PUSHDATA4 5 0x1010101010').isPushOnly(), isTrue);
+      // like bitcoind, we regard OP_RESERVED as being "push only"
+      expect(SVScript.fromString('OP_RESERVED').isPushOnly(), isTrue);
+    });
+  });
 
     /*
 
@@ -258,14 +282,6 @@ describe('Script', function () {
     })
   })
 
-  describe('#fromString', function () {
-    it('should parse these known scripts', function () {
-      Script.fromString('OP_0 OP_PUSHDATA4 3 0x010203 OP_0').toString().should.equal('OP_0 OP_PUSHDATA4 3 0x010203 OP_0')
-      Script.fromString('OP_0 OP_PUSHDATA2 3 0x010203 OP_0').toString().should.equal('OP_0 OP_PUSHDATA2 3 0x010203 OP_0')
-      Script.fromString('OP_0 OP_PUSHDATA1 3 0x010203 OP_0').toString().should.equal('OP_0 OP_PUSHDATA1 3 0x010203 OP_0')
-      Script.fromString('OP_0 3 0x010203 OP_0').toString().should.equal('OP_0 3 0x010203 OP_0')
-    })
-  })
 
   describe('#toString', function () {
     it('should work with an empty script', function () {

@@ -1,7 +1,7 @@
 class OpCodes {
 
   //thanks for the OpCode Map MoneyButton/bsv ;)
-  static final opcodeMap = {
+  static const opcodeMap = {
     // push value
     "OP_FALSE": 0,
     "OP_0": 0,
@@ -144,142 +144,148 @@ class OpCodes {
   };
 
 // push value
-  static final int OP_FALSE = 0;
-  static final int OP_0 = 0;
-  static final int OP_PUSHDATA1 = 76;
-  static final int OP_PUSHDATA2 = 77;
-  static final int OP_PUSHDATA4 = 78;
-  static final int OP_1NEGATE = 79;
-  static final int OP_RESERVED = 80;
-  static final int OP_TRUE = 81;
-  static final int OP_1 = 81;
-  static final int OP_2 = 82;
-  static final int OP_3 = 83;
-  static final int OP_4 = 84;
-  static final int OP_5 = 85;
-  static final int OP_6 = 86;
-  static final int OP_7 = 87;
-  static final int OP_8 = 88;
-  static final int OP_9 = 89;
-  static final int OP_10 = 90;
-  static final int OP_11 = 91;
-  static final int OP_12 = 92;
-  static final int OP_13 = 93;
-  static final int OP_14 = 94;
-  static final int OP_15 = 95;
-  static final int OP_16 = 96;
+  static const int OP_FALSE = 0;
+  static const int OP_0 = 0;
+  static const int OP_PUSHDATA1 = 76;
+  static const int OP_PUSHDATA2 = 77;
+  static const int OP_PUSHDATA4 = 78;
+  static const int OP_1NEGATE = 79;
+  static const int OP_RESERVED = 80;
+  static const int OP_TRUE = 81;
+  static const int OP_1 = 81;
+  static const int OP_2 = 82;
+  static const int OP_3 = 83;
+  static const int OP_4 = 84;
+  static const int OP_5 = 85;
+  static const int OP_6 = 86;
+  static const int OP_7 = 87;
+  static const int OP_8 = 88;
+  static const int OP_9 = 89;
+  static const int OP_10 = 90;
+  static const int OP_11 = 91;
+  static const int OP_12 = 92;
+  static const int OP_13 = 93;
+  static const int OP_14 = 94;
+  static const int OP_15 = 95;
+  static const int OP_16 = 96;
 
 // control
-  static final int OP_NOP = 97;
-  static final int OP_VER = 98;
-  static final int OP_IF = 99;
-  static final int OP_NOTIF = 100;
-  static final int OP_VERIF = 101;
-  static final int OP_VERNOTIF = 102;
-  static final int OP_ELSE = 103;
-  static final int OP_ENDIF = 104;
-  static final int OP_VERIFY = 105;
-  static final int OP_RETURN = 106;
+  static const int OP_NOP = 97;
+  static const int OP_VER = 98;
+  static const int OP_IF = 99;
+  static const int OP_NOTIF = 100;
+  static const int OP_VERIF = 101;
+  static const int OP_VERNOTIF = 102;
+  static const int OP_ELSE = 103;
+  static const int OP_ENDIF = 104;
+  static const int OP_VERIFY = 105;
+  static const int OP_RETURN = 106;
 
 // stack ops
-  static final int OP_TOALTSTACK = 107;
-  static final int OP_FROMALTSTACK = 108;
-  static final int OP_2DROP = 109;
-  static final int OP_2DUP = 110;
-  static final int OP_3DUP = 111;
-  static final int OP_2OVER = 112;
-  static final int OP_2ROT = 113;
-  static final int OP_2SWAP = 114;
-  static final int OP_IFDUP = 115;
-  static final int OP_DEPTH = 116;
-  static final int OP_DROP = 117;
-  static final int OP_DUP = 118;
-  static final int OP_NIP = 119;
-  static final int OP_OVER = 120;
-  static final int OP_PICK = 121;
-  static final int OP_ROLL = 122;
-  static final int OP_ROT = 123;
-  static final int OP_SWAP = 124;
-  static final int OP_TUCK = 125;
+  static const int OP_TOALTSTACK = 107;
+  static const int OP_FROMALTSTACK = 108;
+  static const int OP_2DROP = 109;
+  static const int OP_2DUP = 110;
+  static const int OP_3DUP = 111;
+  static const int OP_2OVER = 112;
+  static const int OP_2ROT = 113;
+  static const int OP_2SWAP = 114;
+  static const int OP_IFDUP = 115;
+  static const int OP_DEPTH = 116;
+  static const int OP_DROP = 117;
+  static const int OP_DUP = 118;
+  static const int OP_NIP = 119;
+  static const int OP_OVER = 120;
+  static const int OP_PICK = 121;
+  static const int OP_ROLL = 122;
+  static const int OP_ROT = 123;
+  static const int OP_SWAP = 124;
+  static const int OP_TUCK = 125;
 
 // splice ops
-  static final int OP_CAT = 126;
-  static final int OP_SPLIT = 127;
-  static final int OP_NUM2BIN = 128;
-  static final int OP_BIN2NUM = 129;
-  static final int OP_SIZE = 130;
+  static const int OP_CAT = 126;
+  static const int OP_SPLIT = 127;
+  static const int OP_NUM2BIN = 128;
+  static const int OP_BIN2NUM = 129;
+  static const int OP_SIZE = 130;
 
 // bit logic
-  static final int OP_INVERT = 131;
-  static final int OP_AND = 132;
-  static final int OP_OR = 133;
-  static final int OP_XOR = 134;
-  static final int OP_EQUAL = 135;
-  static final int OP_EQUALVERIFY = 136;
-  static final int OP_RESERVED1 = 137;
-  static final int OP_RESERVED2 = 138;
+  static const int OP_INVERT = 131;
+  static const int OP_AND = 132;
+  static const int OP_OR = 133;
+  static const int OP_XOR = 134;
+  static const int OP_EQUAL = 135;
+  static const int OP_EQUALVERIFY = 136;
+  static const int OP_RESERVED1 = 137;
+  static const int OP_RESERVED2 = 138;
 
 // numeric
-  static final int OP_1ADD = 139;
-  static final int OP_1SUB = 140;
-  static final int OP_2MUL = 141;
-  static final int OP_2DIV = 142;
-  static final int OP_NEGATE = 143;
-  static final int OP_ABS = 144;
-  static final int OP_NOT = 145;
-  static final int OP_0NOTEQUAL = 146;
+  static const int OP_1ADD = 139;
+  static const int OP_1SUB = 140;
+  static const int OP_2MUL = 141;
+  static const int OP_2DIV = 142;
+  static const int OP_NEGATE = 143;
+  static const int OP_ABS = 144;
+  static const int OP_NOT = 145;
+  static const int OP_0NOTEQUAL = 146;
 
-  static final int OP_ADD = 147;
-  static final int OP_SUB = 148;
-  static final int OP_MUL = 149;
-  static final int OP_DIV = 150;
-  static final int OP_MOD = 151;
-  static final int OP_LSHIFT = 152;
-  static final int OP_RSHIFT = 153;
+  static const int OP_ADD = 147;
+  static const int OP_SUB = 148;
+  static const int OP_MUL = 149;
+  static const int OP_DIV = 150;
+  static const int OP_MOD = 151;
+  static const int OP_LSHIFT = 152;
+  static const int OP_RSHIFT = 153;
 
-  static final int OP_BOOLAND = 154;
-  static final int OP_BOOLOR = 155;
-  static final int OP_NUMEQUAL = 156;
-  static final int OP_NUMEQUALVERIFY = 157;
-  static final int OP_NUMNOTEQUAL = 158;
-  static final int OP_LESSTHAN = 159;
-  static final int OP_GREATERTHAN = 160;
-  static final int OP_LESSTHANOREQUAL = 161;
-  static final int OP_GREATERTHANOREQUAL = 162;
-  static final int OP_MIN = 163;
-  static final int OP_MAX = 164;
+  static const int OP_BOOLAND = 154;
+  static const int OP_BOOLOR = 155;
+  static const int OP_NUMEQUAL = 156;
+  static const int OP_NUMEQUALVERIFY = 157;
+  static const int OP_NUMNOTEQUAL = 158;
+  static const int OP_LESSTHAN = 159;
+  static const int OP_GREATERTHAN = 160;
+  static const int OP_LESSTHANOREQUAL = 161;
+  static const int OP_GREATERTHANOREQUAL = 162;
+  static const int OP_MIN = 163;
+  static const int OP_MAX = 164;
 
-  static final int OP_WITHIN = 165;
+  static const int OP_WITHIN = 165;
 
 // crypto
-  static final int OP_RIPEMD160 = 166;
-  static final int OP_SHA1 = 167;
-  static final int OP_SHA256 = 168;
-  static final int OP_HASH160 = 169;
-  static final int OP_HASH256 = 170;
-  static final int OP_CODESEPARATOR = 171;
-  static final int OP_CHECKSIG = 172;
-  static final int OP_CHECKSIGVERIFY = 173;
-  static final int OP_CHECKMULTISIG = 174;
-  static final int OP_CHECKMULTISIGVERIFY = 175;
+  static const int OP_RIPEMD160 = 166;
+  static const int OP_SHA1 = 167;
+  static const int OP_SHA256 = 168;
+  static const int OP_HASH160 = 169;
+  static const int OP_HASH256 = 170;
+  static const int OP_CODESEPARATOR = 171;
+  static const int OP_CHECKSIG = 172;
+  static const int OP_CHECKSIGVERIFY = 173;
+  static const int OP_CHECKMULTISIG = 174;
+  static const int OP_CHECKMULTISIGVERIFY = 175;
 
-  static final int OP_CHECKLOCKTIMEVERIFY = 177;
-  static final int OP_CHECKSEQUENCEVERIFY = 178;
+  static const int OP_CHECKLOCKTIMEVERIFY = 177;
+  static const int OP_CHECKSEQUENCEVERIFY = 178;
 
 // expansion
-  static final int OP_NOP1 = 176;
-  static final int OP_NOP2 = 177;
-  static final int OP_NOP3 = 178;
-  static final int OP_NOP4 = 179;
-  static final int OP_NOP5 = 180;
-  static final int OP_NOP6 = 181;
-  static final int OP_NOP7 = 182;
-  static final int OP_NOP8 = 183;
-  static final int OP_NOP9 = 184;
-  static final int OP_NOP10 = 185;
+  static const int OP_NOP1 = 176;
+  static const int OP_NOP2 = 177;
+  static const int OP_NOP3 = 178;
+  static const int OP_NOP4 = 179;
+  static const int OP_NOP5 = 180;
+  static const int OP_NOP6 = 181;
+  static const int OP_NOP7 = 182;
+  static const int OP_NOP8 = 183;
+  static const int OP_NOP9 = 184;
+  static const int OP_NOP10 = 185;
 
 // template matching params
-  static final int OP_PUBKEYHASH = 253;
-  static final int OP_PUBKEY = 254;
-  static final int OP_INVALIDOPCODE = 255;
+  static const int OP_PUBKEYHASH = 253;
+  static const int OP_PUBKEY = 254;
+  static const int OP_INVALIDOPCODE = 255;
+
+  static String fromNum(int opcodenum) {
+    var codeList = opcodeMap.entries.where((element) => element.value == opcodenum);
+    return codeList.last.key;
+  }
+
 }

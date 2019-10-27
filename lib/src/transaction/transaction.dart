@@ -1,5 +1,9 @@
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
+import 'package:dartsv/src/script/OpReturnScriptPubkey.dart';
+import 'package:dartsv/src/script/P2PKHScriptPubkey.dart';
+import 'package:dartsv/src/script/P2PKHScriptSig.dart';
+import 'package:dartsv/src/signature.dart';
 import 'package:dartsv/src/transaction/transaction_input.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
 import 'package:hex/hex.dart';
@@ -122,7 +126,7 @@ class Transaction {
           return;
 
       for (var output in this._txnOutputs) {
-        if (output.satoshis < Transaction.DUST_AMOUNT && !output.script.isDataOut()) {
+        if (output.satoshis < Transaction.DUST_AMOUNT && !(output.script is OpReturnScriptPubkey)) {
             throw new TransactionAmountException("You have outputs with spending values below the dust limit");
         }
       }
@@ -248,7 +252,7 @@ class Transaction {
         var scriptPubKey = buffer.sublist(offset, offset + numBytes);
         var txnOutput = TransactionOutput();
         txnOutput.satoshis = satoshis;
-        txnOutput.script = SVScript.fromByteArray(scriptPubKey);
+        txnOutput.script = P2PKHScriptPubkey.fromByteArray(scriptPubKey);
         this._txnOutputs.add(txnOutput);
 
         offset = offset + numBytes;
@@ -312,7 +316,7 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
     Transaction addData(String data) {
 
         var dataOut = new TransactionOutput();
-        dataOut.script = SVScript.buildDataOut(data);
+        dataOut.script = OpReturnScriptPubkey(data);
         dataOut.satoshis = BigInt.zero;
 
         this._txnOutputs.add(dataOut);
@@ -411,7 +415,7 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
         if (changeAmount > BigInt.zero) {
             txnOutput.recipient = this._changeAddress;
             txnOutput.satoshis = changeAmount;
-            txnOutput.script = SVScript.buildPublicKeyHashOut(this._changeAddress);
+            txnOutput.script = P2PKHScriptPubkey(this._changeAddress);
             txnOutput.isChangeOutput = true;
             _txnOutputs.add(txnOutput);
         }
@@ -462,7 +466,7 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
 
             //FIXME: This assumes we are spending multiple inputs with the same private key
             //FIXME: This is a test work-around for why I can't sign an unsigned raw txn
-            input.output.script = SVScript.buildPublicKeyHashOut(privateKey.toAddress(networkType: privateKey.networkType));
+            input.output.script = P2PKHScriptPubkey(privateKey.toAddress(networkType: privateKey.networkType));
 
             var subscript = input.output.script; //pubKey script of the output we're spending
             var sigHash = Sighash();
@@ -487,7 +491,7 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
 
             var networkType = privateKey.networkType;
             //update the input script's scriptSig
-            input.script = SVScript.buildScriptSig(txSignature, signerPubkey); //Spend using pubkey associated with privateKey
+            input.script = P2PKHScriptSig(txSignature, signerPubkey); //Spend using pubkey associated with privateKey
 
         }
 
@@ -606,8 +610,9 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
         return result;
     }
 
-    getSignatures(SVPrivateKey privateKey) {
-        return [0];
+    //FIXME: This is horribly borked
+    List<SVSignature> getSignatures(SVPrivateKey privateKey) {
+        return List<SVSignature>();
     }
 
     void sortInputs(List<TransactionInput> txns) {
@@ -773,6 +778,10 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
         //FIXME: assumption on the length of _nLockTime. Risks indexexception
         this._nLockTime.fillRange(0, 3, 0);
         this._nLockTime.setRange(1, 4, HEX.decode(blockHeight.toRadixString(16))) ;
+    }
+
+    bool verifySignature(sig, pubkey, int nin, SVScript subscript, BigInt satoshis, int flags) {
+        return false;
     }
 
 }
