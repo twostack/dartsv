@@ -5,6 +5,7 @@ import 'package:dartsv/src/privatekey.dart';
 import 'package:dartsv/src/publickey.dart';
 import 'package:pointycastle/api.dart';
 import 'package:pointycastle/digests/sha256.dart';
+import 'package:pointycastle/export.dart';
 import "package:pointycastle/src/utils.dart" as utils;
 import 'package:pointycastle/digests/ripemd160.dart';
 import 'package:pointycastle/macs/hmac.dart';
@@ -28,9 +29,14 @@ class SVSignature {
     BigInt _s;
     String _rHex;
     String _sHex;
-    ECPrivateKey _privateKey;
+    SVPrivateKey _privateKey;
+    SVPublicKey _publicKey;
 
     int _nhashtype = 0;// = SighashType.SIGHASH_ALL | SighashType.SIGHASH_FORKID; //default to SIGHASH_ALL | SIGHASH_FORKID
+
+    int _i;
+
+    bool _compressed = false;
 
     SVSignature();
 
@@ -82,16 +88,70 @@ class SVSignature {
         ECPrivateKey privKey = new ECPrivateKey(privateKey.privateKey, this._domainParams);
 //        _secureRandom.seed(KeyParameter(_seed()));
 
-        this._privateKey = privKey;
+        this._privateKey = privateKey;
+        this._compressed = privateKey.isCompressed;
 
         this._dsaSigner.init(true, PrivateKeyParameter(privKey));
     }
 
-    /// Initialize from PublicKey to verify
+    /// Initialize from PublicKey to verify ONLY
     SVSignature.fromPublicKey(SVPublicKey publicKey){
         ECPublicKey pubKey = new ECPublicKey(publicKey.point, this._domainParams);
 //        _secureRandom.seed(KeyParameter(_seed()));
         this._dsaSigner.init(false, PublicKeyParameter(pubKey));
+    }
+
+    /// Indirect method of initializing from PublicKey for verify ONLY
+    /// buffer : Signature in Compact Signature form
+    SVSignature.fromCompact(List<int> buffer, List<int> signedMessage){
+
+        var compressed = true;
+        var i = buffer.sublist(0, 1)[0] - 27 - 4;
+        if (i < 0) {
+            compressed = false;
+            i = i + 4;
+        }
+
+        var b2 = buffer.sublist(1, 33);
+        var b3 = buffer.sublist(33, 65);
+
+        if (![0 ,1 , 2, 3].contains(i)){
+            throw new SignatureException('i must be 0, 1, 2, or 3');
+        }
+
+        if (b2.length != 32){
+            throw new SignatureException('r must be 32 bytes');
+        }
+
+        if (b3.length != 32){
+            throw new SignatureException('s must be 32 bytes');
+        }
+
+        this._compressed = compressed;
+        this._i = i;
+        this._r = utils.decodeBigInt(b2);
+        this._s = utils.decodeBigInt(b3);
+
+        this._publicKey = this.recoverPublicKey(i, signedMessage);
+        this._dsaSigner.init(false, PublicKeyParameter(new ECPublicKey(this._publicKey.point, _domainParams)));
+    }
+
+
+    List<int> toCompact() {
+
+        if (![0,1,2,3].contains(this._i)) {
+            throw new SignatureException('i must be equal to 0, 1, 2, or 3');
+        }
+
+        var val = i + 27 + 4;
+        if (!this._compressed) {
+            val = val - 4;
+        }
+
+        var b1 = [val];
+        var b2 = utils.encodeBigInt(this._r);
+        var b3 = utils.encodeBigInt(this._s);
+        return b1 + b2 + b3;
     }
 
 
@@ -101,20 +161,26 @@ class SVSignature {
         return Uint8List.fromList(seed);
     }
 
-    bool verify(String message, String signature) {
-        this._parseDER(signature);
+    //FIXME: Signature object should be constructed from DER string.
+    //       Passing DER sig as a parameter to this class is lame AF.
+    bool verify(String message, String derSignature) {
+        this._parseDER(derSignature);
 
         if (this._signature == null)
             throw new SignatureException('Signature is not initialized');
 
-        Uint8List decodedMessage = Uint8List.fromList(HEX.decode(message).reversed.toList());
+        Uint8List decodedMessage = Uint8List.fromList(HEX.decode(message).toList());
 
         return this._dsaSigner.verifySignature(decodedMessage, this._signature);
     }
 
+    //Expects a HEX encoded string ! a Better name should be signHex()
     String sign(String message) {
 //        this._toLowS(); //force low S before signing: FIXME If shit breaks elsewhere come and have a look here
-        List<int> decodedMessage = Uint8List.fromList(HEX.decode(message).reversed.toList());
+
+    //FIXME: Why is the message reversed !? //FIXME: Why is the message reversed !?
+        //   Surely this is a protocol-level thing not a signing thing ?
+        List<int> decodedMessage = Uint8List.fromList(HEX.decode(message).toList());
 
         this._signature = this._dsaSigner.generateSignature(decodedMessage);
         this._r = _signature.r;
@@ -122,6 +188,85 @@ class SVSignature {
 
         this._toLowS();
         return this.toString();
+    }
+
+    SVPublicKey recoverPublicKey(int i, List<int> hashBuffer){
+
+        if(![0, 1, 2, 3].contains(i) ){
+            throw new SignatureException('i must be equal to 0, 1, 2, or 3');
+        }
+
+        var e = utils.decodeBigInt(hashBuffer);
+        var r = this.r;
+        var s = this.s;
+
+        // The more significant bit specifies whether we should use the
+        // first or second candidate key.
+        var isSecondKey = i >> 1 != 0;
+
+        BigInt n = _domainParams.n;
+        ECPoint G = _domainParams.G;
+
+        // 1.1 Let x = r + jn
+        BigInt x = isSecondKey ? r + n : r;
+        var yTilde = i & 1;
+        ECPoint R = _domainParams.curve.decompressPoint(yTilde, x);
+
+        // 1.4 Check that nR is at infinity
+        ECPoint nR = R * n;
+
+        if (!nR.isInfinity) {
+            throw new SignatureException('nR is not a valid curve point');
+        }
+
+        // Compute -e from e
+        var eNeg = -e % n;//FIXME: ? unsigned mod ?
+
+        // 1.6.1 Compute Q = r^-1 (sR - eG)
+        // Q = r^-1 (sR + -eG)
+        var rInv = r.modInverse(n);
+
+        // var Q = R.multiplyTwo(s, G, eNeg).mul(rInv);
+        var Q = (R * s + G * eNeg) * rInv;
+
+        ECPublicKey pubkey = ECPublicKey(Q, _domainParams);
+
+        return SVPublicKey.fromXY(Q.x.toBigInteger(), Q.y.toBigInteger(), compressed: this._compressed);
+    }
+
+
+    //FIXME: NOT GENERIC ! I'm conflating concerns of Compact Message Signing with actual
+    //       Signature generation here. FIX by factoring out the hashedMessage !
+    //       Also, returning SVSignature instance !!??
+    SVSignature signWithCalcI(String message){
+
+        //sign it
+        List<int> decodedMessage = Uint8List.fromList(HEX.decode(message).toList());
+
+        this._signature = this._dsaSigner.generateSignature(decodedMessage);
+        this._r = _signature.r;
+        this._s = _signature.s;
+        this._toLowS();
+
+        //calculate _i_
+        SVPublicKey publicKey = this._privateKey.publicKey;
+        for (var i = 0; i < 4; i++) {
+            this._i = i;
+            SVPublicKey Qprime;
+            try {
+                Qprime = this.recoverPublicKey(i, decodedMessage);
+            } catch (e) {
+                continue;
+            }
+
+            if (Qprime.point == publicKey.point) {
+                this._compressed = Qprime.isCompressed;
+                return this;
+            }
+        }
+
+        this._i = -1;
+        throw new SignatureException('Unable to find valid recovery factor');
     }
 
     @override
@@ -272,7 +417,6 @@ class SVSignature {
         }
     }
 
-
     //Compares to bitcoind's IsLowDERSignature
     //See also ECDSA signature algorithm which enforces this.
     //See also BIP 62, "low S values in signatures"
@@ -289,6 +433,10 @@ class SVSignature {
     BigInt get s => _s;
 
     BigInt get r => _r;
+
+    SVPublicKey get publicKey => _publicKey;
+
+    int get i => _i;
 
     get nhashtype => _nhashtype;
 

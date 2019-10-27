@@ -11,10 +11,12 @@ This library therefore lacks , and will not implement :
 * Check Datasig (OP_CHECKDATASIG) 
 
 Current Supported features are : 
-* P2PKH Transactions
+* P2PKH Transactions (building and spending from)
 * Data-only Transactions (untested)
 * HD Key Derivation (BIP32)
 * Original Bitcoin Address format 
+* Bitcoin Signed Messages
+* Bip39 Mnemonic Support (currently lacks test coverages)
 
 Pending Features : 
 * Script Interpreter (high priority)
@@ -44,7 +46,7 @@ String createWalletTxn(Address address, List<TransactionInput> utxosToSpendFrom,
 ```
 
 #### Installation 
-This library was built using the latest version (2.3.1) of the Dart SDK [https://dart.dev/tools/sdk](https://dart.dev/tools/sdk), but should work with *Dart SDK 2.1.x* onwards.  
+This library was built using version (2.3.1) of the Dart SDK [https://dart.dev/tools/sdk](https://dart.dev/tools/sdk), but should work with *Dart SDK 2.1.x* onwards.  
 Therefore, as a pre-requisite ensure that you have at least that version of the Dart SDK installed before proceeding.  
 
 Navigate to the root folder of this project, and pull the required supported Dart libraries using the `pub` package manager. 
@@ -60,5 +62,14 @@ In the root folder of this project, run the shell script :
 
 ### Acknowledgement
 A debt of gratitude is owed to the developers acknowledged in the LICENSE file. Without the hard work of individuals working on earlier library and node implementations like Bitcoin Core, Bitcoin Cash, MoneyButton/BSV, BitcoinJ and many more, this library would likely not have come to fruition. Thank you. 
+
+### Contact
+You can reach the author at : 
+* @beardpappa on Twitter
+* $beardpappa (to buy me a beer)
+* stephan@werkswinkel.com
+
+
+
 
 
