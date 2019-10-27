@@ -1,5 +1,7 @@
 
+import 'dart:collection';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dartsv/src/bip39/bip39.dart';
 import 'package:resource/resource.dart';
@@ -27,6 +29,30 @@ main(){
                 return 'spanish';
             default:
                 return 'english';
+        }
+    }
+
+
+    Wordlist getWordlist(String name) {
+        switch (name) {
+            case 'chinese_simplified':
+                return Wordlist.CHINESE_SIMPLIFIED;
+            case 'chinese_traditional':
+                return Wordlist.CHINESE_TRADITIONAL;
+            case 'english':
+                return Wordlist.ENGLISH;
+            case 'french':
+                return Wordlist.FRENCH;
+            case 'italian':
+                return Wordlist.ITALIAN;
+            case 'japanese':
+                return Wordlist.JAPANESE;
+            case 'korean':
+                return Wordlist.KOREAN;
+            case 'spanish':
+                return Wordlist.SPANISH;
+            default:
+                return Wordlist.ENGLISH;
         }
     }
 
@@ -178,6 +204,32 @@ main(){
         expect(seed.length, equals(512 / 8));
     });
 
+
+    test('it should pass test vectors ', () async {
+
+        await File("${Directory.current.path}/test/mnemonic/data/fixtures.json")
+            .readAsString()
+            .then((contents) => jsonDecode(contents))
+            .then((jsonData) async {
+                var hashMap = HashMap.from(jsonData);
+            await Future.forEach(hashMap.keys, (key) async {
+
+                var wordList = getWordlist(key);
+                Mnemonic mnemonic = Mnemonic(DEFAULT_WORDLIST: wordList);
+                for (List<dynamic> vector in hashMap[key])  {
+                    var code = vector[1] ;
+                    var phrase = vector[2] ;
+                    var seed = vector[3] ;
+                    var derivedSeed = mnemonic.toSeedHex(phrase, vector[0]);
+
+                    var isValid = await mnemonic.validateMnemonic(phrase);
+                    expect(isValid, isTrue);
+                    expect(derivedSeed, equals(seed));
+                }
+
+            });
+        });
+    });
 
 }
 
