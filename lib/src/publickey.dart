@@ -71,6 +71,16 @@ class SVPublicKey {
 
   }
 
+  static bool isValid(String pubkey) {
+      try {
+          SVPublicKey.fromHex(pubkey);
+      }catch(err){
+          return false;
+      }
+
+      return true;
+  }
+
   SVPublicKey.fromHex(String str) {
     ECPoint point = _decodePoint(str);
 

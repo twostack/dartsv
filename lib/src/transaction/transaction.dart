@@ -76,6 +76,8 @@ class Transaction {
 
     var _feePerKb = FEE_PER_KB;
 
+    var _sighashType;
+
     Transaction();
 
     Transaction.fromHex(String txnHex) {
@@ -87,6 +89,7 @@ class Transaction {
     /// transaction ID
     String get id => HEX.encode(sha256Twice(HEX.decode(this._txnHex)).reversed.toList());
 
+    int get sighashType => this._sighashType;
 
     String get txnHex => _txnHex;
 
@@ -460,6 +463,7 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
     Transaction signWith(SVPrivateKey privateKey, {sighashType: 0}) {
         SVSignature sig = SVSignature.fromPrivateKey(privateKey);
         sig.nhashtype = sighashType;
+        this._sighashType = sighashType;
 
         for (var ndx = 0; ndx < this._txnInputs.length; ndx++) {
             var input = this._txnInputs[ndx];
@@ -780,8 +784,5 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
         this._nLockTime.setRange(1, 4, HEX.decode(blockHeight.toRadixString(16))) ;
     }
 
-    bool verifySignature(sig, pubkey, int nin, SVScript subscript, BigInt satoshis, int flags) {
-        return false;
-    }
 
 }

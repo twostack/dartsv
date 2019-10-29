@@ -425,7 +425,7 @@ class Interpreter {
                 return false;
             }
         } catch (e) {
-            this._errStr = 'SCRIPT_ERR_UNKNOWN_ERROR: ' + e;
+            this._errStr = 'SCRIPT_ERR_UNKNOWN_ERROR: ' + e.toString();
             return false;
         }
 
@@ -454,7 +454,6 @@ class Interpreter {
     }
 
     void set(Map map) {
-
         this._stack = map["stack"];
         this._script = map["script"];
         this._tx = map["tx"];
@@ -529,7 +528,8 @@ class Interpreter {
         // bool fExec = !count(vfExec.begin(), vfExec.end(), false);
         bool fExec = !this.vfExec.contains(false);
         var buf, buf1, buf2, spliced, n, x1, x2, bn, bn1, bn2, bufSig, bufPubkey, subscript;
-        var sig, pubkey;
+        SVSignature sig;
+        SVPublicKey pubkey;
         var fValue, fSuccess;
 
         // Read instruction
@@ -1312,7 +1312,7 @@ class Interpreter {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-                    buf = utf8.encode(stack.peek());
+                    buf = HEX.decode(stack.peek());
                     // valtype vchHash((opcode === OpCodes.OP_RIPEMD160 ||
                     //                 opcode === OpCodes.OP_SHA1 || opcode === Opcode.OP_HASH160) ? 20 : 32);
                     var bufHash;
@@ -1328,7 +1328,7 @@ class Interpreter {
                         bufHash = sha256Twice(buf);
                     }
                     this.stack.pop();
-                    this.stack.push(utf8.decode(bufHash));
+                    this.stack.push(HEX.encode(bufHash));
                     break;
 
                 case OpCodes.OP_CODESEPARATOR:
@@ -1361,10 +1361,14 @@ class Interpreter {
                     subscript.findAndDelete(tmpScript);
 
                     try {
-                        sig = SVSignature.fromTxFormat(bufSig);
                         pubkey = SVPublicKey.fromHex(bufPubkey);
+//                        sig = SVSignature.fromTxFormat(bufSig);
+                        sig = SVSignature.fromPublicKey(pubkey);
 
-                        fSuccess = this._tx.verifySignature(sig, pubkey, this._nin, subscript, this._satoshis, this._flags);
+//                        fSuccess = this._tx.verifySignature(sig, pubkey, this._nin, subscript, this._satoshis, this._flags);
+                        String hash = Sighash().hash(this._tx, this._tx.sighashType, this._nin, subscript, this._satoshis, flags: this._flags);
+                        var reversedHash = HEX.encode(HEX.decode(hash).reversed.toList());
+                        fSuccess = sig.verify(reversedHash, SVSignature.fromTxFormat(bufSig).toString());
                     } catch (e) {
                         // invalid sig or pubkey
                         fSuccess = false;
@@ -1461,9 +1465,11 @@ class Interpreter {
 
                         var fOk;
                         try {
-                            sig = SVSignature.fromTxFormat(bufSig);
+                            sig = SVSignature.fromPublicKey(bufSig);
                             pubkey = SVPublicKey.fromHex(bufPubkey);
-                            fOk = this._tx.verifySignature(sig, pubkey, this._nin, subscript, this._satoshis, this.flags);
+//                            fOk = this._tx.verifySignature(sig, pubkey, this._nin, subscript, this._satoshis, this.flags);
+                            String hash = Sighash().hash(this._tx, this._tx.sighashType, this._nin, subscript, this._satoshis);
+                            fOk = sig.verify(hash, bufSig);
                         } catch (e) {
                             // invalid sig or pubkey
                             fOk = false;
@@ -1671,7 +1677,11 @@ class Interpreter {
     }
 
     bool checkPubkeyEncoding(String bufPubkey) {
-        return false;
+        if ((this.flags & Interpreter.SCRIPT_VERIFY_STRICTENC) != 0 && !SVPublicKey.isValid(bufPubkey)) {
+            this._errStr = 'SCRIPT_ERR_PUBKEYTYPE';
+            return false;
+        }
+        return true;
     }
 
 

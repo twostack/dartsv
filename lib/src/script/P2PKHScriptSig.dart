@@ -6,7 +6,7 @@ import 'package:sprintf/sprintf.dart';
 class P2PKHScriptSig extends SVScript with ScriptSig{
 
   String _signature;
-  String _pubKey;    //FIXME: This should be an instance of ScriptSig
+  String _pubKey;
 
   P2PKHScriptSig.fromByteArray(List<int> buffer) : super.fromByteArray(buffer);
 

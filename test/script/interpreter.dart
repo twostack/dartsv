@@ -5,6 +5,7 @@ import 'package:dartsv/src/script/P2PKHScriptPubkey.dart';
 import 'package:dartsv/src/script/P2PKHScriptSig.dart';
 import 'package:dartsv/src/script/interpreter.dart';
 import 'package:dartsv/src/script/svscript.dart';
+import 'package:hex/hex.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -71,25 +72,26 @@ void main() {
         "address": fromAddress,
         "txId": 'a477af6b2667c29670467e4e0728b685ee07b240235771862318e29ddbe58458',
         "outputIndex": 0,
-        "scriptPubkey": scriptPubkey,
+        "scriptPubKey": scriptPubkey.toString(),
         "satoshis": BigInt.from(100000)
       };
       var tx = new Transaction()
         .spendFromMap(utxo)
         .spendTo(toAddress, BigInt.from(100000))
-        .signWith(privateKey);
+        .signWith(privateKey, sighashType: 1);
 
       // we then extract the signature from the first input
       var inputIndex = 0;
+      print(HEX.encode(hash160(HEX.decode(publicKey.toString()))));
 
       var signature = (tx.inputs[0].script as P2PKHScriptSig).signature;
-//      var signature = tx.getSignatures(privateKey)[inputIndex].signature;
 
       var scriptSig = P2PKHScriptSig(signature, publicKey.toString());
-//      var scriptSig = SVScript.buildPublicKeyHashIn(publicKey, signature);
       var flags = Interpreter.SCRIPT_VERIFY_P2SH | Interpreter.SCRIPT_VERIFY_STRICTENC;
-//      var verified = Interpreter().verifyScript(scriptSig, scriptPubkey, tx : tx, nin: inputIndex, flags); //FIXME: Why nin ?
-      var verified = Interpreter().verifyScript(scriptSig, scriptPubkey, tx : tx, nin: inputIndex, flags: flags);
+      var interpreter = Interpreter();
+
+      var verified = interpreter.verifyScript(scriptSig, scriptPubkey, tx : tx, nin: inputIndex, flags: flags, satoshis: utxo["satoshis"]);
+      expect(interpreter.errstr, equals(""));
       expect(verified, isTrue);
     });
   });
