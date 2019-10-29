@@ -1,5 +1,6 @@
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:typed_data';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:hex/hex.dart';
@@ -42,11 +43,9 @@ class ScriptChunk {
 }
 
 mixin ScriptSig{
-
 }
 
 mixin ScriptPubkey {
-
 }
 
 mixin ScriptBuilder {
@@ -75,11 +74,14 @@ class SVScript with ScriptBuilder {
     SVScript.fromHex(String script){
         this._script = script;
         parse(script);
-
     }
 
     SVScript.fromChunks(List<ScriptChunk> chunks) {
         this._chunks = chunks;
+        String chunkString = chunks.fold("", (prev, elem) => prev + _chunkToString(elem, type: 'asm'));
+        this._byteArray = Uint8List.fromList(HEX.decode(chunkString.replaceAll(' ', '')));
+//        List<int> concatScript = chunks.fold(List<int>(), (prev, elem) => prev + elem.buf);
+//        this._byteArray = Uint8List.fromList(concatScript);
     }
 
     SVScript.fromByteArray(Uint8List buffer) {
@@ -99,7 +101,9 @@ class SVScript with ScriptBuilder {
 
 
     _processChunks(String script) {
-        if (script.trim().isEmpty) {
+        if (script
+            .trim()
+            .isEmpty) {
             return;
         }
 
@@ -284,6 +288,7 @@ class SVScript with ScriptBuilder {
         return false;
     }
 
+    //FIXME: Implement !
     void findAndDelete(SVScript tmpScript) {
 
     }
@@ -296,19 +301,17 @@ class SVScript with ScriptBuilder {
             // no data chunk
             if (OpCodes.opcodeMap.containsValue(opcodenum)) {
                 if (asm) {
-                    /*
-        // A few cases where the opcode name differs from reverseMap
-        // aside from 1 to 16 data pushes.
-        if (opcodenum == 0) {
-          // OP_0 -> 0
-          str = str + ' 0'
-        } else if (opcodenum === 79) {
-          // OP_1NEGATE -> 1
-          str = str + ' -1'
-        } else {
-          str = str + ' ' + Opcode(opcodenum).toString()
-        }
-           */
+                    // A few cases where the opcode name differs from reverseMap
+                    // aside from 1 to 16 data pushes.
+                    if (opcodenum == 0) {
+                        // OP_0 -> 0
+                        str = str + ' 0';
+                    } else if (opcodenum == 79) {
+                        // OP_1NEGATE -> 1
+                        str = str + ' -1';
+                    } else {
+                        str = str + ' ' + opcodenum.toRadixString(16);
+                    }
                 } else {
                     str = str + ' ' + OpCodes.fromNum(opcodenum);
                 }
@@ -332,7 +335,7 @@ class SVScript with ScriptBuilder {
             }
             if (chunk.len > 0) {
                 if (asm) {
-                    str = str + ' ' + HEX.encode(chunk.buf);
+                    str = str + ' ' + chunk.len.toRadixString(16) + ' '+ HEX.encode(chunk.buf);
                 } else {
                     str = str + ' ' + chunk.len.toString() + ' ' + '0x' + HEX.encode(chunk.buf);
                 }

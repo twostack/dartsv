@@ -73,9 +73,10 @@ class Sighash {
 
 
         //blank out the txn input scripts
-        txnCopy.inputs.forEach((input) {
-            input.script = P2PKHScriptSig.fromString("");
-        });
+        //FIXME: This is redundant. Already taken care of in _prepareTransaction() ?
+//        txnCopy.inputs.forEach((input) {
+//            input.script = P2PKHScriptSig.fromString("");
+//        });
 
         //setup the input we wish to sign
         txnCopy.inputs[inputNumber].script = this._subScript;
@@ -134,7 +135,6 @@ class Sighash {
             txnCopy.inputs.removeWhere((elem) => true); //delete all inputs
             txnCopy.inputs.add(keepTxn);
         }
-
 
         return this.toString();
     }
@@ -291,5 +291,6 @@ class Sighash {
         var ret = sha256Twice(buffer);
         return ret.reversed.toList();
     }
+
 
 }
