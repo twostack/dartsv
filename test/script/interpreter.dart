@@ -1,4 +1,6 @@
 
+import 'dart:convert';
+
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/privatekey.dart';
 import 'package:dartsv/src/script/P2PKHScriptPubkey.dart';
@@ -9,6 +11,55 @@ import 'package:hex/hex.dart';
 import 'package:test/test.dart';
 
 void main() {
+
+  // the script string format used in bitcoind data tests
+  fromBitcoindString(String str) {
+//    var bw = new BufferWriter();
+    List<int> bw = []; //growable list. Initialised as empty
+
+    List<String> tokens = str.split(' ');
+    for (var i = 0; i < tokens.length; i++) {
+      var token = tokens[i];
+      if (token == '') {
+        continue;
+      }
+
+      var opstr;
+      var opcodenum;
+      var tbuf;
+
+      if (token[0] == '0' && token[1] == 'x') {
+        var hex = token.substring(0, 2);
+//        bw.write(Buffer.from(hex, 'hex'));
+        bw.addAll(HEX.decode(hex));
+      } else if (token[0] == '\'') {
+        var tstr = token.substring(1, token.length - 1);
+//        var cbuf = Buffer.from(tstr);
+        var cbuf = utf8.encode(tstr);
+        SVScript script = SVScript()..add(cbuf);
+        bw.addAll(script.buffer); //FIXME: This WILL BREAK ! Internally `buffer` does not honor scriptChunks!
+
+      } else if (!OpCodes.opcodeMap.containsKey('OP_' + token.toUpperCase())) {
+        opstr = 'OP_' + token;
+        opcodenum = OpCodes.opcodeMap[opstr];
+//        bw.writeUInt8(opcodenum);
+        bw.add(opcodenum);
+      } else if (OpCodes.opcodeMap.containsKey(token)) {
+        opstr = token;
+        opcodenum = OpCodes.opcodeMap[opstr];
+        bw.add(opcodenum);
+//        bw.writeUInt8(opcodenum);
+      } else if (BigInt.tryParse(token) != null) {
+        var script = SVScript()..add(utf8.encode(BigInt.parse(token).toString())); //FIXME: meant to be little endian buffer. Might need reversing.
+        bw.addAll(script.buffer); //FIXME: This WILL BREAK ! Internally `buffer` does not honor scriptChunks!
+      } else {
+        throw new Exception('Could not determine type of script value');
+      }
+    }
+    return SVScript.fromByteArray(bw);
+  }
+
+
   group('Interpreter API', () {
     test('should make a new interpreter', () {
       var interp = new Interpreter();
@@ -24,9 +75,9 @@ void main() {
 
     test('interpreter can set new values for stacks', () {
       var interp = new Interpreter();
-      interp.stack.push('stack');
+      interp.stack.push([1,2,3]);
       expect(interp.stack.length, equals(1));
-      interp.altStack.push('altstack');
+      interp.altStack.push([4,5,6]);
       expect(interp.altStack.length, equals(1));
       interp.clearStacks();
       expect(interp.stack.length, equals(0));
@@ -95,6 +146,40 @@ void main() {
       expect(verified, isTrue);
     });
   });
+
+
+
+  group('@castToBool', () {
+    test('should cast these bufs to bool correctly', () {
+
+      /*
+      Interpreter.castToBool(new BN(0).toSM({
+        endian: 'little'
+      })).should.equal(false)
+      Interpreter.castToBool(Buffer.from('0080', 'hex')).should.equal(false) // negative 0
+       */
+
+      expect(Interpreter().castBigIntToBool(BigInt.zero), equals(false));
+
+//      expect(Interpreter().castToBool(BigInt.zero.toRadixString(16)), equals(false));
+//      expect(Interpreter().castToBool(int.parse('0080', radix: 16)), equals(false) // negative 0
+      /*
+      Interpreter.castToBool(new BN(1).toSM({
+        endian: 'little'
+      })).should.equal(true)
+      Interpreter.castToBool(new BN(-1).toSM({
+        endian: 'little'
+      })).should.equal(true)
+
+      var buf = Buffer.from('00', 'hex')
+      var bool = BN.fromSM(buf, {
+        endian: 'little'
+      }).cmp(BN.Zero) !== 0
+      Interpreter.castToBool(buf).should.equal(bool)
+       */
+    });
+  });
+
 }
 
 /*
@@ -115,69 +200,7 @@ var scriptTests = require('../data/bitcoind/script_tests')
 var txValid = require('../data/bitcoind/tx_valid')
 var txInvalid = require('../data/bitcoind/tx_invalid')
 
-// the script string format used in bitcoind data tests
-Script.fromBitcoindString = function (str) {
-  var bw = new BufferWriter()
-  var tokens = str.split(' ')
-  for (var i = 0; i < tokens.length; i++) {
-    var token = tokens[i]
-    if (token === '') {
-      continue
-    }
-
-    var opstr
-    var opcodenum
-    var tbuf
-    if (token[0] === '0' && token[1] === 'x') {
-      var hex = token.slice(2)
-      bw.write(Buffer.from(hex, 'hex'))
-    } else if (token[0] === '\'') {
-      var tstr = token.slice(1, token.length - 1)
-      var cbuf = Buffer.from(tstr)
-      tbuf = Script().add(cbuf).toBuffer()
-      bw.write(tbuf)
-    } else if (typeof Opcode['OP_' + token] !== 'undefined') {
-      opstr = 'OP_' + token
-      opcodenum = Opcode[opstr]
-      bw.writeUInt8(opcodenum)
-    } else if (typeof Opcode[token] === 'number') {
-      opstr = token
-      opcodenum = Opcode[opstr]
-      bw.writeUInt8(opcodenum)
-    } else if (!isNaN(parseInt(token))) {
-      var script = Script().add(new BN(token).toScriptNumBuffer())
-      tbuf = script.toBuffer()
-      bw.write(tbuf)
-    } else {
-      throw new Error('Could not determine type of script value')
-    }
-  }
-  var buf = bw.concat()
-  return this.fromBuffer(buf)
-}
-
 describe('Interpreter', function () {
-
-  describe('@castToBool', function () {
-    it('should cast these bufs to bool correctly', function () {
-      Interpreter.castToBool(new BN(0).toSM({
-        endian: 'little'
-      })).should.equal(false)
-      Interpreter.castToBool(Buffer.from('0080', 'hex')).should.equal(false) // negative 0
-      Interpreter.castToBool(new BN(1).toSM({
-        endian: 'little'
-      })).should.equal(true)
-      Interpreter.castToBool(new BN(-1).toSM({
-        endian: 'little'
-      })).should.equal(true)
-
-      var buf = Buffer.from('00', 'hex')
-      var bool = BN.fromSM(buf, {
-        endian: 'little'
-      }).cmp(BN.Zero) !== 0
-      Interpreter.castToBool(buf).should.equal(bool)
-    })
-  })
 
   describe('#verify', function () {
 

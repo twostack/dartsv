@@ -1,25 +1,26 @@
 import 'dart:collection';
-import 'dart:convert';
 import 'dart:core';
 import 'dart:core' as prefix0;
+import 'dart:typed_data';
 
+import 'package:collection/collection.dart';
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/script/P2PKHScriptSig.dart';
 import 'package:hex/hex.dart';
 
 
 class Stack {
-    Queue<String> _queue = new Queue<String>();
+    Queue<List<int>> _queue = new Queue<List<int>>();
 
     Stack();
 
-    Stack.fromQueue(Queue<String> queue){
+    Stack.fromQueue(Queue<List<int>> queue){
         this._queue = Queue.from(queue);
     }
 
 
-    void push(String item) {
-        _queue.addLast(item);
+    void push(List<int> item) {
+        _queue.addLast(List.from(item));
     }
 
     int get length => _queue.length;
@@ -33,7 +34,7 @@ class Stack {
     }
 
     //peek up to "index"
-    String peek({index: -1}) {
+    List<int> peek({int index = -1}) {
         if (index > 0) {
             throw new StackOverflowError();
         }
@@ -41,22 +42,24 @@ class Stack {
         if (index > _queue.length - 1) {
             throw new Exception("Can't peek past the first element");
         }
+        var retval = _queue.elementAt(_queue.length + index); //FIXME: Validate this !
+        retval.runtimeType;
+        return retval;
 
-        return _queue.elementAt(_queue.length + index); //FIXME: Validate this !
     }
 
-    String pop() {
+    List<int> pop() {
         return _queue.removeLast();
     }
 
     //FIXME: Splice won't function on a Queue. We need a vector
-    splice(int insertPoint, int deleteItems, {List<String> values}) {
+    splice(int insertPoint, int deleteItems, {List<int> values}) {
 //        _queue.
     }
 
     /// Replace item at 'index' with 'value'
     /// FIXME: Validate this works as expected
-    void replaceAt(int index, String value) {
+    void replaceAt(int index, List<int> value) {
         var elem = _queue.elementAt(index);
         elem = value;
     }
@@ -78,8 +81,8 @@ class Interpreter {
     static final SCRIPT_VERIFY_P2SH = (1 << 0);
 
 
-    var TRUE = [1];
-    var FALSE = [];
+    static List<int> TRUE = <int>[1];
+    static List<int> FALSE = <int>[];
 
 // Passing a non-strict-DER signature or one with undefined hashtype to a checksig operation causes script failure.
 // Passing a pubkey that is not (0x04 + 64 bytes) or (0x02 or 0x03 + 32 bytes) to checksig causes that pubkey to be
@@ -214,7 +217,7 @@ class Interpreter {
 
     int get flags => _flags;
 
-    bool verifyScript(SVScript scriptSig, SVScript scriptPubkey, {Transaction tx = null, int nin = 0, int flags = 0, BigInt satoshis}) {
+    bool verifyScript(SVScript scriptSig, SVScript scriptPubkey, {Transaction tx , int nin = 0, int flags = 0, BigInt satoshis}) {
         if (tx == null) {
             tx = new Transaction();
         }
@@ -250,10 +253,10 @@ class Interpreter {
         }
 
         if (flags & Interpreter.SCRIPT_VERIFY_P2SH != 0) {
-            stackCopy = this.stack.slice();
+            stackCopy = this._stack.slice();
         }
 
-        var stack = this.stack;
+        var stack = this._stack;
         this.initialize();
         this.set({
             "script": scriptPubkey,
@@ -269,13 +272,13 @@ class Interpreter {
             return false;
         }
 
-        if (this.stack.length == 0) {
+        if (this._stack.length == 0) {
             this._errStr = 'SCRIPT_ERR_EVAL_FALSE_NO_RESULT';
             return false;
         }
 
-        String buf = this.stack.peek(); //[this.stack.length - 1];
-        if (!_castToBool(buf)) {
+        List<int> buf = this._stack.peek(); //[this._stack.length - 1];
+        if (!castToBool(buf)) {
             this._errStr = 'SCRIPT_ERR_EVAL_FALSE_IN_STACK';
             return false;
         }
@@ -296,7 +299,7 @@ class Interpreter {
             }
 
             var redeemScriptSerialized = stackCopy.peek(); // [stackCopy.length - 1];
-            var redeemScript = P2PKHScriptSig.fromString(redeemScriptSerialized);
+            var redeemScript = P2PKHScriptSig.fromByteArray(redeemScriptSerialized);
             stackCopy.pop();
 
             this.initialize();
@@ -319,7 +322,7 @@ class Interpreter {
                 return false;
             }
 
-            if (!_castToBool(stackCopy.peek())) {
+            if (!castToBool(stackCopy.peek())) {
                 this._errStr = 'SCRIPT_ERR_EVAL_FALSE_IN_P2SH_STACK';
                 return false;
             }
@@ -351,7 +354,7 @@ class Interpreter {
 //
 // TODO: Do a proper port of the Script Interpreter O_O
 //
-    static checkSignatureEncoding(String buf, int flags) {
+    checkSignatureEncoding(List<int> buf, int flags) {
         var sig;
         var errStr;
 
@@ -362,17 +365,17 @@ class Interpreter {
         }
 
         if ((flags & (Interpreter.SCRIPT_VERIFY_DERSIG | Interpreter.SCRIPT_VERIFY_LOW_S | Interpreter.SCRIPT_VERIFY_STRICTENC)) != 0 &&
-            !SVSignature.isTxDER(buf)) {
+            !SVSignature.isTxDER(HEX.encode(buf))) {
             errStr = 'SCRIPT_ERR_SIG_DER_INVALID_FORMAT';
             return false;
         } else if ((flags & Interpreter.SCRIPT_VERIFY_LOW_S) != 0) {
-            sig = SVSignature.fromTxFormat(buf);
+            sig = SVSignature.fromTxFormat(HEX.encode(buf));
             if (!sig.hasLowS()) {
                 errStr = 'SCRIPT_ERR_SIG_DER_HIGH_S';
                 return false;
             }
         } else if ((flags & Interpreter.SCRIPT_VERIFY_STRICTENC) != 0) {
-            sig = SVSignature.fromTxFormat(buf);
+            sig = SVSignature.fromTxFormat(HEX.encode(buf));
             if (!sig.hasDefinedHashtype()) {
                 errStr = 'SCRIPT_ERR_SIG_HASHTYPE';
                 return false;
@@ -408,11 +411,10 @@ class Interpreter {
             while (this._pc < this._script.chunks.length) {
                 var thisStep = {
                     "pc": this._pc,
-//          "opcode": OpCodes.fromNumber(this._script.chunks[this.pc].opcodenum)
                     "opcode": this._script.chunks[this.pc].opcodenum
                 };
 
-                var fSuccess = this._step();
+                bool fSuccess = this._step();
                 if (!fSuccess) {
                     return false;
                 }
@@ -420,7 +422,7 @@ class Interpreter {
             }
 
             // Size limits
-            if (this.stack.length + this._altStack.length > 1000) {
+            if (this._stack.length + this._altStack.length > 1000) {
                 this._errStr = 'SCRIPT_ERR_STACK_SIZE';
                 return false;
             }
@@ -429,7 +431,7 @@ class Interpreter {
             return false;
         }
 
-        if (this.vfExec.length > 0) {
+        if (this.vfExec.isNotEmpty) {
             this._errStr = 'SCRIPT_ERR_UNBALANCED_CONDITIONAL';
             return false;
         }
@@ -443,8 +445,8 @@ class Interpreter {
     }
 
     void initialize() {
-        this._stack = new Stack.fromQueue(Queue<String>());
-        this._altStack = new Stack.fromQueue(Queue<String>());
+        this._stack = new Stack.fromQueue(Queue<List<int>>());
+        this._altStack = new Stack.fromQueue(Queue<List<int>>());
         this._pc = 0;
         this._pbegincodehash = 0;
         this._nOpCount = 0;
@@ -462,7 +464,17 @@ class Interpreter {
         this._satoshis = map["satoshis"];
     }
 
-    bool _castToBool(String buf) {
+
+    castBigIntToBool(BigInt value) {
+        if (value == BigInt.zero){
+            return false;
+        }
+
+        return true;
+    }
+
+    //FIXME: castToBool might be expecting a List<int> instead of a String type !!!
+    bool castToBool(List<int> buf) {
         for (var i = 0; i < buf.length; i++) {
             if (buf[i] != 0) {
                 // can be negative zero
@@ -482,9 +494,9 @@ class Interpreter {
     bool _step() {
 //  var self = this;
 
-        stacktop(int i) {
-            return this._stack.peek(); //FIXME: stacktop() is reduntant. Refactor !
-        }
+//        stacktop(int i) {
+//            return this._stack.peek(); //FIXME: stacktop() is reduntant. Refactor !
+//        }
 
         bool isOpCodesDisabled(int opcode) {
             switch (opcode) {
@@ -527,7 +539,8 @@ class Interpreter {
 
         // bool fExec = !count(vfExec.begin(), vfExec.end(), false);
         bool fExec = !this.vfExec.contains(false);
-        var buf, buf1, buf2, spliced, n, x1, x2, bn, bn1, bn2, bufSig, bufPubkey, subscript;
+        var buf, spliced, n, x1, x2, bn, bn1, bn2, subscript;
+        List<int> buf1, buf2, bufPubkey, bufSig;
         SVSignature sig;
         SVPublicKey pubkey;
         var fValue, fSuccess;
@@ -562,11 +575,11 @@ class Interpreter {
                 return false;
             }
             if (chunk.buf.isEmpty) {
-                this._stack.push(""); //FIXME: original code requires pushing empty array. Possible bug being introduced here
+                this._stack.push(<int>[]);
             } else if (chunk.len != chunk.buf.length) {
                 throw new InterpreterException("Length of push value not equal to length of data (${chunk.len},${chunk.buf.length})");
             } else {
-                this._stack.push(HEX.encode(chunk.buf));
+                this._stack.push(chunk.buf);
             }
         } else if (fExec || (OpCodes.OP_IF <= opcodenum && opcodenum <= OpCodes.OP_ENDIF)) {
             switch (opcodenum) {
@@ -633,8 +646,8 @@ class Interpreter {
                     // Thus as a special case we tell CScriptNum to accept up
                     // to 5-byte bignums, which are good until 2**39-1, well
                     // beyond the 2**32-1 limit of the nLockTime field itself.
-                    var nLockTime = BigInt.parse(this._stack.peek(), radix: 16);
-//        var nLockTime = BN.fromScriptNumBuffer(this.stack[this.stack.length - 1], fRequireMinimal, 5)
+                    var nLockTime = BigInt.parse(HEX.encode(this._stack.peek()), radix: 16);
+//        var nLockTime = BN.fromScriptNumBuffer(this._stack[this._stack.length - 1], fRequireMinimal, 5)
 
                     // In the rare event that the argument may be < 0 due to
                     // some arithmetic being done first, you can always use
@@ -671,7 +684,7 @@ class Interpreter {
                     // integer field. See the comment in CHECKLOCKTIMEVERIFY
                     // regarding 5-byte numeric operands.
 
-                    var nSequence = BigInt.parse(this._stack.peek(), radix: 16);
+                    var nSequence = BigInt.parse(HEX.encode(this._stack.peek()), radix: 16);
 
                     // In the rare event that the argument may be < 0 due to
                     // some arithmetic being done first, you can always use
@@ -731,17 +744,17 @@ class Interpreter {
                                 return false;
                             }
                         }
-                        fValue = _castToBool(buf);
+                        fValue = castToBool(buf);
                         if (opcodenum == OpCodes.OP_NOTIF) {
                             fValue = !fValue;
                         }
-                        this.stack.pop();
+                        this._stack.pop();
                     }
                     this.vfExec.add(fValue);
                     break;
 
                 case OpCodes.OP_ELSE:
-                    if (this.vfExec.length == 0) {
+                    if (this.vfExec.isEmpty) {
                         this._errStr = 'SCRIPT_ERR_UNBALANCED_CONDITIONAL';
                         return false;
                     }
@@ -749,7 +762,7 @@ class Interpreter {
                     break;
 
                 case OpCodes.OP_ENDIF:
-                    if (this.vfExec.length == 0) {
+                    if (this.vfExec.isEmpty) {
                         this._errStr = 'SCRIPT_ERR_UNBALANCED_CONDITIONAL';
                         return false;
                     }
@@ -764,7 +777,7 @@ class Interpreter {
                         return false;
                     }
                     buf = this._stack.peek();
-                    fValue = _castToBool(buf);
+                    fValue = castToBool(buf);
                     if (fValue) {
                         this._stack.pop();
                     } else {
@@ -782,11 +795,11 @@ class Interpreter {
             // Stack ops
             //
                 case OpCodes.OP_TOALTSTACK:
-                    if (this.stack.length < 1) {
+                    if (this._stack.length < 1) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-                    this._altStack.push(this.stack.pop());
+                    this._altStack.push(this._stack.pop());
                     break;
 
                 case OpCodes.OP_FROMALTSTACK:
@@ -799,17 +812,17 @@ class Interpreter {
 
                 case OpCodes.OP_2DROP:
                 // (x1 x2 -- )
-                    if (this.stack.length < 2) {
+                    if (this._stack.length < 2) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-                    this.stack.pop();
-                    this.stack.pop();
+                    this._stack.pop();
+                    this._stack.pop();
                     break;
 
                 case OpCodes.OP_2DUP:
                 // (x1 x2 -- x1 x2 x1 x2)
-                    if (this.stack.length < 2) {
+                    if (this._stack.length < 2) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
@@ -821,7 +834,7 @@ class Interpreter {
 
                 case OpCodes.OP_3DUP:
                 // (x1 x2 x3 -- x1 x2 x3 x1 x2 x3)
-                    if (this.stack.length < 3) {
+                    if (this._stack.length < 3) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
@@ -847,156 +860,156 @@ class Interpreter {
 
                 case OpCodes.OP_2ROT:
                 // (x1 x2 x3 x4 x5 x6 -- x3 x4 x5 x6 x1 x2)
-                    if (this.stack.length < 6) {
+                    if (this._stack.length < 6) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-                    spliced = this.stack.splice(this.stack.length - 6, 2); //FIXME: Splice needs validation
-                    this.stack.push(spliced[0]);
-                    this.stack.push(spliced[1]);
+                    spliced = this._stack.splice(this._stack.length - 6, 2); //FIXME: Splice needs IMPLEMENTATION
+                    this._stack.push(spliced[0]);
+                    this._stack.push(spliced[1]);
                     break;
 
                 case OpCodes.OP_2SWAP:
                 // (x1 x2 x3 x4 -- x3 x4 x1 x2)
-                    if (this.stack.length < 4) {
+                    if (this._stack.length < 4) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-                    spliced = this.stack.splice(this.stack.length - 4, 2);
-                    this.stack.push(spliced[0]);
-                    this.stack.push(spliced[1]);
+                    spliced = this._stack.splice(this._stack.length - 4, 2);
+                    this._stack.push(spliced[0]);
+                    this._stack.push(spliced[1]);
                     break;
 
                 case OpCodes.OP_IFDUP:
                 // (x - 0 | x x)
-                    if (this.stack.length < 1) {
+                    if (this._stack.length < 1) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-                    buf = stacktop(-1);
-                    fValue = _castToBool(buf);
+                    buf = this._stack.peek();
+                    fValue = castToBool(buf);
                     if (fValue) {
-                        this.stack.push(buf);
+                        this._stack.push(buf);
                     }
                     break;
 
                 case OpCodes.OP_DEPTH:
                 // -- stacksize
-                    buf = BigInt.from(this.stack.length).toRadixString(16);
+                    buf = BigInt.from(this._stack.length).toRadixString(16);
                     if (buf == "0") { //don't push zero, push empty string instead
                         buf = "";
                     }
 
-                    this.stack.push(buf);
+                    this._stack.push(buf);
                     break;
 
                 case OpCodes.OP_DROP:
                 // (x -- )
-                    if (this.stack.length < 1) {
+                    if (this._stack.length < 1) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-                    this.stack.pop();
+                    this._stack.pop();
                     break;
 
                 case OpCodes.OP_DUP:
                 // (x -- x x)
-                    if (this.stack.length < 1) {
+                    if (this._stack.length < 1) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-                    this.stack.push(this.stack.peek());
+                    this._stack.push(this._stack.peek());
                     break;
 
                 case OpCodes.OP_NIP:
                 // (x1 x2 -- x2)
-                    if (this.stack.length < 2) {
+                    if (this._stack.length < 2) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-                    this.stack.splice(this.stack.length - 2, 1);
+                    this._stack.splice(this._stack.length - 2, 1);
                     break;
 
                 case OpCodes.OP_OVER:
                 // (x1 x2 -- x1 x2 x1)
-                    if (this.stack.length < 2) {
+                    if (this._stack.length < 2) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-                    this.stack.push(this.stack.peek(index: -2));
+                    this._stack.push(this._stack.peek(index: -2));
                     break;
 
                 case OpCodes.OP_PICK:
                 case OpCodes.OP_ROLL:
                 // (xn ... x2 x1 x0 n - xn ... x2 x1 x0 xn)
                 // (xn ... x2 x1 x0 n - ... x2 x1 x0 xn)
-                    if (this.stack.length < 2) {
+                    if (this._stack.length < 2) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-                    buf = this.stack.peek();
+                    buf = this._stack.peek();
                     bn = BigInt.parse(buf, radix: 16);
                     n = bn.toInt();
-                    this.stack.pop();
-                    if (n < 0 || n >= this.stack.length) {
+                    this._stack.pop();
+                    if (n < 0 || n >= this._stack.length) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-                    buf = this.stack.peek(index: -n - 1);
+                    buf = this._stack.peek(index: -n - 1);
                     if (opcodenum == OpCodes.OP_ROLL) {
-                        this.stack.splice(this.stack.length - n - 1, 1);
+                        this._stack.splice(this._stack.length - n - 1, 1);
                     }
-                    this.stack.push(buf);
+                    this._stack.push(buf);
                     break;
 
                 case OpCodes.OP_ROT:
                 // (x1 x2 x3 -- x2 x3 x1)
                 //  x2 x1 x3  after first swap
                 //  x2 x3 x1  after second swap
-                    if (this.stack.length < 3) {
+                    if (this._stack.length < 3) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-                    x1 = this.stack.peek(index: -3);
-                    x2 = this.stack.peek(index: -2);
-                    var x3 = this.stack.peek(index: -1);
-                    this.stack.replaceAt(this.stack.length - 3, x2);
-                    this.stack.replaceAt(this.stack.length - 2, x3);
-                    this.stack.replaceAt(this.stack.length - 1, x1);
+                    x1 = this._stack.peek(index: -3);
+                    x2 = this._stack.peek(index: -2);
+                    var x3 = this._stack.peek(index: -1);
+                    this._stack.replaceAt(this._stack.length - 3, x2);
+                    this._stack.replaceAt(this._stack.length - 2, x3);
+                    this._stack.replaceAt(this._stack.length - 1, x1);
                     break;
 
                 case OpCodes.OP_SWAP:
                 // (x1 x2 -- x2 x1)
-                    if (this.stack.length < 2) {
+                    if (this._stack.length < 2) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-                    x1 = this.stack.peek(index: -2);
-                    x2 = this.stack.peek(index: -1);
-                    this.stack.replaceAt(this.stack.length - 2, x2);
-                    this.stack.replaceAt(this.stack.length - 1, x1);
+                    x1 = this._stack.peek(index: -2);
+                    x2 = this._stack.peek(index: -1);
+                    this._stack.replaceAt(this._stack.length - 2, x2);
+                    this._stack.replaceAt(this._stack.length - 1, x1);
                     break;
 
                 case OpCodes.OP_TUCK:
                 // (x1 x2 -- x2 x1 x2)
-                    if (this.stack.length < 2) {
+                    if (this._stack.length < 2) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-//        this.stack.splice(this.stack.length - 2, 0, stacktop(-1));
-                    this.stack.splice(this.stack.length - 2, 0, values: [stack.peek()]);
+//        this._stack.splice(this._stack.length - 2, 0, stacktop(-1));
+                    this._stack.splice(this._stack.length - 2, 0, values: stack.peek());
                     break;
 
                 case OpCodes.OP_SIZE:
                 // (in -- in size)
-                    if (this.stack.length < 1) {
+                    if (this._stack.length < 1) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
                     bn = BigInt.from(stack
                         .peek()
                         .length);
-                    this.stack.push(bn.toRadixString(16));
+                    this._stack.push(bn.toRadixString(16));
                     break;
 
             //
@@ -1006,7 +1019,7 @@ class Interpreter {
                 case OpCodes.OP_OR:
                 case OpCodes.OP_XOR:
                 // (x1 x2 - out)
-                    if (this.stack.length < 2) {
+                    if (this._stack.length < 2) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
@@ -1041,12 +1054,12 @@ class Interpreter {
                     }
 
                     // And pop vch2.
-                    this.stack.pop();
+                    this._stack.pop();
                     break;
 
                 case OpCodes.OP_INVERT:
                 // (x -- out)
-                    if (this.stack.length < 1) {
+                    if (this._stack.length < 1) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                     }
                     buf = stack.peek();
@@ -1058,23 +1071,23 @@ class Interpreter {
                 case OpCodes.OP_LSHIFT:
                 case OpCodes.OP_RSHIFT:
                 // (x n -- out)
-                    if (this.stack.length < 2) {
+                    if (this._stack.length < 2) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
                     buf1 = stack.peek(index: -2);
-                    if (buf1.length == 0) {
-                        this.stack.pop();
+                    if (buf1.isEmpty) {
+                        this._stack.pop();
                     } else {
-                        bn1 = BigInt.parse(buf1, radix: 16);
-                        bn2 = BigInt.parse(stack.peek(), radix: 16);
+                        bn1 = BigInt.parse(HEX.encode(buf1), radix: 16);
+                        bn2 = BigInt.parse(HEX.encode(stack.peek()), radix: 16);
                         n = bn2.toInt();
                         if (n < 0) {
                             this._errStr = 'SCRIPT_ERR_INVALID_NUMBER_RANGE';
                             return false;
                         }
-                        this.stack.pop();
-                        this.stack.pop();
+                        this._stack.pop();
+                        this._stack.pop();
                         var shifted;
                         if (opcodenum == OpCodes.OP_LSHIFT) {
                             shifted = bn1 << n; // bn1.ushln(n);
@@ -1087,8 +1100,8 @@ class Interpreter {
                         // in contrast to the bitcoin client implementation which drops off the carried bits
                         // in other words, if operand was 1 byte then we put 1 byte back on the stack instead of expanding to more shifted bytes
 //          let bufShifted = padBufferToSize(Buffer.from(shifted.toArray().slice(buf1.length * -1)), buf1.length)
-//          this.stack.push(bufShifted)
-                        this.stack.push(shifted); //FIXME: validate this
+//          this._stack.push(bufShifted)
+                        this._stack.push(shifted); //FIXME: validate this
                     }
                     break;
 
@@ -1096,19 +1109,19 @@ class Interpreter {
                 case OpCodes.OP_EQUALVERIFY:
                 // case OpCodes.OP_NOTEQUAL: // use Opcode.OP_NUMNOTEQUAL
                 // (x1 x2 - bool)
-                    if (this.stack.length < 2) {
+                    if (this._stack.length < 2) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
                     buf1 = stack.peek(index: -2);
                     buf2 = stack.peek(index: -1);
-                    var fEqual = buf1 == buf2;
-                    this.stack.pop();
-                    this.stack.pop();
-                    this.stack.push(fEqual ? 1.toRadixString(16) : ""); //FIXME: pushing true and false to stack. Is works ?
+                    bool fEqual = ListEquality().equals(buf1, buf2);
+                    this._stack.pop();
+                    this._stack.pop();
+                    this._stack.push(fEqual ? TRUE : FALSE); //FIXME: pushing true and false to stack. Is works ?
                     if (opcodenum == OpCodes.OP_EQUALVERIFY) {
                         if (fEqual) {
-                            this.stack.pop();
+                            this._stack.pop();
                         } else {
                             this._errStr = 'SCRIPT_ERR_EQUALVERIFY';
                             return false;
@@ -1126,7 +1139,7 @@ class Interpreter {
                 case OpCodes.OP_NOT:
                 case OpCodes.OP_0NOTEQUAL:
                 // (in -- out)
-                    if (this.stack.length < 1) {
+                    if (this._stack.length < 1) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
@@ -1148,24 +1161,26 @@ class Interpreter {
                             }
                             break;
                         case OpCodes.OP_NOT:
-                            if (bn == BigInt.zero)
+                            if (bn == BigInt.zero) {
                                 bn = BigInt.one;
-                            else if (bn == BigInt.one)
+                            }else if (bn == BigInt.one) {
                                 bn = BigInt.zero;
-                            else
+                            }else {
                                 bn = BigInt.zero;
+                            }
 
                             break;
                         case OpCodes.OP_0NOTEQUAL:
-                            if (bn == BigInt.zero)
+                            if (bn == BigInt.zero) {
                                 bn = BigInt.zero;
-                            else
+                            }else {
                                 bn = BigInt.one;
+                            }
                             break;
                     // default:      assert(!'invalid opcode'); break; // TODO: does this ever occur?
                     }
-                    this.stack.pop();
-                    this.stack.push(bn.toRadixString(16));
+                    this._stack.pop();
+                    this._stack.push(bn.toRadixString(16));
                     break;
 
                 case OpCodes.OP_ADD:
@@ -1185,12 +1200,12 @@ class Interpreter {
                 case OpCodes.OP_MIN:
                 case OpCodes.OP_MAX:
                 // (x1 x2 -- out)
-                    if (this.stack.length < 2) {
+                    if (this._stack.length < 2) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-                    bn1 = BigInt.parse(stack.peek(index: -2), radix: 16);
-                    bn2 = BigInt.parse(stack.peek(), radix: 16);
+                    bn1 = BigInt.parse(HEX.encode(stack.peek(index: -2)), radix: 16);
+                    bn2 = BigInt.parse(HEX.encode(stack.peek()), radix: 16);
                     bn = BigInt.zero;
 
                     switch (opcodenum) {
@@ -1267,14 +1282,14 @@ class Interpreter {
                             break;
                     // default:           assert(!'invalid opcode'); break; //TODO: does this ever occur?
                     }
-                    this.stack.pop();
-                    this.stack.pop();
-                    this.stack.push(bn.toRadixString(16));
+                    this._stack.pop();
+                    this._stack.pop();
+                    this._stack.push(bn.toRadixString(16));
 
                     if (opcodenum == OpCodes.OP_NUMEQUALVERIFY) {
                         // if (CastToBool(stacktop(-1)))
-                        if (_castToBool(stack.peek())) {
-                            this.stack.pop();
+                        if (castToBool(stack.peek())) {
+                            this._stack.pop();
                         } else {
                             this._errStr = 'SCRIPT_ERR_NUMEQUALVERIFY';
                             return false;
@@ -1284,19 +1299,19 @@ class Interpreter {
 
                 case OpCodes.OP_WITHIN:
                 // (x min max -- out)
-                    if (this.stack.length < 3) {
+                    if (this._stack.length < 3) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-                    bn1 = BigInt.parse(stack.peek(index: -3), radix: 16);
-                    bn2 = BigInt.parse(stack.peek(index: -2), radix: 16);
-                    var bn3 = BigInt.parse(stack.peek(), radix: 16);
+                    bn1 = BigInt.parse(HEX.encode(stack.peek(index: -3)), radix: 16);
+                    bn2 = BigInt.parse(HEX.encode(stack.peek(index: -2)), radix: 16);
+                    var bn3 = BigInt.parse(HEX.encode(stack.peek()), radix: 16);
                     // bool fValue = (bn2 <= bn1 && bn1 < bn3);
                     fValue = (bn2.compareTo(bn1) <= 0) && (bn1.compareTo(bn3) < 0);
                     stack.pop();
                     stack.pop();
                     stack.pop();
-                    stack.push(fValue ? BigInt.one.toRadixString(16) : "");
+                    stack.push(fValue ? TRUE : FALSE);
                     break;
 
             //
@@ -1308,14 +1323,14 @@ class Interpreter {
                 case OpCodes.OP_HASH160:
                 case OpCodes.OP_HASH256:
                 // (in -- hash)
-                    if (this.stack.length < 1) {
+                    if (this._stack.length < 1) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-                    buf = HEX.decode(stack.peek());
+                    buf = stack.peek();
                     // valtype vchHash((opcode === OpCodes.OP_RIPEMD160 ||
                     //                 opcode === OpCodes.OP_SHA1 || opcode === Opcode.OP_HASH160) ? 20 : 32);
-                    var bufHash;
+                    List<int> bufHash;
                     if (opcodenum == OpCodes.OP_RIPEMD160) {
                         bufHash = ripemd160(buf);
                     } else if (opcodenum == OpCodes.OP_SHA1) {
@@ -1327,8 +1342,8 @@ class Interpreter {
                     } else if (opcodenum == OpCodes.OP_HASH256) {
                         bufHash = sha256Twice(buf);
                     }
-                    this.stack.pop();
-                    this.stack.push(HEX.encode(bufHash));
+                    this._stack.pop();
+                    this._stack.push(bufHash);
                     break;
 
                 case OpCodes.OP_CODESEPARATOR:
@@ -1339,13 +1354,13 @@ class Interpreter {
                 case OpCodes.OP_CHECKSIG:
                 case OpCodes.OP_CHECKSIGVERIFY:
                 // (sig pubkey -- bool)
-                    if (this.stack.length < 2) {
+                    if (this._stack.length < 2) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
 
-                    bufSig = stack.peek(index: -2);
-                    bufPubkey = stack.peek();
+                    bufSig = this._stack.peek(index: -2);
+                    bufPubkey = this._stack.peek();
 
                     //FIXME: check flags
                     if (!checkSignatureEncoding(bufSig, 0) || !checkPubkeyEncoding(bufPubkey)) {
@@ -1353,40 +1368,40 @@ class Interpreter {
                     }
 
                     // Subset of script starting at the most recent codeseparator
-                    // CScript scriptCode(pbegincodehash, pend);
                     SVScript subscript = SVScript.fromChunks(this._script.chunks.sublist(this.pbegincodehash));
 
                     // Drop the signature, since there's no way for a signature to sign itself
-                    var tmpScript = SVScript.fromByteArray(HEX.decode(bufSig));
+                    var tmpScript = SVScript.fromByteArray(Uint8List.fromList(bufSig));
                     subscript.findAndDelete(tmpScript);
 
                     try {
-                        pubkey = SVPublicKey.fromHex(bufPubkey);
-//                        sig = SVSignature.fromTxFormat(bufSig);
+                        pubkey = SVPublicKey.fromHex(HEX.encode(bufPubkey));
                         sig = SVSignature.fromPublicKey(pubkey);
 
-//                        fSuccess = this._tx.verifySignature(sig, pubkey, this._nin, subscript, this._satoshis, this._flags);
                         String hash = Sighash().hash(this._tx, this._tx.sighashType, this._nin, subscript, this._satoshis, flags: this._flags);
-                        var reversedHash = HEX.encode(HEX.decode(hash).reversed.toList());
-                        fSuccess = sig.verify(reversedHash, SVSignature.fromTxFormat(bufSig).toString());
+                        var reversedHash = HEX.encode(HEX
+                            .decode(hash)
+                            .reversed
+                            .toList());
+                        fSuccess = sig.verify(reversedHash, SVSignature.fromTxFormat(HEX.encode(bufSig)).toString());
                     } catch (e) {
                         // invalid sig or pubkey
                         fSuccess = false;
                     }
 
-                    if (!fSuccess && (this.flags & Interpreter.SCRIPT_VERIFY_NULLFAIL != 0) && bufSig.length) {
+                    if (!fSuccess && (this.flags & Interpreter.SCRIPT_VERIFY_NULLFAIL != 0) && bufSig.isNotEmpty) {
                         this._errStr = 'SCRIPT_ERR_NULLFAIL';
                         return false;
                     }
 
-                    this.stack.pop();
-                    this.stack.pop();
+                    this._stack.pop();
+                    this._stack.pop();
 
                     // stack.push_back(fSuccess ? vchTrue : vchFalse);
-                    this.stack.push(fSuccess ? 1.toRadixString(16) : ""); //FIXME: pushing true / false
+                    this._stack.push(fSuccess ? TRUE : FALSE);
                     if (opcodenum == OpCodes.OP_CHECKSIGVERIFY) {
                         if (fSuccess) {
-                            this.stack.pop();
+                            this._stack.pop();
                         } else {
                             this._errStr = 'SCRIPT_ERR_CHECKSIGVERIFY';
                             return false;
@@ -1399,12 +1414,12 @@ class Interpreter {
                 // ([sig ...] num_of_signatures [pubkey ...] num_of_pubkeys -- bool)
 
                     var i = 1;
-                    if (this.stack.length < i) {
+                    if (this._stack.length < i) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
 
-                    var nKeysCount = BigInt.parse(stack.peek(index: -i), radix: 16).toInt();
+                    var nKeysCount = BigInt.parse(HEX.encode(stack.peek(index: -i)), radix: 16).toInt();
                     // TODO: Keys and opcount are parameterized in client. No magic numbers!
                     if (nKeysCount < 0 || nKeysCount > 20) {
                         this._errStr = 'SCRIPT_ERR_PUBKEY_COUNT';
@@ -1425,12 +1440,12 @@ class Interpreter {
                     // operation fails.
                     var ikey2 = nKeysCount + 2;
 
-                    if (this.stack.length < i) {
+                    if (this._stack.length < i) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
 
-                    var nSigsCount = BigInt.parse(stack.peek(index: -i), radix: 16).toInt();
+                    var nSigsCount = BigInt.parse(HEX.encode(stack.peek(index: -i)), radix: 16).toInt();
                     if (nSigsCount < 0 || nSigsCount > nKeysCount) {
                         this._errStr = 'SCRIPT_ERR_SIG_COUNT';
                         return false;
@@ -1438,7 +1453,7 @@ class Interpreter {
                     // int isig = ++i;
                     var isig = ++i;
                     i += nSigsCount;
-                    if (this.stack.length < i) {
+                    if (this._stack.length < i) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
@@ -1449,7 +1464,7 @@ class Interpreter {
                     // Drop the signatures, since there's no way for a signature to sign itself
                     for (var k = 0; k < nSigsCount; k++) {
                         bufSig = stack.peek(index: -isig - k);
-                        subscript.findAndDelete(SVScript.fromByteArray(HEX.decode(bufSig)));
+                        subscript.findAndDelete(SVScript.fromByteArray(Uint8List.fromList(bufSig)));
                     }
 
                     fSuccess = true;
@@ -1457,7 +1472,7 @@ class Interpreter {
                         // valtype& vchSig  = stacktop(-isig);
                         bufSig = stack.peek(index: -isig);
                         // valtype& vchPubKey = stacktop(-ikey);
-                        bufPubkey = stacktop(-ikey);
+                        bufPubkey = this._stack.peek(index: -ikey);
 
                         if (!checkSignatureEncoding(bufSig, 0) || !this.checkPubkeyEncoding(bufPubkey)) { //FIXME: flags !
                             return false;
@@ -1465,11 +1480,11 @@ class Interpreter {
 
                         var fOk;
                         try {
-                            sig = SVSignature.fromPublicKey(bufSig);
-                            pubkey = SVPublicKey.fromHex(bufPubkey);
+                            sig = SVSignature.fromPublicKey(SVPublicKey.fromHex(HEX.encode(bufSig)));
+                            pubkey = SVPublicKey.fromHex(HEX.encode(bufPubkey));
 //                            fOk = this._tx.verifySignature(sig, pubkey, this._nin, subscript, this._satoshis, this.flags);
                             String hash = Sighash().hash(this._tx, this._tx.sighashType, this._nin, subscript, this._satoshis);
-                            fOk = sig.verify(hash, bufSig);
+                            fOk = sig.verify(hash, HEX.encode(bufSig));
                         } catch (e) {
                             // invalid sig or pubkey
                             fOk = false;
@@ -1502,7 +1517,7 @@ class Interpreter {
                             ikey2--;
                         }
 
-                        this.stack.pop();
+                        this._stack.pop();
                     }
 
                     // A bug causes CHECKMULTISIG to consume one extra argument
@@ -1511,7 +1526,7 @@ class Interpreter {
                     // Unfortunately this is a potential source of mutability,
                     // so optionally verify it is exactly equal to zero prior
                     // to removing it from the stack.
-                    if (this.stack.length < 1) {
+                    if (this._stack.length < 1) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
@@ -1521,13 +1536,13 @@ class Interpreter {
                         this._errStr = 'SCRIPT_ERR_SIG_NULLDUMMY';
                         return false;
                     }
-                    this.stack.pop();
+                    this._stack.pop();
 
-                    this.stack.push(fSuccess ? 1.toRadixString(16) : "");
+                    this._stack.push(fSuccess ? TRUE : FALSE);
 
                     if (opcodenum == OpCodes.OP_CHECKMULTISIGVERIFY) {
                         if (fSuccess) {
-                            this.stack.pop();
+                            this._stack.pop();
                         } else {
                             this._errStr = 'SCRIPT_ERR_CHECKMULTISIGVERIFY';
                             return false;
@@ -1539,7 +1554,7 @@ class Interpreter {
             // Byte string operations
             //
                 case OpCodes.OP_CAT:
-                    if (this.stack.length < 2) {
+                    if (this._stack.length < 2) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
@@ -1550,19 +1565,19 @@ class Interpreter {
                         this._errStr = 'SCRIPT_ERR_PUSH_SIZE';
                         return false;
                     }
-                    this.stack.replaceAt(this.stack.length - 2, buf1 + buf2);
-                    this.stack.pop();
+                    this._stack.replaceAt(this._stack.length - 2, buf1 + buf2);
+                    this._stack.pop();
                     break;
 
                 case OpCodes.OP_SPLIT:
-                    if (this.stack.length < 2) {
+                    if (this._stack.length < 2) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
                     buf1 = stack.peek(index: -2);
 
                     // Make sure the split point is apropriate.
-                    var position = BigInt.parse(stack.peek(), radix: 16).toInt();
+                    var position = BigInt.parse(HEX.encode(stack.peek()), radix: 16).toInt();
                     if (position < 0 || position > buf1.length) {
                         this._errStr = 'SCRIPT_ERR_INVALID_SPLIT_RANGE';
                         return false;
@@ -1571,11 +1586,11 @@ class Interpreter {
                     // Prepare the results in their own buffer as `data`
                     // will be invalidated.
                     // Copy buffer data, to slice it before
-                    String n1 = buf1;
+                    List<int> n1 = buf1;
 
                     // Replace existing stack values by the new values.
-                    this.stack.replaceAt(this.stack.length - 2, n1.substring(0, position));
-                    this.stack.replaceAt(this.stack.length - 1, n1.substring(position));
+                    this._stack.replaceAt(this._stack.length - 2, n1.sublist(0, position));
+                    this._stack.replaceAt(this._stack.length - 1, n1.sublist(position));
                     break;
 
             //
@@ -1583,25 +1598,26 @@ class Interpreter {
             //
                 case OpCodes.OP_NUM2BIN:
                 // (in -- out)
-                    if (this.stack.length < 2) {
+                    if (this._stack.length < 2) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
 
-                    var size = BigInt.parse(stack.peek(), radix: 16).toInt();
+                    //FIXME: This is probably wrong!
+                    // https://www.bitcoincash.org/spec/may-2018-reenabled-opcodes.html
+
+                    var size = BigInt.parse(HEX.encode(stack.peek()), radix: 16).toInt();
                     if (size > Interpreter.MAX_SCRIPT_ELEMENT_SIZE) {
                         this._errStr = 'SCRIPT_ERR_PUSH_SIZE';
                         return false;
                     }
 
-                    this.stack.pop();
+                    this._stack.pop();
                     var rawnum = stack.peek();
 
                     // Try to see if we can fit that number in the number of
                     // byte requested.
-                    if (int
-                        .parse(rawnum, radix: 16)
-                        .bitLength > size * 8) {
+                    if (int.parse(HEX.encode(rawnum), radix: 16).bitLength > size * 8) {
                         // We definitively cannot.
                         this._errStr = 'SCRIPT_ERR_IMPOSSIBLE_ENCODING';
                         return false;
@@ -1610,7 +1626,7 @@ class Interpreter {
                     // We already have an element of the right size, we
                     // don't need to do anything.
                     if (rawnum.length == size) {
-                        this.stack.replaceAt(this.stack.length - 1, rawnum);
+                        this._stack.replaceAt(this._stack.length - 1, rawnum);
                         break;
                     }
 
@@ -1631,7 +1647,7 @@ class Interpreter {
 
         num[l] = signbit
 
-        this.stack[this.stack.length - 1] = num
+        this._stack[this._stack.length - 1] = num
 
          */
                     break;
@@ -1639,7 +1655,7 @@ class Interpreter {
                 case OpCodes.OP_BIN2NUM:
                 /*FIXME: OP_BIN2NUM is Borked. FIX !
         // (in -- out)
-        if (this.stack.length < 1) {
+        if (this._stack.length < 1) {
           this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION'
           return false
         }
@@ -1647,7 +1663,7 @@ class Interpreter {
         buf1 = stacktop(-1)
         buf2 = Interpreter._minimallyEncode(buf1)
 
-        this.stack[this.stack.length - 1] = buf2
+        this._stack[this._stack.length - 1] = buf2
 
         // The resulting number must be a valid number.
         if (!Interpreter._isMinimallyEncoded(buf2)) {
@@ -1666,7 +1682,10 @@ class Interpreter {
         return true;
     }
 
-    void _callbackStep(Map<String, int> thisStep) {}
+    void _callbackStep(Map<String, int> thisStep) {
+
+
+    }
 
     bool checkLockTime(BigInt nLockTime) {
         return false;
@@ -1676,13 +1695,14 @@ class Interpreter {
         return false;
     }
 
-    bool checkPubkeyEncoding(String bufPubkey) {
-        if ((this.flags & Interpreter.SCRIPT_VERIFY_STRICTENC) != 0 && !SVPublicKey.isValid(bufPubkey)) {
+    bool checkPubkeyEncoding(List<int> pubkey) {
+        if ((this.flags & Interpreter.SCRIPT_VERIFY_STRICTENC) != 0 && !SVPublicKey.isValid(HEX.encode(pubkey))) {
             this._errStr = 'SCRIPT_ERR_PUBKEYTYPE';
             return false;
         }
         return true;
     }
+
 
 
 }

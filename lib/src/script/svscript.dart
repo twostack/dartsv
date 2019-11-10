@@ -52,11 +52,13 @@ mixin ScriptBuilder {
     String buildScript();
 }
 
+
+//FIXME: Move internal script representation to be consistently that of List<ScriptChunk>
 class SVScript with ScriptBuilder {
 
     String _script = "";
 
-    List<ScriptChunk> _chunks = List();
+    List<ScriptChunk> _chunks = [];
 
 //    bool _isDataOutFlag = false;
 
@@ -342,6 +344,66 @@ class SVScript with ScriptBuilder {
             }
         }
         return str;
+    }
+
+
+    add (obj) {
+        this._addByType(obj, false);
+    }
+
+    _addByType (obj, prepend) {
+        if (obj is  String) {
+            this._addOpcode(obj, prepend);
+        } else if (obj is num) {
+            this._addOpcode(obj, prepend);
+        } else if (obj is List<int>) {
+            this._addBuffer(obj, prepend);
+        } /*else if (obj instanceof Script) {
+            this.chunks = this.chunks.concat(obj.chunks)
+        } else if (typeof obj === 'object') {
+            this._insertAtPosition(obj, prepend)
+        }*/ else {
+            throw new ScriptException('Invalid script chunk');
+        }
+    }
+
+
+    _addBuffer(List<int> buf, prepend) {
+        var opcodenum;
+        var len = buf.length;
+        if (len >= 0 && len < OpCodes.OP_PUSHDATA1) {
+            opcodenum = len;
+        } else if (len < pow(2, 8)) {
+            opcodenum = OpCodes.OP_PUSHDATA1;
+        } else if (len < pow(2, 16)) {
+            opcodenum = OpCodes.OP_PUSHDATA2;
+        } else if (len < pow(2, 32)) {
+            opcodenum = OpCodes.OP_PUSHDATA4;
+        } else {
+            throw new ScriptException('You can\'t push that much data');
+        }
+
+        this._insertAtPosition(ScriptChunk( buf, len, opcodenum), prepend);
+    }
+
+    _insertAtPosition (ScriptChunk chunk, bool prepend) {
+        if (prepend) {
+            this._chunks.insert(0, chunk);
+        } else {
+            this._chunks.add(chunk);
+        }
+    }
+
+    _addOpcode(opcode, prepend) {
+        int op;
+        if (opcode is num) {
+            op = opcode;
+        } else if (opcode is String && OpCodes.opcodeMap.containsKey(opcode)) {
+            op = OpCodes.opcodeMap[opcode];
+        }
+
+        ScriptChunk chunk = ScriptChunk([], 0, op);
+        this._insertAtPosition(chunk, prepend);
     }
 
     @override
