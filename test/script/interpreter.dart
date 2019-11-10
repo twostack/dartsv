@@ -152,25 +152,15 @@ void main() {
   group('@castToBool', () {
     test('should cast these bufs to bool correctly', () {
 
-      /*
-      Interpreter.castToBool(new BN(0).toSM({
-        endian: 'little'
-      })).should.equal(false)
-      Interpreter.castToBool(Buffer.from('0080', 'hex')).should.equal(false) // negative 0
-       */
-
       expect(Interpreter().castBigIntToBool(BigInt.zero), equals(false));
 
-//      expect(Interpreter().castToBool(BigInt.zero.toRadixString(16)), equals(false));
-//      expect(Interpreter().castToBool(int.parse('0080', radix: 16)), equals(false) // negative 0
-      /*
-      Interpreter.castToBool(new BN(1).toSM({
-        endian: 'little'
-      })).should.equal(true)
-      Interpreter.castToBool(new BN(-1).toSM({
-        endian: 'little'
-      })).should.equal(true)
+      expect(Interpreter().castToBool(HEX.decode(BigInt.zero.toRadixString(16))), equals(false));
+      expect(Interpreter().castToBool(HEX.decode('0080')), equals(false)); // negative 0
+      expect(Interpreter().castToBool(HEX.decode(BigInt.one.toRadixString(16))), equals(true));
 
+      //FIXME: What do we do about lack of sign-magnitude representation in Dart ?
+//      expect(Interpreter().castToBool(HEX.decode(BigInt.from(-1).toRadixString(16))), equals(true));
+      /*
       var buf = Buffer.from('00', 'hex')
       var bool = BN.fromSM(buf, {
         endian: 'little'

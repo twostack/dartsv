@@ -473,7 +473,6 @@ class Interpreter {
         return true;
     }
 
-    //FIXME: castToBool might be expecting a List<int> instead of a String type !!!
     bool castToBool(List<int> buf) {
         for (var i = 0; i < buf.length; i++) {
             if (buf[i] != 0) {
