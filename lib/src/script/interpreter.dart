@@ -539,8 +539,8 @@ class Interpreter {
 
         // bool fExec = !count(vfExec.begin(), vfExec.end(), false);
         bool fExec = !this.vfExec.contains(false);
-        var buf, spliced, n, x1, x2, bn, bn1, bn2, subscript;
-        List<int> buf1, buf2, bufPubkey, bufSig;
+        var spliced, n, x1, x2, bn, bn1, bn2, subscript;
+        List<int> buf1, buf2, bufPubkey, bufSig, buf;
         SVSignature sig;
         SVPublicKey pubkey;
         var fValue, fSuccess;
@@ -604,7 +604,7 @@ class Interpreter {
                 // ( -- value)
                 // ScriptNum bn((int)opcode - (int)(OpCodes.OP_1 - 1));
                     n = opcodenum - (OpCodes.OP_1 - 1);
-                    buf = BigInt.from(n).toRadixString(16);
+                    buf = HEX.decode(BigInt.from(n).toRadixString(16));
                     this._stack.push(buf);
                     // The result of these opcodes should always be the minimal way to push the data
                     // they push, so no need for a CheckMinimalPush here.
@@ -895,9 +895,9 @@ class Interpreter {
 
                 case OpCodes.OP_DEPTH:
                 // -- stacksize
-                    buf = BigInt.from(this._stack.length).toRadixString(16);
-                    if (buf == "0") { //don't push zero, push empty string instead
-                        buf = "";
+                    buf = HEX.decode(BigInt.from(this._stack.length).toRadixString(16));
+                    if (this._stack.length == 0){
+                        buf = []; //don't push array with zero value, push empty string instead
                     }
 
                     this._stack.push(buf);
@@ -948,7 +948,7 @@ class Interpreter {
                         return false;
                     }
                     buf = this._stack.peek();
-                    bn = BigInt.parse(buf, radix: 16);
+                    bn = BigInt.parse(HEX.encode(buf), radix: 16);
                     n = bn.toInt();
                     this._stack.pop();
                     if (n < 0 || n >= this._stack.length) {
@@ -1144,7 +1144,7 @@ class Interpreter {
                         return false;
                     }
                     buf = stack.peek();
-                    bn = BigInt.parse(buf, radix: 16);
+                    bn = BigInt.parse(HEX.encode(buf), radix: 16);
                     switch (opcodenum) {
                         case OpCodes.OP_1ADD:
                             bn = bn + BigInt.one;
@@ -1284,7 +1284,7 @@ class Interpreter {
                     }
                     this._stack.pop();
                     this._stack.pop();
-                    this._stack.push(bn.toRadixString(16));
+                    this._stack.push(HEX.decode(bn.toRadixString(16)));
 
                     if (opcodenum == OpCodes.OP_NUMEQUALVERIFY) {
                         // if (CastToBool(stacktop(-1)))
