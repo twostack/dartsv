@@ -217,6 +217,15 @@ class Interpreter {
 
     int get flags => _flags;
 
+    SVScript get script => _script;
+
+    Interpreter();
+
+    Interpreter.fromScript(SVScript script, int flags){
+       this._script = script;
+       this._flags = flags;
+    }
+
     bool verifyScript(SVScript scriptSig, SVScript scriptPubkey, {Transaction tx , int nin = 0, int flags = 0, BigInt satoshis}) {
         if (tx == null) {
             tx = new Transaction();
@@ -1078,8 +1087,8 @@ class Interpreter {
                     if (buf1.isEmpty) {
                         this._stack.pop();
                     } else {
-                        bn1 = BigInt.parse(HEX.encode(buf1), radix: 16);
-                        bn2 = BigInt.parse(HEX.encode(stack.peek()), radix: 16);
+                        bn1 = BigInt.tryParse(HEX.encode(buf1), radix: 16) ?? BigInt.zero;
+                        bn2 = BigInt.tryParse(HEX.encode(stack.peek()), radix: 16) ?? BigInt.zero;
                         n = bn2.toInt();
                         if (n < 0) {
                             this._errStr = 'SCRIPT_ERR_INVALID_NUMBER_RANGE';
@@ -1087,7 +1096,7 @@ class Interpreter {
                         }
                         this._stack.pop();
                         this._stack.pop();
-                        var shifted;
+                        BigInt shifted;
                         if (opcodenum == OpCodes.OP_LSHIFT) {
                             shifted = bn1 << n; // bn1.ushln(n);
                         }
@@ -1100,7 +1109,7 @@ class Interpreter {
                         // in other words, if operand was 1 byte then we put 1 byte back on the stack instead of expanding to more shifted bytes
 //          let bufShifted = padBufferToSize(Buffer.from(shifted.toArray().slice(buf1.length * -1)), buf1.length)
 //          this._stack.push(bufShifted)
-                        this._stack.push(shifted); //FIXME: validate this
+                        this._stack.push(HEX.decode(shifted.toRadixString(16)));
                     }
                     break;
 

@@ -349,6 +349,7 @@ class SVScript with ScriptBuilder {
 
     add (obj) {
         this._addByType(obj, false);
+        return this;
     }
 
     _addByType (obj, prepend) {
@@ -408,8 +409,7 @@ class SVScript with ScriptBuilder {
 
     @override
     String buildScript() {
-        // TODO: implement buildScript
-        return null;
+        return "";
     }
 }
 
