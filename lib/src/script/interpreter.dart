@@ -1098,24 +1098,36 @@ class Interpreter {
                         this._stack.pop();
                         this._stack.pop();
                         BigInt shifted;
-                        if (opcodenum == OpCodes.OP_LSHIFT) {
-                            shifted = bn1 << n; // bn1.ushln(n);
-                        }
-                        if (opcodenum == OpCodes.OP_RSHIFT) {
-                            shifted = bn1 >> n;
-                        }
+
+
                         // bitcoin client implementation of l/rshift is unconventional, therefore this implementation is a bit unconventional
                         // bn library has shift functions however it expands the carried bits into a new byte
                         // in contrast to the bitcoin client implementation which drops off the carried bits
                         // in other words, if operand was 1 byte then we put 1 byte back on the stack instead of expanding to more shifted bytes
+                        if (opcodenum == OpCodes.OP_LSHIFT) {
+                            //Dart BigInt automagically right-pads the shifted bits
+                            shifted = bn1 << n; // bn1.ushln(n);
 
-                        //let bufShifted = padBufferToSize(Buffer.from(shifted.toArray().slice(buf1.length * -1)), buf1.length)
-                        //this._stack.push(bufShifted)
-                        if (n > 0) {
-                            var shiftedList = HEX.decode(shifted.toRadixString(16));
-                            this._stack.push( shiftedList.sublist(shiftedList.length - buf1.length));
-                        }else{
-                            this._stack.push( HEX.decode(shifted.toRadixString(16)));  //if no shift occured then don't drop bits
+                            if (n > 0) {
+                                var shiftedList = HEX.decode(shifted.toRadixString(16));
+                                this._stack.push( shiftedList.sublist(shiftedList.length - buf1.length));
+                            }else{
+                                this._stack.push( HEX.decode(shifted.toRadixString(16)));  //if no shift occured then don't drop bits
+                            }
+
+                        }
+                        if (opcodenum == OpCodes.OP_RSHIFT) {
+                            shifted = bn1 >> n;
+
+                            //Dart BigInt DOES NOT automagically left-pad the shifted bits, so we add them back
+                            var padding = shifted.toRadixString(16).padLeft(buf1.length*2, '0');
+
+                            if (n > 0) {
+                                var shiftedList = HEX.decode(padding);
+                                this._stack.push( shiftedList.sublist(shiftedList.length - buf1.length));
+                            }else{
+                                this._stack.push( HEX.decode(shifted.toRadixString(16)));  //if no shift occured then don't drop bits
+                            }
                         }
 
                     }
