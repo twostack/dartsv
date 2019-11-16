@@ -197,84 +197,103 @@ void main() {
     });
 
 
-   /*
-    it('should shift left 1', function () {
-      const interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x01], Opcode.OP_LSHIFT)
-      const result = interp.stack.pop()
-      result.toString('hex').should.equal(toBitpattern('00111110001000111110101010101010'))
-    })
-    it('should shift left 2', function () {
-      const interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x02], Opcode.OP_LSHIFT)
-      const result = interp.stack.pop()
-      result.toString('hex').should.equal(toBitpattern('01111100010001111101010101010100'))
-    })
-    it('should shift left 3', function () {
-      const interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x03], Opcode.OP_LSHIFT)
-      const result = interp.stack.pop()
-      result.toString('hex').should.equal(toBitpattern('11111000100011111010101010101000'))
-    })
-    it('should shift left 4', function () {
-      const interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x04], Opcode.OP_LSHIFT)
-      const result = interp.stack.pop()
-      result.toString('hex').should.equal(toBitpattern('11110001000111110101010101010000'))
-    })
-    it('should shift left 5', function () {
-      const interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x05], Opcode.OP_LSHIFT)
-      const result = interp.stack.pop()
-      result.toString('hex').should.equal(toBitpattern('11100010001111101010101010100000'))
-    })
-    it('should shift left 6', function () {
-      const interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x06], Opcode.OP_LSHIFT)
-      const result = interp.stack.pop()
-      result.toString('hex').should.equal(toBitpattern('11000100011111010101010101000000'))
-    })
-    it('should shift left 7', function () {
-      const interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x07], Opcode.OP_LSHIFT)
-      const result = interp.stack.pop()
-      result.toString('hex').should.equal(toBitpattern('10001000111110101010101010000000'))
-    })
-    it('should shift left 08', function () {
-      const interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x08], Opcode.OP_LSHIFT)
-      const result = interp.stack.pop()
-      result.toString('hex').should.equal(toBitpattern('00010001111101010101010100000000'))
-    })
-    it('should shift left 9', function () {
-      const interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x09], Opcode.OP_LSHIFT)
-      const result = interp.stack.pop()
-      result.toString('hex').should.equal(toBitpattern('00100011111010101010101000000000'))
-    })
-    it('should shift left 0A', function () {
-      const interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x0A], Opcode.OP_LSHIFT)
-      const result = interp.stack.pop()
-      result.toString('hex').should.equal(toBitpattern('01000111110101010101010000000000'))
-    })
-    it('should shift left 0B', function () {
-      const interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x0B], Opcode.OP_LSHIFT)
-      const result = interp.stack.pop()
-      result.toString('hex').should.equal(toBitpattern('10001111101010101010100000000000'))
-    })
-    it('should shift left 0C', function () {
-      const interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x0C], Opcode.OP_LSHIFT)
-      const result = interp.stack.pop()
-      result.toString('hex').should.equal(toBitpattern('00011111010101010101000000000000'))
-    })
-    it('should shift left 0D', function () {
-      const interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x0D], Opcode.OP_LSHIFT)
-      const result = interp.stack.pop()
-      result.toString('hex').should.equal(toBitpattern('00111110101010101010000000000000'))
-    })
-    it('should shift left 0E', function () {
-      const interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x0E], Opcode.OP_LSHIFT)
-      const result = interp.stack.pop()
-      result.toString('hex').should.equal(toBitpattern('01111101010101010100000000000000'))
-    })
-    it('should shift left 0F', function () {
-      const interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x0F], Opcode.OP_LSHIFT)
-      const result = interp.stack.pop()
-      result.toString('hex').should.equal(toBitpattern('11111010101010101000000000000000'))
-    })
+    test('should shift left 1', () {
+      var interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x01], OpCodes.OP_LSHIFT);
+      var result = interp.stack.pop();
+      var bitPattern = toBitpattern('00111110001000111110101010101010');
+      expect(HEX.encode(result), equals(bitPattern));
+    });
 
-    */
+    test('should shift left 2', () {
+      var interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x02], OpCodes.OP_LSHIFT);
+      var result = interp.stack.pop();
+      var bitPattern = toBitpattern('01111100010001111101010101010100');
+      expect(HEX.encode(result), equals(bitPattern));
+    });
+
+    test('should shift left 3', () {
+      var interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x03], OpCodes.OP_LSHIFT);
+      var result = interp.stack.pop();
+      var bitPattern = toBitpattern('11111000100011111010101010101000');
+      expect(HEX.encode(result), equals(bitPattern));
+    });
+
+
+    test('should shift left 4', () {
+      var interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x04], OpCodes.OP_LSHIFT);
+      var result = interp.stack.pop();
+      var bitPattern = toBitpattern('11110001000111110101010101010000');
+      expect(HEX.encode(result), equals(bitPattern));
+    });
+
+    test('should shift left 5', () {
+      var interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x05], OpCodes.OP_LSHIFT);
+      var result = interp.stack.pop();
+      expect(HEX.encode(result), equals(toBitpattern('11100010001111101010101010100000')));
+    });
+
+    test('should shift left 6', () {
+      var interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x06], OpCodes.OP_LSHIFT);
+      var result = interp.stack.pop();
+      expect(HEX.encode(result), equals(toBitpattern('11000100011111010101010101000000')));
+    });
+
+    test('should shift left 7', () {
+      var interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x07], OpCodes.OP_LSHIFT);
+      var result = interp.stack.pop();
+      expect(HEX.encode(result), equals(toBitpattern('10001000111110101010101010000000')));
+    });
+
+    test('should shift left 8', () {
+      var interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x08], OpCodes.OP_LSHIFT);
+      var result = interp.stack.pop();
+      expect(HEX.encode(result), equals(toBitpattern('00010001111101010101010100000000')));
+    });
+
+    test('should shift left 9', () {
+      var interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x09], OpCodes.OP_LSHIFT);
+      var result = interp.stack.pop();
+      var bitPattern = toBitpattern('00100011111010101010101000000000');
+      expect(HEX.encode(result), equals(bitPattern));
+    });
+
+    test('should shift left 0A', () {
+      var interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x0A], OpCodes.OP_LSHIFT);
+      var result = interp.stack.pop();
+      expect(HEX.encode(result), equals(toBitpattern('01000111110101010101010000000000')));
+    });
+
+
+    test('should shift left 0B', () {
+      var interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x0B], OpCodes.OP_LSHIFT);
+      var result = interp.stack.pop();
+      expect(HEX.encode(result), equals(toBitpattern('10001111101010101010100000000000')));
+    });
+
+    test('should shift left 0C', () {
+      var interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x0C], OpCodes.OP_LSHIFT);
+      var result = interp.stack.pop();
+      expect(HEX.encode(result), equals(toBitpattern('00011111010101010101000000000000')));
+    });
+
+    test('should shift left 0D', () {
+      var interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x0D], OpCodes.OP_LSHIFT);
+      var result = interp.stack.pop();
+      expect(HEX.encode(result), equals(toBitpattern('00111110101010101010000000000000')));
+    });
+
+    test('should shift left 0E', () {
+      var interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x0E], OpCodes.OP_LSHIFT);
+      var result = interp.stack.pop();
+      expect(HEX.encode(result), equals(toBitpattern('01111101010101010100000000000000')));
+    });
+
+    test('should shift left 0F', () {
+      var interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [0x0F], OpCodes.OP_LSHIFT);
+      var result = interp.stack.pop();
+      expect(HEX.encode(result), equals(toBitpattern('11111010101010101000000000000000')));
+    });
+
   });
 
 

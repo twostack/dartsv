@@ -547,7 +547,8 @@ class Interpreter {
 
         // bool fExec = !count(vfExec.begin(), vfExec.end(), false);
         bool fExec = !this.vfExec.contains(false);
-        var spliced, n, x1, x2, bn, bn1, bn2, subscript;
+        var spliced, n, x1, x2, subscript;
+        BigInt bn, bn1, bn2;
         List<int> buf1, buf2, bufPubkey, bufSig, buf;
         SVSignature sig;
         SVPublicKey pubkey;
@@ -1017,7 +1018,7 @@ class Interpreter {
                     bn = BigInt.from(stack
                         .peek()
                         .length);
-                    this._stack.push(bn.toRadixString(16));
+                    this._stack.push(HEX.decode(bn.toRadixString(16)));
                     break;
 
             //
@@ -1107,9 +1108,16 @@ class Interpreter {
                         // bn library has shift functions however it expands the carried bits into a new byte
                         // in contrast to the bitcoin client implementation which drops off the carried bits
                         // in other words, if operand was 1 byte then we put 1 byte back on the stack instead of expanding to more shifted bytes
-//          let bufShifted = padBufferToSize(Buffer.from(shifted.toArray().slice(buf1.length * -1)), buf1.length)
-//          this._stack.push(bufShifted)
-                        this._stack.push(HEX.decode(shifted.toRadixString(16)));
+
+                        //let bufShifted = padBufferToSize(Buffer.from(shifted.toArray().slice(buf1.length * -1)), buf1.length)
+                        //this._stack.push(bufShifted)
+                        if (n > 0) {
+                            var shiftedList = HEX.decode(shifted.toRadixString(16));
+                            this._stack.push( shiftedList.sublist(shiftedList.length - buf1.length));
+                        }else{
+                            this._stack.push( HEX.decode(shifted.toRadixString(16)));  //if no shift occured then don't drop bits
+                        }
+
                     }
                     break;
 
@@ -1188,7 +1196,7 @@ class Interpreter {
                     // default:      assert(!'invalid opcode'); break; // TODO: does this ever occur?
                     }
                     this._stack.pop();
-                    this._stack.push(bn.toRadixString(16));
+                    this._stack.push(HEX.decode(bn.toRadixString(16)));
                     break;
 
                 case OpCodes.OP_ADD:
@@ -1235,7 +1243,7 @@ class Interpreter {
                                 this._errStr = 'SCRIPT_ERR_DIV_BY_ZERO';
                                 return false;
                             }
-                            bn = bn1 / bn2;
+                            bn = bn1 ~/ bn2;
                             break;
 
                         case OpCodes.OP_MOD:
