@@ -43,6 +43,7 @@ main() {
 //          expect(script.isPublicKeyHashOut(), isTrue);
 //          expect(script.toAddress().toString(), equals('1NaTVwXDDUJaXDQajoa9MqHhz4uTxtgK14'));
         });
+
     });
 
 

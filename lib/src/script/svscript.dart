@@ -66,6 +66,11 @@ class SVScript with ScriptBuilder {
 
 //    var _isPubkeyHash = false;
 
+//    SVScript.parse(String script){
+//        this._script = script;
+//        parse(script);
+//    }
+
     //FIXME: I'm not convinced this does what I think it does. Recheck !
     SVScript.fromString(String script){
 //        this._script = script;
@@ -78,12 +83,14 @@ class SVScript with ScriptBuilder {
         parse(script);
     }
 
+    _convertChunksToByteArray(){
+        String chunkString = this._chunks.fold("", (prev, elem) => prev + _chunkToString(elem, type: 'asm'));
+        this._byteArray = Uint8List.fromList(HEX.decode(chunkString.replaceAll(' ', '')));
+    }
+
     SVScript.fromChunks(List<ScriptChunk> chunks) {
         this._chunks = chunks;
-        String chunkString = chunks.fold("", (prev, elem) => prev + _chunkToString(elem, type: 'asm'));
-        this._byteArray = Uint8List.fromList(HEX.decode(chunkString.replaceAll(' ', '')));
-//        List<int> concatScript = chunks.fold(List<int>(), (prev, elem) => prev + elem.buf);
-//        this._byteArray = Uint8List.fromList(concatScript);
+        _convertChunksToByteArray();
     }
 
     SVScript.fromByteArray(Uint8List buffer) {
@@ -102,6 +109,127 @@ class SVScript with ScriptBuilder {
 //    }
 
 
+    SVScript.fromBitcoindString(String str) {
+        List<int> bw = [];
+        var tokens = str.split(' ');
+        for (var i = 0; i < tokens.length; i++) {
+            var token = tokens[i];
+            if (token == '') {
+                continue;
+            }
+
+            var opstr;
+            int opcodenum;
+            var tbuf;
+            if (token.startsWith("0x")) {
+                var hex = token.substring(2);
+                bw.addAll(HEX.decode(hex));
+                opcodenum = int.parse(token);
+            } else if (token[0] == '\'') {
+                String tstr = token.substring(1, token.length - 1);
+                tbuf = SVScript().add(tstr).buffer;
+                bw.addAll(tbuf);
+            } else if (OpCodes.opcodeMap.containsKey("OP_${token}")) {
+                opstr = 'OP_' + token;
+                opcodenum = OpCodes.opcodeMap[opstr];
+                bw.add(opcodenum);
+            } else if (OpCodes.opcodeMap[token] is num) {
+                opstr = token;
+                opcodenum = OpCodes.opcodeMap[opstr];
+                bw.add(opcodenum);
+            } else if (int.tryParse(token) != null) {
+                var script = SVScript()
+                    ..add(BigInt.tryParse(token));
+                tbuf = script.buffer;
+                bw.add(tbuf);
+            } else {
+                throw new ScriptException('Could not determine type of script value');
+            }
+        }
+        Uint8List buffer = Uint8List.fromList(bw);
+
+        _processBuffer(buffer);
+    }
+
+
+    SVScript.fromBuffer(Uint8List buffer) {
+        _processBuffer(buffer);
+    }
+
+    _processBuffer(Uint8List buffer){
+
+        Uint8List br = Uint8List.fromList(buffer);
+        int pos = 0;
+        for( int entry in br) {
+            var opcodenum = entry;
+            pos = pos + 1;
+            int len;
+            Uint8List buf;
+            if (opcodenum > 0 && opcodenum < OpCodes.OP_PUSHDATA1) {
+                len = opcodenum;
+                _chunks.add(ScriptChunk(
+                    br.sublist(pos, len + 1),
+                    len,
+                    opcodenum
+                ));
+                pos = pos + len + 1;
+                if (pos + len >= br.length) {
+                    break;
+                }
+            } else if (opcodenum == OpCodes.OP_PUSHDATA1) {
+                len = entry;
+                buf = br.sublist(0, len);
+                pos = pos + len;
+                _chunks.add(ScriptChunk(
+                    buf,
+                    len,
+                    opcodenum
+                ));
+                if (pos + len >= br.length) {
+                    break;
+                }
+            } else if (opcodenum == OpCodes.OP_PUSHDATA2) {
+                len = int.parse(HEX.encode(br.sublist(0, 2)), radix: 16); //read size of data (2 bytes)
+                buf = br.sublist(pos, len); //read the amount of data specified by "len"
+                pos = pos + len;
+
+                //Construct a scriptChunk
+                _chunks.add(ScriptChunk(
+                    buf,
+                    len,
+                    opcodenum
+                ));
+
+                if (pos + len >= br.length) {
+                    break;
+                }
+
+            } else if (opcodenum == OpCodes.OP_PUSHDATA4) {
+                len = int.parse(HEX.encode(br.sublist(0, 3)), radix: 16); //read size of data (4 bytes)
+                buf = br.sublist(pos, len); //read the amount of data specified by "len"
+                pos = pos + len;
+
+                _chunks.add(ScriptChunk(
+                    buf,
+                    len,
+                    opcodenum
+                ));
+
+                if (pos + len >= br.length) {
+                    break;
+                }
+            } else {
+                _chunks.add(ScriptChunk(
+                    [],
+                    0,
+                    opcodenum
+                ));
+            }
+        };
+
+        _convertChunksToByteArray();
+    }
+
     _processChunks(String script) {
         if (script
             .trim()
@@ -110,11 +238,22 @@ class SVScript with ScriptBuilder {
         }
 
         var tokenList = script.split(" "); //split on spaces
+        tokenList.removeWhere((token) =>
+        token
+            .trim()
+            .isEmpty);
 
         //encode tokens, leaving non-token elements intact
         for (var index = 0; index < tokenList.length;) {
             var token = tokenList[index];
+
+            //allow for cases where script author drops OP_ prefix
+//            if (OpCodes.opcodeMap.containsKey("OP_${token}")) {
+//                token = "OP_${token}";
+//            }
+
             var opcode = token;
+
             var opcodenum = OpCodes.opcodeMap[token];
 
             if (opcodenum == null) {
@@ -134,86 +273,15 @@ class SVScript with ScriptBuilder {
                 _chunks.add(ScriptChunk(HEX.decode(tokenList[index + 2].substring(2)), int.parse(tokenList[index + 1], radix: 16), opcodenum));
                 index = index + 3; //step by three
             } else {
-                chunks.add(ScriptChunk([], 0, opcodenum));
+                _chunks.add(ScriptChunk([], 0, opcodenum));
                 index = index + 1; //step by one
             }
         }
-
-        this._script = script;
-        parse(script);
     }
-
-
-//    /// standard pubkeyScript for P2PKH
-//    /// FIXME: this constructor name bothers me
-//    SVScript.buildPublicKeyHashOut(Address fromAddress) {
-//        var addressLength = HEX
-//            .decode(fromAddress.address)
-//            .length;
-//
-//        var destAddress = fromAddress.address;
-//        //FIXME: Another hack. For some reason some addresses don't have proper ripemd160 hashes of the hex value. Fix later !
-//        if (addressLength == 33) {
-//            addressLength = 20;
-//            destAddress = HEX.encode(hash160(HEX.decode(destAddress)));
-//        }
-//        this._script = sprintf("OP_DUP OP_HASH160 %s 0x%s OP_EQUALVERIFY OP_CHECKSIG", [addressLength, destAddress]);
-//        parse(this._script);
-//    }
-
-//    /// standard sigScript for P2PKH
-//    /// FIXME: this constructor name bothers me.
-//    SVScript.buildScriptSig(String signature, String pubKey){
-//        var pubKeySize = HEX
-//            .decode(pubKey)
-//            .length;
-//        var signatureSize = HEX
-//            .decode(signature)
-//            .length;
-//        this._script = sprintf("%s 0x%s %s 0x%s", [signatureSize, signature, pubKeySize, pubKey]);
-//        parse(this._script);
-//    }
-
-
-//    SVScript.buildDataOut(String data) {
-//        var opcodenum;
-//        var len = utf8
-//            .encode(data)
-//            .length;
-//        var encodedData = HEX.encode(utf8.encode(data));
-//
-//        if (len >= 0 && len < OpCodes.OP_PUSHDATA1) {
-//            opcodenum = len;
-//        } else if (len < pow(2, 8)) {
-//            opcodenum = OpCodes.OP_PUSHDATA1;
-//        } else if (len < pow(2, 16)) {
-//            opcodenum = OpCodes.OP_PUSHDATA2;
-//        } else if (len < pow(2, 32)) {
-//            opcodenum = OpCodes.OP_PUSHDATA4;
-//        } else {
-//            throw new ScriptException("You can't push that much data");
-//        }
-//
-//        if (len < OpCodes.OP_PUSHDATA1)
-//            this._script = sprintf("%s %s", [len, encodedData]);
-//        else
-//            this._script = sprintf("%s %s %s", [opcodenum, len, encodedData]);
-//
-//        this._isDataOutFlag = true;
-//
-//        parse(this._script);
-//    }
-
-
-//    SVScript.empty(){
-//        this._script = "";
-//    }
 
     Uint8List get buffer {
         return this._byteArray;
     }
-
-//    bool get isPubkeyHash => this._isPubkeyHash;
 
     String toString() {
         if (_chunks.isNotEmpty) {
@@ -235,7 +303,7 @@ class SVScript with ScriptBuilder {
         //encode tokens, leaving non-token elements intact
         var encodedList = tokenList.map((token) {
             var encodedToken = token;
-            if (OpCodes.opcodeMap[token.trim()] == null) { //if the token is not in the opCodeMap, it's data
+            if (OpCodes.opcodeMap[token.trim()] == null && OpCodes.opcodeMap["OP_${token.trim()}"] == null) { //if the token is not in the opCodeMap, it's data
 
                 if (token.indexOf("0x") >= 0 || tokenList.length == 1) { //it's either a 0x-prefixed bit of data, or a hex string
                     encodedToken = token.replaceAll("0x", ""); //strip hex coding identifier if any
@@ -250,12 +318,14 @@ class SVScript with ScriptBuilder {
                     } catch (ex) {}
                 }
             } else {
-                encodedToken = OpCodes.opcodeMap[token.trim()].toRadixString(16);
+                if (token.trim().startsWith("OP_")) {
+                    encodedToken = OpCodes.opcodeMap[token.trim()].toRadixString(16);
+                } else {
+                    encodedToken = OpCodes.opcodeMap["OP_${token.trim()}"].toRadixString(16);
+                }
             }
             return encodedToken;
         });
-
-//        this._isPubkeyHash = checkPubkeyHash(encodedList.toList());
 
         //remove spaces. conc
         String hex = encodedList.fold("", (prev, elem) => prev + elem);
@@ -267,9 +337,6 @@ class SVScript with ScriptBuilder {
     String toHex() {
         return HEX.encode(this._byteArray);
     }
-
-//    bool isDataOut() => this._isDataOutFlag;
-
 
     bool isPushOnly() {
         return _chunks.fold(true, (prev, chunk) {
@@ -337,7 +404,7 @@ class SVScript with ScriptBuilder {
             }
             if (chunk.len > 0) {
                 if (asm) {
-                    str = str + ' ' + chunk.len.toRadixString(16) + ' '+ HEX.encode(chunk.buf);
+                    str = str + ' ' + chunk.len.toRadixString(16) + ' ' + HEX.encode(chunk.buf);
                 } else {
                     str = str + ' ' + chunk.len.toString() + ' ' + '0x' + HEX.encode(chunk.buf);
                 }
@@ -347,19 +414,20 @@ class SVScript with ScriptBuilder {
     }
 
 
-    add (obj) {
+    add(obj) {
         this._addByType(obj, false);
         return this;
     }
 
-    _addByType (obj, prepend) {
-        if (obj is  String) {
+    _addByType(obj, prepend) {
+        if (obj is String) {
             this._addOpcode(obj, prepend);
         } else if (obj is num) {
             this._addOpcode(obj, prepend);
         } else if (obj is List<int>) {
             this._addBuffer(obj, prepend);
-        } /*else if (obj instanceof Script) {
+        }
+        /*else if (obj instanceof Script) {
             this.chunks = this.chunks.concat(obj.chunks)
         } else if (typeof obj === 'object') {
             this._insertAtPosition(obj, prepend)
@@ -384,10 +452,10 @@ class SVScript with ScriptBuilder {
             throw new ScriptException('You can\'t push that much data');
         }
 
-        this._insertAtPosition(ScriptChunk( buf, len, opcodenum), prepend);
+        this._insertAtPosition(ScriptChunk(buf, len, opcodenum), prepend);
     }
 
-    _insertAtPosition (ScriptChunk chunk, bool prepend) {
+    _insertAtPosition(ScriptChunk chunk, bool prepend) {
         if (prepend) {
             this._chunks.insert(0, chunk);
         } else {

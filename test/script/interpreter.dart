@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/privatekey.dart';
@@ -10,58 +12,57 @@ import 'package:hex/hex.dart';
 import 'package:test/test.dart';
 
 void main() {
-//  var scriptTests = require('../data/bitcoind/script_tests');
-//  var txValid     = require('../data/bitcoind/tx_valid');
-//  var txInvalid   = require('../data/bitcoind/tx_invalid');
 
-    // the script string format used in bitcoind data tests
-    fromBitcoindString(String str) {
-//    var bw = new BufferWriter();
-        List<int> bw = []; //growable list. Initialised as empty
 
-        List<String> tokens = str.split(' ');
-        for (var i = 0; i < tokens.length; i++) {
-            var token = tokens[i];
-            if (token == '') {
-                continue;
-            }
 
-            var opstr;
-            var opcodenum;
-            var tbuf;
-
-            if (token[0] == '0' && token[1] == 'x') {
-                var hex = token.substring(0, 2);
-//        bw.write(Buffer.from(hex, 'hex'));
-                bw.addAll(HEX.decode(hex));
-            } else if (token[0] == '\'') {
-                var tstr = token.substring(1, token.length - 1);
-//        var cbuf = Buffer.from(tstr);
-                var cbuf = utf8.encode(tstr);
-                SVScript script = SVScript()
-                    ..add(cbuf);
-                bw.addAll(script.buffer); //FIXME: This WILL BREAK ! Internally `buffer` does not honor scriptChunks!
-
-            } else if (!OpCodes.opcodeMap.containsKey('OP_' + token.toUpperCase())) {
-                opstr = 'OP_' + token;
-                opcodenum = OpCodes.opcodeMap[opstr];
-//        bw.writeUInt8(opcodenum);
-                bw.add(opcodenum);
-            } else if (OpCodes.opcodeMap.containsKey(token)) {
-                opstr = token;
-                opcodenum = OpCodes.opcodeMap[opstr];
-                bw.add(opcodenum);
-//        bw.writeUInt8(opcodenum);
-            } else if (BigInt.tryParse(token) != null) {
-                var script = SVScript()
-                    ..add(utf8.encode(BigInt.parse(token).toString())); //FIXME: meant to be little endian buffer. Might need reversing.
-                bw.addAll(script.buffer); //FIXME: This WILL BREAK ! Internally `buffer` does not honor scriptChunks!
-            } else {
-                throw new Exception('Could not determine type of script value');
-            }
-        }
-        return SVScript.fromByteArray(bw);
-    }
+//    // the script string format used in bitcoind data tests
+//    fromBitcoindString(String str) {
+////    var bw = new BufferWriter();
+//        List<int> bw = []; //growable list. Initialised as empty
+//
+//        List<String> tokens = str.split(' ');
+//        for (var i = 0; i < tokens.length; i++) {
+//            var token = tokens[i];
+//            if (token == '') {
+//                continue;
+//            }
+//
+//            var opstr;
+//            var opcodenum;
+//            var tbuf;
+//
+//            if (token[0] == '0' && token[1] == 'x') {
+//                var hex = token.substring(0, 2);
+////        bw.write(Buffer.from(hex, 'hex'));
+//                bw.addAll(HEX.decode(hex));
+//            } else if (token[0] == '\'') {
+//                var tstr = token.substring(1, token.length - 1);
+////        var cbuf = Buffer.from(tstr);
+//                var cbuf = utf8.encode(tstr);
+//                SVScript script = SVScript()
+//                    ..add(cbuf);
+//                bw.addAll(script.buffer); //FIXME: This WILL BREAK ! Internally `buffer` does not honor scriptChunks!
+//
+//            } else if (!OpCodes.opcodeMap.containsKey('OP_' + token.toUpperCase())) {
+//                opstr = 'OP_' + token;
+//                opcodenum = OpCodes.opcodeMap[opstr];
+////        bw.writeUInt8(opcodenum);
+//                bw.add(opcodenum);
+//            } else if (OpCodes.opcodeMap.containsKey(token)) {
+//                opstr = token;
+//                opcodenum = OpCodes.opcodeMap[opstr];
+//                bw.add(opcodenum);
+////        bw.writeUInt8(opcodenum);
+//            } else if (BigInt.tryParse(token) != null) {
+//                var script = SVScript()
+//                    ..add(utf8.encode(BigInt.parse(token).toString())); //FIXME: meant to be little endian buffer. Might need reversing.
+//                bw.addAll(script.buffer); //FIXME: This WILL BREAK ! Internally `buffer` does not honor scriptChunks!
+//            } else {
+//                throw new Exception('Could not determine type of script value');
+//            }
+//        }
+//        return SVScript.fromByteArray(bw);
+//    }
 
 
     getFlags(flagstr) {
@@ -462,12 +463,12 @@ void main() {
         });
     });
 
-    var testFixture = (vector, expected, extraData) {
-        var scriptSig = vector[0];
-        var scriptPubkey = SVScript.fromHex(vector[1]);
+    var testFixture = (vector, bool expected, extraData) {
+        var scriptSig = SVScript.fromBitcoindString(vector[0]);
+        var scriptPubkey = SVScript.fromBitcoindString(vector[1]);
         var flags = getFlags(vector[2]);
         var inputAmount = 0;
-        if (extraData) {
+        if (extraData != null) {
             inputAmount = extraData[0] * 1e8;
         }
 
@@ -494,7 +495,7 @@ void main() {
         var txSpendInput = new TransactionInput(
             idbuf,
             0,
-            scriptSig,
+            scriptSig.toString(),
             BigInt.zero,
             0xffffffff,
         );
@@ -506,8 +507,46 @@ void main() {
 
         var interp = new Interpreter();
         var verified = interp.verifyScript(scriptSig, scriptPubkey, tx: spendtx, nin: 0, flags: flags, satoshis: BigInt.from(inputAmount));
-        expect(verified, equals(interp.errstr));
+        expect(verified, equals(expected), reason: interp.errstr);
     };
+
+
+  test('bitcoind script evaluation fixtures', () async {
+
+//  var scriptTests = require('../data/bitcoind/script_tests');
+//  var txValid     = require('../data/bitcoind/tx_valid');
+//  var txInvalid   = require('../data/bitcoind/tx_invalid');
+
+      await File("${Directory.current.path}/test/data/bitcoind/script_tests.json")
+          .readAsString()
+          .then((contents) => jsonDecode(contents))
+          .then((jsonData) {
+          List.from(jsonData).forEach((vect) {
+
+              if (vect.length == 1){
+                  return;
+              }
+              var extraData;
+              if (vect[0] is List) {
+                  extraData = (vect as List<String>).removeAt(0);
+              }
+
+              String fullScriptString = "${vect[0]} ${vect[1]}";
+              bool expected = vect[3] == 'OK';
+              String comment = "";
+              if (vect.length > 4) {
+                  comment = vect[4];
+              }
+
+              var txt = "should ${vect[3]} script_tests vector : ${fullScriptString}${comment}";
+              print(txt);
+
+              testFixture(vect, expected, extraData);
+
+          });
+      });
+
+  });
 
     /*
 
@@ -706,31 +745,6 @@ describe('Interpreter', function () {
     })
   })
 
-  describe('bitcoind script evaluation fixtures', function () {
-    var testAllFixtures = function (set) {
-      var c = 0; var l = set.length
-      set.forEach(function (vector) {
-        if (vector.length === 1) {
-          return
-        }
-        c++
-
-        var extraData
-        if (_.isArray(vector[0])) {
-          extraData = vector.shift()
-        }
-
-        var fullScriptString = `${vector[0]} ${vector[1]}`
-        var expected = vector[3] === 'OK'
-        var descstr = vector[4]
-        var comment = descstr ? (` (${descstr})`) : ''
-        var txt = `should ${vector[3]} script_tests vector #${c}/${l}: ${fullScriptString}${comment}`
-
-        it(txt, function () { testFixture(vector, expected, extraData) })
-      })
-    }
-    testAllFixtures(scriptTests)
-  })
   describe('bitcoind transaction evaluation fixtures', function () {
     var testTxs = function (set, expected) {
       var c = 0
