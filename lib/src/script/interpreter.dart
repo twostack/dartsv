@@ -52,15 +52,19 @@ class Stack {
         return _queue.removeLast();
     }
 
-    //FIXME: Splice won't function on a Queue. We need a vector
-    splice(int index, int howMany, {List<int> values}) {
+    List<List<int>> splice(int index, int howMany, {List<int> values}) {
         List<List<int>> buffer = _queue.toList();
 
+        List<List<int>> removedItems = buffer.getRange(index, index+howMany).toList();
         buffer.removeRange(index, index+howMany);
 
+        if (values != null) {
+            buffer.insert(index, values);
+        }
         this._queue = Queue.from(buffer);
 
-//        _queue.
+        return removedItems;
+
     }
 
     /// Replace item at 'index' with 'value'
@@ -1013,7 +1017,6 @@ class Interpreter {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-//        this._stack.splice(this._stack.length - 2, 0, stacktop(-1));
                     this._stack.splice(this._stack.length - 2, 0, values: stack.peek());
                     break;
 
