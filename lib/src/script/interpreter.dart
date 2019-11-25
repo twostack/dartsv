@@ -637,11 +637,11 @@ class Interpreter {
                 case OpCodes.OP_NOP:
                     break;
 
-//      case OpCodes.OP_NOP2:
+//                case OpCodes.OP_NOP2: //same numeric as CHECKLOCKTIMEVERIFY. Core buggery.
                 case OpCodes.OP_CHECKLOCKTIMEVERIFY:
-                    if (!(this.flags & Interpreter.SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY == 0)) {
+                    if (!(this.flags & Interpreter.SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY != 0)) {
                         // not enabled; treat as a NOP2
-                        if (this.flags & Interpreter.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS == 0) {
+                        if (this.flags & Interpreter.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS != 0) {
                             this._errStr = 'SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS';
                             return false;
                         }
@@ -686,9 +686,9 @@ class Interpreter {
 
 //      case OpCodes.OP_NOP3:
                 case OpCodes.OP_CHECKSEQUENCEVERIFY:
-                    if (!(this.flags & Interpreter.SCRIPT_VERIFY_CHECKSEQUENCEVERIFY == 0)) {
+                    if (!(this.flags & Interpreter.SCRIPT_VERIFY_CHECKSEQUENCEVERIFY != 0)) {
                         // not enabled; treat as a NOP3
-                        if (this.flags & Interpreter.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS == 0) {
+                        if (this.flags & Interpreter.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS != 0) {
                             this._errStr = 'SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS';
                             return false;
                         }
