@@ -1104,7 +1104,7 @@ class Interpreter {
 //                        bn2 = BigInt.tryParse(HEX.encode(stack.peek()), radix: 16) ?? BigInt.zero;
 
                         bn1 = decodeBigInt(buf1);
-                        bn2 = fromScriptNumBuffer(stack.peek(), fRequireMinimal);
+                        bn2 = fromScriptNumBuffer(Uint8List.fromList(stack.peek()), fRequireMinimal);
 
                         n = bn2.toInt();
                         if (n < 0) {
@@ -1296,7 +1296,14 @@ class Interpreter {
                             break;
 
                         case OpCodes.OP_BOOLAND:
-                            bn = (bn1 == BigInt.zero && bn2 == BigInt.zero) ? BigInt.zero : BigInt.one;
+
+                            if((bn1.compareTo(BigInt.zero) != 0) && (bn2.compareTo(BigInt.zero) != 0)){
+                                bn = BigInt.one;
+                            }else{
+                                bn = BigInt.zero;
+                            }
+
+//                            bn = (bn1 == BigInt.zero && bn2 == BigInt.zero) ? BigInt.zero : BigInt.one;
                             break;
                     // case OpCodes.OP_BOOLOR:        bn = (bn1 !== bnZero || bn2 !== bnZero); break;
                         case OpCodes.OP_BOOLOR:
@@ -1360,13 +1367,9 @@ class Interpreter {
                         return false;
                     }
 
-                    bn1 = fromScriptNumBuffer(stack.peek(index: -3), fRequireMinimal);
-                    bn2 = fromScriptNumBuffer(stack.peek(index: -2), fRequireMinimal);
+                    bn1 = fromScriptNumBuffer(Uint8List.fromList(stack.peek(index: -3)), fRequireMinimal);
+                    bn2 = fromScriptNumBuffer(Uint8List.fromList(stack.peek(index: -2)), fRequireMinimal);
                     var bn3 = fromScriptNumBuffer(Uint8List.fromList(stack.peek()), fRequireMinimal);
-//                    bn1 = BigInt.parse(HEX.encode(stack.peek(index: -3)), radix: 16);
-//                    bn2 = BigInt.parse(HEX.encode(stack.peek(index: -2)), radix: 16);
-//                    var bn3 = BigInt.parse(HEX.encode(stack.peek()), radix: 16);
-                    // bool fValue = (bn2 <= bn1 && bn1 < bn3);
                     fValue = (bn2.compareTo(bn1) <= 0) && (bn1.compareTo(bn3) < 0);
                     stack.pop();
                     stack.pop();
@@ -1669,7 +1672,7 @@ class Interpreter {
                     //FIXME: This is probably wrong!
                     // https://www.bitcoincash.org/spec/may-2018-reenabled-opcodes.html
 
-                    var size = fromScriptNumBuffer(stack.peek(), fRequireMinimal).toInt();
+                    var size = fromScriptNumBuffer(Uint8List.fromList(stack.peek()), fRequireMinimal).toInt();
 //                    var size = BigInt.parse(HEX.encode(stack.peek()), radix: 16).toInt();
                     if (size > Interpreter.MAX_SCRIPT_ELEMENT_SIZE) {
                         this._errStr = 'SCRIPT_ERR_PUSH_SIZE';

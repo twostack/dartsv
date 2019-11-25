@@ -27,7 +27,7 @@ List<int> hash160(List<int> bytes) {
 
 
 List<int> ripemd160(List<int> bytes) {
-    var ripeHash = new RIPEMD160Digest().process(bytes);
+    var ripeHash = new RIPEMD160Digest().process(Uint8List.fromList(bytes));
     return ripeHash.toList();
 }
 
