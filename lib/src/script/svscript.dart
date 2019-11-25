@@ -145,8 +145,13 @@ class SVScript with ScriptBuilder {
                 opcodenum = OpCodes.opcodeMap[opstr];
                 bw.writeUint8(opcodenum);
             } else if (BigInt.tryParse(token) != null) {
+
+//                var script = Script().add(new BN(token).toScriptNumBuffer())
+//                tbuf = script.toBuffer()
+//                bw.write(tbuf)
+
                 var script = SVScript()
-                    ..add(Uint8List.fromList(encodeBigInt(BigInt.tryParse(token)).reversed.toList()));
+                    ..add(Uint8List.fromList(toScriptNumBuffer(BigInt.parse(token))));
                 tbuf = script.buffer;
                 bw.write(tbuf);
             } else {
