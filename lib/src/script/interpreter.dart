@@ -66,8 +66,10 @@ class Stack {
     /// Replace item at 'index' with 'value'
     /// FIXME: Validate this works as expected
     void replaceAt(int index, List<int> value) {
-        var elem = _queue.elementAt(index);
-        elem = value;
+        List<List<int>> buffer = _queue.toList();
+        buffer.removeAt(index);
+        buffer.insert(index, value);
+        _queue = Queue.from(buffer);
     }
 }
 
