@@ -199,14 +199,14 @@ List<int> toSMBigEndian(BigInt value){
 
     List<int> buf = [];
     if (value.compareTo(BigInt.zero) == -1) {
-        buf = encodeBigInt(-value);
+        buf = toBuffer(-value);
         if (buf[0] & 0x80 != 0) {
             buf = [0x80] + buf;
         } else {
             buf[0] = buf[0] | 0x80;
         }
     } else {
-        buf = encodeBigInt(value);
+        buf = toBuffer(value);
         if (buf[0] & 0x80 != 0) {
             buf = [0x00] + buf;
         }
@@ -216,6 +216,7 @@ List<int> toSMBigEndian(BigInt value){
         buf = [];
     }
     return buf;
+
 }
 
 
@@ -240,4 +241,38 @@ BigInt fromSM (Uint8List buf, {Endian endian = Endian.big}) {
 
     return ret;
 }
+
+//FIXME: New implementation. Untested
+List<int> toBuffer(BigInt value, {int size = 0, Endian endian = Endian.big}) {
+    String hex;
+    List<int> buf = [];
+    if (size != 0) {
+        hex = value.toRadixString(16);
+        int natlen = (hex.length / 2) as int;
+        buf = HEX.decode(hex);
+
+        if (natlen == size) {
+            // buf = buf
+        } else if (natlen > size) {
+
+            buf = buf.sublist(natlen - buf.length, buf.length);
+//            buf = BN.trim(buf, natlen);
+        } else if (natlen < size) {
+            List<int> padding = <int>[size];
+            padding.fillRange(0, size, 0);
+            buf.insertAll(0, padding);
+//            buf = BN.pad(buf, natlen, opts.size)
+        }
+    } else {
+        hex = value.toRadixString(16);
+        buf = HEX.decode(hex);
+    }
+
+    if (endian == Endian.little) {
+        buf = buf.reversed.toList();
+    }
+
+    return buf;
+}
+
 

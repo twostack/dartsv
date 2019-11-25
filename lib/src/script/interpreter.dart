@@ -53,7 +53,13 @@ class Stack {
     }
 
     //FIXME: Splice won't function on a Queue. We need a vector
-    splice(int insertPoint, int deleteItems, {List<int> values}) {
+    splice(int index, int howMany, {List<int> values}) {
+        List<List<int>> buffer = _queue.toList();
+
+        buffer.removeRange(index, index+howMany);
+
+        this._queue = Queue.from(buffer);
+
 //        _queue.
     }
 

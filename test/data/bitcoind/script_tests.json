@@ -1,4 +1,37 @@
 [
+["Format is: [[wit..., amount]?, scriptSig, scriptPubKey, flags, expected_scripterror, ... comments]"],
+["It is evaluated as if there was a crediting coinbase transaction with two 0"],
+["pushes as scriptSig, and one output of 0 satoshi and given scriptPubKey,"],
+["followed by a spending transaction which spends this output as only input (and"],
+["correct prevout hash), using the given scriptSig. All nLockTimes are 0, all"],
+["nSequences are max."],
+
+["", "DEPTH 0 EQUAL", "P2SH,STRICTENC", "OK", "Test the test: we should have an empty stack after scriptSig evaluation"],
+["  ", "DEPTH 0 EQUAL", "P2SH,STRICTENC", "OK", "and multiple spaces should not change that."],
+["   ", "DEPTH 0 EQUAL", "P2SH,STRICTENC", "OK"],
+["    ", "DEPTH 0 EQUAL", "P2SH,STRICTENC", "OK"],
+["1 2", "2 EQUALVERIFY 1 EQUAL", "P2SH,STRICTENC", "OK", "Similarly whitespace around and between symbols"],
+["1  2", "2 EQUALVERIFY 1 EQUAL", "P2SH,STRICTENC", "OK"],
+["  1  2", "2 EQUALVERIFY 1 EQUAL", "P2SH,STRICTENC", "OK"],
+["1  2  ", "2 EQUALVERIFY 1 EQUAL", "P2SH,STRICTENC", "OK"],
+["  1  2  ", "2 EQUALVERIFY 1 EQUAL", "P2SH,STRICTENC", "OK"],
+
+["1", "", "P2SH,STRICTENC", "OK"],
+["0x02 0x01 0x00", "", "P2SH,STRICTENC", "OK", "all bytes are significant, not only the last one"],
+["0x09 0x00000000 0x00000000 0x10", "", "P2SH,STRICTENC", "OK", "equals zero when cast to Int64"],
+
+["0x01 0x0b", "11 EQUAL", "P2SH,STRICTENC", "OK", "push 1 byte"],
+["0x02 0x417a", "'Az' EQUAL", "P2SH,STRICTENC", "OK"],
+["0x4b 0x417a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a",
+ "'Azzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz' EQUAL", "P2SH,STRICTENC", "OK", "push 75 bytes"],
+
+["0x4c 0x01 0x07","7 EQUAL", "P2SH,STRICTENC", "OK", "0x4c is OP_PUSHDATA1"],
+["0x4d 0x0100 0x08","8 EQUAL", "P2SH,STRICTENC", "OK", "0x4d is OP_PUSHDATA2"],
+["0x4e 0x01000000 0x09","9 EQUAL", "P2SH,STRICTENC", "OK", "0x4e is OP_PUSHDATA4"],
+
+["0x4c 0x00","0 EQUAL", "P2SH,STRICTENC", "OK"],
+["0x4d 0x0000","0 EQUAL", "P2SH,STRICTENC", "OK"],
+["0x4e 0x00000000","0 EQUAL", "P2SH,STRICTENC", "OK"],
 ["0x4f 1000 ADD","999 EQUAL", "P2SH,STRICTENC", "OK"],
 ["0", "IF 0x50 ENDIF 1", "P2SH,STRICTENC", "OK", "0x50 is reserved (ok if not executed)"],
 ["0x51", "0x5f ADD 0x60 EQUAL", "P2SH,STRICTENC", "OK", "0x51 through 0x60 push 1 through 16 onto stack"],
