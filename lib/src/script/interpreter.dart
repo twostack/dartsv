@@ -613,7 +613,7 @@ class Interpreter {
                 // ( -- value)
                 // ScriptNum bn((int)opcode - (int)(OpCodes.OP_1 - 1));
                     n = opcodenum - (OpCodes.OP_1 - 1);
-                    buf = HEX.decode(BigInt.from(n).toRadixString(16));
+                    buf = toScriptNumBuffer(BigInt.from(n));
                     this._stack.push(buf);
                     // The result of these opcodes should always be the minimal way to push the data
                     // they push, so no need for a CheckMinimalPush here.
@@ -655,8 +655,7 @@ class Interpreter {
                     // Thus as a special case we tell CScriptNum to accept up
                     // to 5-byte bignums, which are good until 2**39-1, well
                     // beyond the 2**32-1 limit of the nLockTime field itself.
-                    var nLockTime = BigInt.parse(HEX.encode(this._stack.peek()), radix: 16);
-//        var nLockTime = BN.fromScriptNumBuffer(this._stack[this._stack.length - 1], fRequireMinimal, 5)
+                    var nLockTime = fromScriptNumBuffer(Uint8List.fromList(this._stack.peek()), fRequireMinimal, nMaxNumSize: 5);
 
                     // In the rare event that the argument may be < 0 due to
                     // some arithmetic being done first, you can always use
@@ -693,7 +692,7 @@ class Interpreter {
                     // integer field. See the comment in CHECKLOCKTIMEVERIFY
                     // regarding 5-byte numeric operands.
 
-                    var nSequence = BigInt.parse(HEX.encode(this._stack.peek()), radix: 16);
+                    var nSequence = fromScriptNumBuffer(Uint8List.fromList(this._stack.peek()), fRequireMinimal, nMaxNumSize: 5);
 
                     // In the rare event that the argument may be < 0 due to
                     // some arithmetic being done first, you can always use
@@ -904,7 +903,8 @@ class Interpreter {
 
                 case OpCodes.OP_DEPTH:
                 // -- stacksize
-                    buf = HEX.decode(BigInt.from(this._stack.length).toRadixString(16));
+                    buf = toScriptNumBuffer(BigInt.from(this._stack.length));
+//                    buf = HEX.decode(BigInt.from(this._stack.length).toRadixString(16));
                     if (this._stack.length == 0){
                         buf = []; //don't push array with zero value, push empty string instead
                     }
@@ -957,7 +957,7 @@ class Interpreter {
                         return false;
                     }
                     buf = this._stack.peek();
-                    bn = BigInt.parse(HEX.encode(buf), radix: 16);
+                    bn = fromScriptNumBuffer(Uint8List.fromList(buf), fRequireMinimal);
                     n = bn.toInt();
                     this._stack.pop();
                     if (n < 0 || n >= this._stack.length) {
@@ -1018,7 +1018,8 @@ class Interpreter {
                     bn = BigInt.from(stack
                         .peek()
                         .length);
-                    this._stack.push(HEX.decode(bn.toRadixString(16)));
+                    this.stack.push(toScriptNumBuffer(bn));
+//                    this._stack.push(HEX.decode(bn.toRadixString(16)));
                     break;
 
             //
@@ -1088,8 +1089,12 @@ class Interpreter {
                     if (buf1.isEmpty) {
                         this._stack.pop();
                     } else {
-                        bn1 = BigInt.tryParse(HEX.encode(buf1), radix: 16) ?? BigInt.zero;
-                        bn2 = BigInt.tryParse(HEX.encode(stack.peek()), radix: 16) ?? BigInt.zero;
+//                        bn1 = BigInt.tryParse(HEX.encode(buf1), radix: 16) ?? BigInt.zero;
+//                        bn2 = BigInt.tryParse(HEX.encode(stack.peek()), radix: 16) ?? BigInt.zero;
+
+                        bn1 = decodeBigInt(buf1);
+                        bn2 = fromScriptNumBuffer(stack.peek(), fRequireMinimal);
+
                         n = bn2.toInt();
                         if (n < 0) {
                             this._errStr = 'SCRIPT_ERR_INVALID_NUMBER_RANGE';
@@ -1172,7 +1177,8 @@ class Interpreter {
                         return false;
                     }
                     buf = stack.peek();
-                    bn = BigInt.parse(HEX.encode(buf), radix: 16);
+                    bn = fromScriptNumBuffer(Uint8List.fromList(buf), fRequireMinimal);
+//                    bn = BigInt.parse(HEX.encode(buf), radix: 16);
                     switch (opcodenum) {
                         case OpCodes.OP_1ADD:
                             bn = bn + BigInt.one;
@@ -1207,8 +1213,10 @@ class Interpreter {
                             break;
                     // default:      assert(!'invalid opcode'); break; // TODO: does this ever occur?
                     }
+
                     this._stack.pop();
-                    this._stack.push(HEX.decode(bn.toRadixString(16)));
+                    this._stack.push(toScriptNumBuffer(bn));
+//                    this._stack.push(HEX.decode(bn.toRadixString(16)));
                     break;
 
                 case OpCodes.OP_ADD:
@@ -1232,8 +1240,17 @@ class Interpreter {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-                    bn1 = BigInt.parse(HEX.encode(stack.peek(index: -2)), radix: 16);
-                    bn2 = BigInt.parse(HEX.encode(stack.peek()), radix: 16);
+                    bn1 = fromScriptNumBuffer(Uint8List.fromList(stack.peek(index: -2)), fRequireMinimal);
+                    bn2 = fromScriptNumBuffer(Uint8List.fromList(stack.peek()), fRequireMinimal);
+
+                    if (bn1 == null){
+                        bn1 = BigInt.zero;
+                    }
+
+                    if (bn2 == null){
+                        bn2 = BigInt.zero;
+                    }
+
                     bn = BigInt.zero;
 
                     switch (opcodenum) {
@@ -1312,7 +1329,7 @@ class Interpreter {
                     }
                     this._stack.pop();
                     this._stack.pop();
-                    this._stack.push(HEX.decode(bn.toRadixString(16)));
+                    this._stack.push(toScriptNumBuffer(bn));
 
                     if (opcodenum == OpCodes.OP_NUMEQUALVERIFY) {
                         // if (CastToBool(stacktop(-1)))
@@ -1331,9 +1348,13 @@ class Interpreter {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-                    bn1 = BigInt.parse(HEX.encode(stack.peek(index: -3)), radix: 16);
-                    bn2 = BigInt.parse(HEX.encode(stack.peek(index: -2)), radix: 16);
-                    var bn3 = BigInt.parse(HEX.encode(stack.peek()), radix: 16);
+
+                    bn1 = fromScriptNumBuffer(stack.peek(index: -3), fRequireMinimal);
+                    bn2 = fromScriptNumBuffer(stack.peek(index: -2), fRequireMinimal);
+                    var bn3 = fromScriptNumBuffer(Uint8List.fromList(stack.peek()), fRequireMinimal);
+//                    bn1 = BigInt.parse(HEX.encode(stack.peek(index: -3)), radix: 16);
+//                    bn2 = BigInt.parse(HEX.encode(stack.peek(index: -2)), radix: 16);
+//                    var bn3 = BigInt.parse(HEX.encode(stack.peek()), radix: 16);
                     // bool fValue = (bn2 <= bn1 && bn1 < bn3);
                     fValue = (bn2.compareTo(bn1) <= 0) && (bn1.compareTo(bn3) < 0);
                     stack.pop();
@@ -1447,7 +1468,8 @@ class Interpreter {
                         return false;
                     }
 
-                    var nKeysCount = BigInt.parse(HEX.encode(stack.peek(index: -i)), radix: 16).toInt();
+                    var nKeysCount = fromScriptNumBuffer(Uint8List.fromList(stack.peek(index: -i)), fRequireMinimal).toInt();
+//                    var nKeysCount = BigInt.parse(HEX.encode(stack.peek(index: -i)), radix: 16).toInt();
                     // TODO: Keys and opcount are parameterized in client. No magic numbers!
                     if (nKeysCount < 0 || nKeysCount > 20) {
                         this._errStr = 'SCRIPT_ERR_PUBKEY_COUNT';
@@ -1473,7 +1495,8 @@ class Interpreter {
                         return false;
                     }
 
-                    var nSigsCount = BigInt.parse(HEX.encode(stack.peek(index: -i)), radix: 16).toInt();
+                    var nSigsCount = fromScriptNumBuffer(Uint8List.fromList(stack.peek(index: -i)), fRequireMinimal).toInt();
+//                    var nSigsCount = BigInt.parse(HEX.encode(stack.peek(index: -i)), radix: 16).toInt();
                     if (nSigsCount < 0 || nSigsCount > nKeysCount) {
                         this._errStr = 'SCRIPT_ERR_SIG_COUNT';
                         return false;
@@ -1605,7 +1628,8 @@ class Interpreter {
                     buf1 = stack.peek(index: -2);
 
                     // Make sure the split point is apropriate.
-                    var position = BigInt.parse(HEX.encode(stack.peek()), radix: 16).toInt();
+                    var position = fromScriptNumBuffer(Uint8List.fromList(stack.peek()), fRequireMinimal).toInt();
+//                    var position = BigInt.parse(HEX.encode(stack.peek()), radix: 16).toInt();
                     if (position < 0 || position > buf1.length) {
                         this._errStr = 'SCRIPT_ERR_INVALID_SPLIT_RANGE';
                         return false;
@@ -1634,7 +1658,8 @@ class Interpreter {
                     //FIXME: This is probably wrong!
                     // https://www.bitcoincash.org/spec/may-2018-reenabled-opcodes.html
 
-                    var size = BigInt.parse(HEX.encode(stack.peek()), radix: 16).toInt();
+                    var size = fromScriptNumBuffer(stack.peek(), fRequireMinimal).toInt();
+//                    var size = BigInt.parse(HEX.encode(stack.peek()), radix: 16).toInt();
                     if (size > Interpreter.MAX_SCRIPT_ELEMENT_SIZE) {
                         this._errStr = 'SCRIPT_ERR_PUSH_SIZE';
                         return false;

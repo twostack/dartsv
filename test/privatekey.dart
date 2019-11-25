@@ -5,7 +5,6 @@ import 'package:pointycastle/pointycastle.dart';
 import 'package:test/test.dart';
 import 'dart:convert';
 import 'dart:io';
-import 'package:pointycastle/src/utils.dart';
 
 final _domainParams = new ECDomainParameters('secp256k1');
 

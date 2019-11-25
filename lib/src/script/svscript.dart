@@ -12,6 +12,7 @@ import 'package:dartsv/src/encoding/base58check.dart';
 import '../address.dart';
 import '../exceptions.dart';
 import 'opcodes.dart';
+import 'package:buffer/buffer.dart';
 
 class ScriptChunk {
 
@@ -60,21 +61,10 @@ class SVScript with ScriptBuilder {
 
     List<ScriptChunk> _chunks = [];
 
-//    bool _isDataOutFlag = false;
-
     Uint8List _byteArray = Uint8List(0);
-
-//    var _isPubkeyHash = false;
-
-//    SVScript.parse(String script){
-//        this._script = script;
-//        parse(script);
-//    }
 
     //FIXME: I'm not convinced this does what I think it does. Recheck !
     SVScript.fromString(String script){
-//        this._script = script;
-//        parse(script);
         this._processChunks(script);
     }
 
@@ -83,9 +73,35 @@ class SVScript with ScriptBuilder {
         parse(script);
     }
 
+
     _convertChunksToByteArray(){
-        String chunkString = this._chunks.fold("", (prev, elem) => prev + _chunkToString(elem, type: 'asm'));
-        this._byteArray = Uint8List.fromList(HEX.decode(chunkString.replaceAll(' ', '')));
+//        String chunkString = this._chunks.fold("", (prev, elem) => prev + _chunkToString(elem, type: 'asm'));
+//        this._byteArray = Uint8List.fromList(HEX.decode(chunkString.replaceAll(' ', '')));
+
+        var bw = new ByteDataWriter();
+
+        for (var i = 0; i < this._chunks.length; i++) {
+            var chunk = this._chunks[i];
+            var opcodenum = chunk.opcodenum;
+            bw.writeUint8(chunk.opcodenum);
+            if (chunk.buf.isNotEmpty) {
+                if (opcodenum < OpCodes.OP_PUSHDATA1) {
+                    bw.write(chunk.buf);
+                } else if (opcodenum == OpCodes.OP_PUSHDATA1) {
+                    bw.writeUint8(chunk.len);
+                    bw.write(chunk.buf);
+                } else if (opcodenum == OpCodes.OP_PUSHDATA2) {
+                    bw.writeUint16(chunk.len, Endian.little);
+                    bw.write(chunk.buf);
+                } else if (opcodenum == OpCodes.OP_PUSHDATA4) {
+                    bw.writeUint32(chunk.len, Endian.little);
+                    bw.write(chunk.buf);
+                }
+            }
+        }
+
+        this._byteArray = bw.toBytes();
+
     }
 
     SVScript.fromChunks(List<ScriptChunk> chunks) {
@@ -97,20 +113,12 @@ class SVScript with ScriptBuilder {
         this._byteArray = buffer;
     }
 
-
     SVScript() {
         this._processChunks(buildScript());
     }
 
-    //expect "script" param to be human-readable encoding of opcodes
-//    SVScript(String script) {
-//        this._script = script;
-//        parse(script);
-//    }
-
-
     SVScript.fromBitcoindString(String str) {
-        List<int> bw = [];
+        var bw = ByteDataWriter();
         var tokens = str.split(' ');
         for (var i = 0; i < tokens.length; i++) {
             var token = tokens[i];
@@ -123,34 +131,31 @@ class SVScript with ScriptBuilder {
             var tbuf;
             if (token.startsWith("0x")) {
                 var hex = token.substring(2);
-                bw.addAll(HEX.decode(hex));
-                opcodenum = int.parse(token);
+                bw.write(HEX.decode(hex));
             } else if (token[0] == '\'') {
                 String tstr = token.substring(1, token.length - 1);
-                tbuf = SVScript().add(tstr).buffer;
-                bw.addAll(tbuf);
+                tbuf = SVScript().add(utf8.encode(tstr)).buffer;
+                bw.write(tbuf);
             } else if (OpCodes.opcodeMap.containsKey("OP_${token}")) {
                 opstr = 'OP_' + token;
                 opcodenum = OpCodes.opcodeMap[opstr];
-                bw.add(opcodenum);
+                bw.writeUint8(opcodenum);
             } else if (OpCodes.opcodeMap[token] is num) {
                 opstr = token;
                 opcodenum = OpCodes.opcodeMap[opstr];
-                bw.add(opcodenum);
-            } else if (int.tryParse(token) != null) {
+                bw.writeUint8(opcodenum);
+            } else if (BigInt.tryParse(token) != null) {
                 var script = SVScript()
-                    ..add(BigInt.tryParse(token));
+                    ..add(Uint8List.fromList(encodeBigInt(BigInt.tryParse(token)).reversed.toList()));
                 tbuf = script.buffer;
-                bw.add(tbuf);
+                bw.write(tbuf);
             } else {
                 throw new ScriptException('Could not determine type of script value');
             }
         }
-        Uint8List buffer = Uint8List.fromList(bw);
 
-        _processBuffer(buffer);
+        _processBuffer(bw.toBytes());
     }
-
 
     SVScript.fromBuffer(Uint8List buffer) {
         _processBuffer(buffer);
@@ -158,72 +163,59 @@ class SVScript with ScriptBuilder {
 
     _processBuffer(Uint8List buffer){
 
-        Uint8List br = Uint8List.fromList(buffer);
-        int pos = 0;
-        for( int entry in br) {
-            var opcodenum = entry;
-            pos = pos + 1;
-            int len;
-            Uint8List buf;
-            if (opcodenum > 0 && opcodenum < OpCodes.OP_PUSHDATA1) {
-                len = opcodenum;
-                _chunks.add(ScriptChunk(
-                    br.sublist(pos, len + 1),
-                    len,
-                    opcodenum
-                ));
-                pos = pos + len + 1;
-                if (pos + len >= br.length) {
-                    break;
+        ByteDataReader byteDataReader = ByteDataReader();
+        byteDataReader.add(buffer);
+        while (byteDataReader.remainingLength > 0){
+            try {
+                var opcodenum = byteDataReader.readUint8();
+                int len;
+                Uint8List buf;
+                if (opcodenum > 0 && opcodenum < OpCodes.OP_PUSHDATA1) {
+                    len = opcodenum;
+                    _chunks.add(ScriptChunk(
+                        byteDataReader.read(len, copy: true),
+                        len,
+                        opcodenum
+                    ));
+                } else if (opcodenum == OpCodes.OP_PUSHDATA1) {
+                    len = byteDataReader.readUint8();
+                    buf = byteDataReader.read(len, copy: true);
+                    _chunks.add(ScriptChunk(
+                        buf,
+                        len,
+                        opcodenum
+                    ));
+                } else if (opcodenum == OpCodes.OP_PUSHDATA2) {
+                    len = byteDataReader.readUint16(Endian.little);
+                    buf = byteDataReader.read(len, copy: true);
+
+                    //Construct a scriptChunk
+                    _chunks.add(ScriptChunk(
+                        buf,
+                        len,
+                        opcodenum
+                    ));
+
+
+                } else if (opcodenum == OpCodes.OP_PUSHDATA4) {
+                    len = byteDataReader.readUint32(Endian.little);
+                    buf = byteDataReader.read(len, copy: true);
+
+                    _chunks.add(ScriptChunk(
+                        buf,
+                        len,
+                        opcodenum
+                    ));
+
+                } else {
+                    _chunks.add(ScriptChunk(
+                        [],
+                        0,
+                        opcodenum
+                    ));
                 }
-            } else if (opcodenum == OpCodes.OP_PUSHDATA1) {
-                len = entry;
-                buf = br.sublist(0, len);
-                pos = pos + len;
-                _chunks.add(ScriptChunk(
-                    buf,
-                    len,
-                    opcodenum
-                ));
-                if (pos + len >= br.length) {
-                    break;
-                }
-            } else if (opcodenum == OpCodes.OP_PUSHDATA2) {
-                len = int.parse(HEX.encode(br.sublist(0, 2)), radix: 16); //read size of data (2 bytes)
-                buf = br.sublist(pos, len); //read the amount of data specified by "len"
-                pos = pos + len;
-
-                //Construct a scriptChunk
-                _chunks.add(ScriptChunk(
-                    buf,
-                    len,
-                    opcodenum
-                ));
-
-                if (pos + len >= br.length) {
-                    break;
-                }
-
-            } else if (opcodenum == OpCodes.OP_PUSHDATA4) {
-                len = int.parse(HEX.encode(br.sublist(0, 3)), radix: 16); //read size of data (4 bytes)
-                buf = br.sublist(pos, len); //read the amount of data specified by "len"
-                pos = pos + len;
-
-                _chunks.add(ScriptChunk(
-                    buf,
-                    len,
-                    opcodenum
-                ));
-
-                if (pos + len >= br.length) {
-                    break;
-                }
-            } else {
-                _chunks.add(ScriptChunk(
-                    [],
-                    0,
-                    opcodenum
-                ));
+            }catch (e) {
+                throw new ScriptException(HEX.encode(buffer));
             }
         };
 
@@ -246,11 +238,6 @@ class SVScript with ScriptBuilder {
         //encode tokens, leaving non-token elements intact
         for (var index = 0; index < tokenList.length;) {
             var token = tokenList[index];
-
-            //allow for cases where script author drops OP_ prefix
-//            if (OpCodes.opcodeMap.containsKey("OP_${token}")) {
-//                token = "OP_${token}";
-//            }
 
             var opcode = token;
 
@@ -280,6 +267,8 @@ class SVScript with ScriptBuilder {
     }
 
     Uint8List get buffer {
+
+        _convertChunksToByteArray();
         return this._byteArray;
     }
 
@@ -424,7 +413,7 @@ class SVScript with ScriptBuilder {
             this._addOpcode(obj, prepend);
         } else if (obj is num) {
             this._addOpcode(obj, prepend);
-        } else if (obj is List<int>) {
+        } else if (obj is Uint8List) {
             this._addBuffer(obj, prepend);
         }
         /*else if (obj instanceof Script) {

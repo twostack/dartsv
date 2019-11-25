@@ -9,7 +9,6 @@ import 'crypto/childnumber.dart';
 import 'dart:typed_data';
 import 'package:pointycastle/pointycastle.dart';
 import 'encoding/utils.dart';
-import 'package:pointycastle/src/utils.dart';
 
 class HDPrivateKey extends CKDSerializer{
 

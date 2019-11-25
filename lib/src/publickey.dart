@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:hex/hex.dart';
 import 'package:pointycastle/pointycastle.dart';
 import 'package:pointycastle/ecc/curves/secp256k1.dart';
-import 'package:pointycastle/src/utils.dart';
 import 'dart:convert';
 
 class SVPublicKey {
