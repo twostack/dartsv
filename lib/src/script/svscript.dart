@@ -176,14 +176,15 @@ class SVScript with ScriptBuilder {
                 Uint8List buf;
                 if (opcodenum > 0 && opcodenum < OpCodes.OP_PUSHDATA1) {
                     len = opcodenum;
+                    buf = byteDataReader.remainingLength >= len ? byteDataReader.read(len, copy: true) : Uint8List(0);
                     _chunks.add(ScriptChunk(
-                        byteDataReader.read(len, copy: true),
+                        buf,
                         len,
                         opcodenum
                     ));
                 } else if (opcodenum == OpCodes.OP_PUSHDATA1) {
                     len = byteDataReader.readUint8();
-                    buf = byteDataReader.read(len, copy: true);
+                    buf = byteDataReader.remainingLength >= len ? byteDataReader.read(len, copy: true) : Uint8List(0);
                     _chunks.add(ScriptChunk(
                         buf,
                         len,
@@ -191,7 +192,7 @@ class SVScript with ScriptBuilder {
                     ));
                 } else if (opcodenum == OpCodes.OP_PUSHDATA2) {
                     len = byteDataReader.readUint16(Endian.little);
-                    buf = byteDataReader.read(len, copy: true);
+                    buf = byteDataReader.remainingLength >= len ? byteDataReader.read(len, copy: true) : Uint8List(0);
 
                     //Construct a scriptChunk
                     _chunks.add(ScriptChunk(
@@ -201,7 +202,7 @@ class SVScript with ScriptBuilder {
                     ));
                 } else if (opcodenum == OpCodes.OP_PUSHDATA4) {
                     len = byteDataReader.readUint32(Endian.little);
-                    buf = byteDataReader.read(len, copy: true);
+                    buf = byteDataReader.remainingLength >= len ? byteDataReader.read(len, copy: true) : Uint8List(0);
 
                     _chunks.add(ScriptChunk(
                         buf,
@@ -390,7 +391,7 @@ class SVScript with ScriptBuilder {
     //FIXME: Implement !
     SVScript findAndDelete(SVScript tmpScript) {
 
-        var buf = List.from(tmpScript.buffer);
+        var buf = List<int>.from(tmpScript.buffer);
         var hex = HEX.encode(buf);
         for (var i = 0; i < this.chunks.length; i++) {
             var script2 = SVScript.fromChunks([this.chunks[i]]);

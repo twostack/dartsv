@@ -238,6 +238,49 @@ class Interpreter {
        this._flags = flags;
     }
 
+    List<int> _minimallyEncode (List<int> buf) {
+        if (buf.length == 0) {
+            return buf;
+        }
+
+        // If the last byte is not 0x00 or 0x80, we are minimally encoded.
+        var last = buf[buf.length - 1];
+        if (last & 0x7f != 0) {
+            return buf;
+        }
+
+        // If the script is one byte long, then we have a zero, which encodes as an
+        // empty array.
+        if (buf.length == 1) {
+            return List<int>();
+        }
+
+        // If the next byte has it sign bit set, then we are minimaly encoded.
+        if (buf[buf.length - 2] & 0x80 != 0) {
+            return buf;
+        }
+
+        // We are not minimally encoded, we need to figure out how much to trim.
+        for (var i = buf.length - 1; i > 0; i--) {
+            // We found a non zero byte, time to encode.
+            if (buf[i - 1] != 0) {
+                if (buf[i - 1] & 0x80 != 0) {
+                    // We found a byte with it sign bit set so we need one more
+                    // byte.
+                    buf[i++] = last;
+                } else {
+                    // the sign bit is clear, we can use it.
+                    buf[i - 1] |= last;
+                }
+
+                return buf.sublist(0, i);
+            }
+        }
+
+        // If we found the whole thing is zeros, then we have a zero.
+        return List<int>();
+    }
+
     bool verifyScript(SVScript scriptSig, SVScript scriptPubkey, {Transaction tx , int nin = 0, int flags = 0, BigInt satoshis}) {
         if (tx == null) {
             tx = new Transaction();
@@ -372,8 +415,6 @@ class Interpreter {
 
 // Ported from moneyButton-bsv, which in turn...
 // Translated from bitcoind's CheckSignatureEncoding
-//
-// TODO: Do a proper port of the Script Interpreter O_O
 //
     checkSignatureEncoding(List<int> buf, int flags) {
         var sig;
@@ -594,10 +635,10 @@ class Interpreter {
                 this._errStr = 'SCRIPT_ERR_MINIMALDATA';
                 return false;
             }
-            if (chunk.buf.isEmpty) {
-                this._stack.push(<int>[]);
-            } else if (chunk.len != chunk.buf.length) {
+            if (chunk.len != chunk.buf.length) {
                 throw new InterpreterException("Length of push value not equal to length of data (${chunk.len},${chunk.buf.length})");
+            }else if (chunk.buf.isEmpty) {
+                this._stack.push(<int>[]);
             } else {
                 this._stack.push(chunk.buf);
             }
@@ -1681,9 +1722,11 @@ class Interpreter {
                     this._stack.pop();
                     var rawnum = stack.peek();
 
+                    rawnum = this._minimallyEncode(rawnum);
+
                     // Try to see if we can fit that number in the number of
                     // byte requested.
-                    if (int.parse(HEX.encode(rawnum), radix: 16).bitLength > size * 8) {
+                    if ( rawnum.length > size) {
                         // We definitively cannot.
                         this._errStr = 'SCRIPT_ERR_IMPOSSIBLE_ENCODING';
                         return false;
@@ -1696,26 +1739,24 @@ class Interpreter {
                         break;
                     }
 
-                    /* FIXME: OP_BIN2NUM is broken. FIX !
-        var signbit = 0x00;
-        if (rawnum.isNotEmpty) {
-          signbit = rawnum[rawnum.length - 1] & 0x80;
-          rawnum[rawnum.length - 1] &= 0x7f;
-        }
+                    var signbit = 0x00;
+                    if (rawnum.isNotEmpty) {
+                      signbit = rawnum[rawnum.length - 1] & 0x80;
+                      rawnum[rawnum.length - 1] &= 0x7f;
+                    }
 
-        var num = Buffer.alloc(size)
-        rawnum.copy(num, 0)
+                    var num = List<int>(size);
+                    num.fillRange(0, num.length, 0);
 
-        var l = rawnum.length - 1
-        while (l++ < size - 2) {
-          num[l] = 0x00
-        }
+                    var l = rawnum.length - 1;
+                    while (l++ < size - 2) {
+                      num[l] = 0x00;
+                    }
 
-        num[l] = signbit
+                    num[l] = signbit;
 
-        this._stack[this._stack.length - 1] = num
+                    this._stack.splice(this._stack.length - 1, 1, values: num);
 
-         */
                     break;
 
                 case OpCodes.OP_BIN2NUM:
