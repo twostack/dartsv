@@ -422,8 +422,7 @@ class Interpreter {
     bool evaluate() {
         // TODO: script size should be configurable. no magic numbers
         if (this._script
-            .toHex()
-            .length > 10000) { //FIXME: Does BSV still limit script size to 10k ???
+            .buffer.length > 10000) { //FIXME: Does BSV still limit script size to 10k ???
             this._errStr = 'SCRIPT_ERR_SCRIPT_SIZE';
             return false;
         }

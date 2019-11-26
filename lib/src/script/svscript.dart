@@ -74,7 +74,7 @@ class SVScript with ScriptBuilder {
     }
 
 
-    _convertChunksToByteArray(){
+    _convertChunksToByteArray() {
 //        String chunkString = this._chunks.fold("", (prev, elem) => prev + _chunkToString(elem, type: 'asm'));
 //        this._byteArray = Uint8List.fromList(HEX.decode(chunkString.replaceAll(' ', '')));
 
@@ -101,7 +101,6 @@ class SVScript with ScriptBuilder {
         }
 
         this._byteArray = bw.toBytes();
-
     }
 
     SVScript.fromChunks(List<ScriptChunk> chunks) {
@@ -134,7 +133,9 @@ class SVScript with ScriptBuilder {
                 bw.write(HEX.decode(hex));
             } else if (token[0] == '\'') {
                 String tstr = token.substring(1, token.length - 1);
-                tbuf = SVScript().add(utf8.encode(tstr)).buffer;
+                tbuf = SVScript()
+                    .add(utf8.encode(tstr))
+                    .buffer;
                 bw.write(tbuf);
             } else if (OpCodes.opcodeMap.containsKey("OP_${token}")) {
                 opstr = 'OP_' + token;
@@ -145,7 +146,6 @@ class SVScript with ScriptBuilder {
                 opcodenum = OpCodes.opcodeMap[opstr];
                 bw.writeUint8(opcodenum);
             } else if (BigInt.tryParse(token) != null) {
-
 //                var script = Script().add(new BN(token).toScriptNumBuffer())
 //                tbuf = script.toBuffer()
 //                bw.write(tbuf)
@@ -166,11 +166,10 @@ class SVScript with ScriptBuilder {
         _processBuffer(buffer);
     }
 
-    _processBuffer(Uint8List buffer){
-
+    _processBuffer(Uint8List buffer) {
         ByteDataReader byteDataReader = ByteDataReader();
         byteDataReader.add(buffer);
-        while (byteDataReader.remainingLength > 0){
+        while (byteDataReader.remainingLength > 0) {
             try {
                 var opcodenum = byteDataReader.readUint8();
                 int len;
@@ -200,8 +199,6 @@ class SVScript with ScriptBuilder {
                         len,
                         opcodenum
                     ));
-
-
                 } else if (opcodenum == OpCodes.OP_PUSHDATA4) {
                     len = byteDataReader.readUint32(Endian.little);
                     buf = byteDataReader.read(len, copy: true);
@@ -211,7 +208,6 @@ class SVScript with ScriptBuilder {
                         len,
                         opcodenum
                     ));
-
                 } else {
                     _chunks.add(ScriptChunk(
                         [],
@@ -219,7 +215,7 @@ class SVScript with ScriptBuilder {
                         opcodenum
                     ));
                 }
-            }catch (e) {
+            } catch (e) {
                 throw new ScriptException(HEX.encode(buffer));
             }
         };
@@ -272,7 +268,6 @@ class SVScript with ScriptBuilder {
     }
 
     Uint8List get buffer {
-
         _convertChunksToByteArray();
         return this._byteArray;
     }
@@ -348,12 +343,64 @@ class SVScript with ScriptBuilder {
     List<ScriptChunk> get chunks => _chunks;
 
     bool checkMinimalPush(int i) {
-        return false;
+        var chunk = this._chunks[i];
+        var buf = chunk.buf;
+        var opcodenum = chunk.opcodenum;
+        if (buf.isEmpty) {
+            return true;
+        }
+        if (buf.length == 0) {
+            // Could have used OP_0.
+            return opcodenum == OpCodes.OP_0;
+        } else if (buf.length == 1 && buf[0] >= 1 && buf[0] <= 16) {
+            // Could have used OP_1 .. OP_16.
+            return opcodenum == OpCodes.OP_1 + (buf[0] - 1);
+        } else if (buf.length == 1 && buf[0] == 0x81) {
+            // Could have used OP_1NEGATE
+            return opcodenum == OpCodes.OP_1NEGATE;
+        } else if (buf.length <= 75) {
+            // Could have used a direct push (opcode indicating number of bytes pushed + those bytes).
+            return opcodenum == buf.length;
+        } else if (buf.length <= 255) {
+            // Could have used OP_PUSHDATA.
+            return opcodenum == OpCodes.OP_PUSHDATA1;
+        } else if (buf.length <= 65535) {
+            // Could have used OP_PUSHDATA2.
+            return opcodenum == OpCodes.OP_PUSHDATA2;
+        }
+        return true;
+    }
+
+
+    List<ScriptChunk> splice(int index, int howMany, {List<ScriptChunk> values}) {
+        List<ScriptChunk> buffer = List.from(this._chunks);
+
+        List<ScriptChunk> removedItems = buffer.getRange(index, index+howMany).toList();
+        buffer.removeRange(index, index+howMany);
+
+        if (values != null) {
+            buffer.insertAll(index, values);
+        }
+        this._chunks = List.from(buffer);
+
+        return removedItems;
+
     }
 
     //FIXME: Implement !
-    void findAndDelete(SVScript tmpScript) {
+    SVScript findAndDelete(SVScript tmpScript) {
 
+        var buf = List.from(tmpScript.buffer);
+        var hex = HEX.encode(buf);
+        for (var i = 0; i < this.chunks.length; i++) {
+            var script2 = SVScript.fromChunks([this.chunks[i]]);
+            var buf2 = script2.buffer;
+            var hex2 = HEX.encode(buf2);
+            if (hex == hex2) {
+                this.splice(i, 1);
+            }
+        }
+        return this;
     }
 
     String _chunkToString(ScriptChunk chunk, {type = 'hex'}) {
