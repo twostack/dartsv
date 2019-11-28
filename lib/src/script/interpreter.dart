@@ -80,7 +80,7 @@ class Stack {
 class Interpreter {
 
     static final MAX_SCRIPT_ELEMENT_SIZE = 520;
-    static final MAXIMUM_ELEMENT_SIZE = 4;
+    static const MAXIMUM_ELEMENT_SIZE = 4;
 
     static final LOCKTIME_THRESHOLD = 500000000;
     static final LOCKTIME_THRESHOLD_BN = BigInt.from(LOCKTIME_THRESHOLD);
@@ -236,6 +236,32 @@ class Interpreter {
     Interpreter.fromScript(SVScript script, int flags){
        this._script = script;
        this._flags = flags;
+    }
+
+    bool _isMinimallyEncoded(buf, {nMaxNumSize = MAXIMUM_ELEMENT_SIZE}) {
+        if (buf.length > nMaxNumSize) {
+            return false;
+        }
+
+        if (buf.length > 0) {
+            // Check that the number is encoded with the minimum possible number
+            // of bytes.
+            //
+            // If the most-significant-byte - excluding the sign bit - is zero
+            // then we're not minimal. Note how this test also rejects the
+            // negative-zero encoding, 0x80.
+            if ((buf[buf.length - 1] & 0x7f) == 0) {
+                // One exception: if there's more than one byte and the most
+                // significant bit of the second-most-significant-byte is set it
+                // would conflict with the sign bit. An example of this case is
+                // +-255, which encode to 0xff00 and 0xff80 respectively.
+                // (big-endian).
+                if (buf.length <= 1 || (buf[buf.length - 2] & 0x80) == 0) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     List<int> _minimallyEncode (List<int> buf) {
@@ -1747,6 +1773,9 @@ class Interpreter {
 
                     var num = List<int>(size);
                     num.fillRange(0, num.length, 0);
+                    if (rawnum.isNotEmpty) {
+                        num[0] = rawnum[0];
+                    }
 
                     var l = rawnum.length - 1;
                     while (l++ < size - 2) {
@@ -1760,23 +1789,22 @@ class Interpreter {
                     break;
 
                 case OpCodes.OP_BIN2NUM:
-                /*FIXME: OP_BIN2NUM is Borked. FIX !
         // (in -- out)
-        if (this._stack.length < 1) {
-          this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION'
-          return false
-        }
+                    if (this._stack.length < 1) {
+                      this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
+                      return false;
+                    }
 
-        buf1 = stacktop(-1)
-        buf2 = Interpreter._minimallyEncode(buf1)
+                    buf1 = this._stack.peek();
+                    buf2 = this._minimallyEncode(buf1);
 
-        this._stack[this._stack.length - 1] = buf2
+                    this._stack.replaceAt(this._stack.length - 1, buf2);
 
-        // The resulting number must be a valid number.
-        if (!Interpreter._isMinimallyEncoded(buf2)) {
-          this._errStr = 'SCRIPT_ERR_INVALID_NUMBER_RANGE'
-          return false
-        }*/
+                    // The resulting number must be a valid number.
+                    if (!this._isMinimallyEncoded(buf2)) {
+                      this._errStr = 'SCRIPT_ERR_INVALID_NUMBER_RANGE';
+                      return false;
+                    }
 
                     break;
 
