@@ -222,7 +222,7 @@ class Interpreter {
 
     int get pbegincodehash => _pbegincodehash;
 
-    int get nOpCount => 0;
+    int get nOpCount => this._nOpCount;
 
     List get vfExec => _vfExec; //???
     String get errstr => _errStr;
@@ -1556,7 +1556,7 @@ class Interpreter {
                         return false;
                     }
                     this._nOpCount += nKeysCount;
-                    if (this.nOpCount > 201) {
+                    if (this._nOpCount > 201) {
                         this._errStr = 'SCRIPT_ERR_OP_COUNT';
                         return false;
                     }
