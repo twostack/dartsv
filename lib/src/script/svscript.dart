@@ -109,7 +109,8 @@ class SVScript with ScriptBuilder {
     }
 
     SVScript.fromByteArray(Uint8List buffer) {
-        this._byteArray = buffer;
+        _processBuffer(buffer);
+//        this._byteArray = buffer; //FIXME: should be redundant... let's see
     }
 
     SVScript() {
@@ -129,7 +130,7 @@ class SVScript with ScriptBuilder {
             int opcodenum;
             var tbuf;
             if (token.startsWith("0x")) {
-                var hex = token.substring(2);
+                var hex = token.substring(2).replaceAll(',', '');
                 bw.write(HEX.decode(hex));
             } else if (token[0] == '\'') {
                 String tstr = token.substring(1, token.length - 1);
@@ -338,7 +339,11 @@ class SVScript with ScriptBuilder {
     }
 
     bool isScriptHashOut() {
-        return false;
+        var buf = this.buffer;
+        return (buf.length == 23 &&
+        buf[0] == OpCodes.OP_HASH160 &&
+        buf[1] == 0x14 &&
+        buf[buf.length - 1] == OpCodes.OP_EQUAL);
     }
 
     List<ScriptChunk> get chunks => _chunks;

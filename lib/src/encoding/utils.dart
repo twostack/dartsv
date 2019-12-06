@@ -1,3 +1,4 @@
+import 'package:dartsv/src/exceptions.dart';
 import 'package:hex/hex.dart';
 import 'package:pointycastle/digests/ripemd160.dart';
 import 'package:pointycastle/digests/sha256.dart';
@@ -202,6 +203,11 @@ toScriptNumBuffer (BigInt value){
 
 
 BigInt fromScriptNumBuffer(Uint8List buf, bool fRequireMinimal, {int nMaxNumSize = 4}) {
+
+    if(!(buf.length <= nMaxNumSize)){
+       throw new ScriptException('script number overflow');
+    }
+
     if (fRequireMinimal && buf.length > 0) {
         // Check that the number is encoded with the minimum possible
         // number of bytes.

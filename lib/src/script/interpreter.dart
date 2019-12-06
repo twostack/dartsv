@@ -374,7 +374,7 @@ class Interpreter {
         }
 
         // Additional validation for spend-to-script-hash transactions:
-        if ((flags & Interpreter.SCRIPT_VERIFY_P2SH == 0) && scriptPubkey.isScriptHashOut()) {
+        if ((flags & Interpreter.SCRIPT_VERIFY_P2SH != 0) && scriptPubkey.isScriptHashOut()) {
             // scriptSig must be literals-only or validation fails
             if (!scriptSig.isPushOnly()) {
                 this._errStr = 'SCRIPT_ERR_SIG_PUSHONLY';
@@ -389,7 +389,7 @@ class Interpreter {
             }
 
             var redeemScriptSerialized = stackCopy.peek(); // [stackCopy.length - 1];
-            var redeemScript = P2PKHScriptSig.fromByteArray(redeemScriptSerialized);
+            var redeemScript = SVScript.fromByteArray(Uint8List.fromList(redeemScriptSerialized));
             stackCopy.pop();
 
             this.initialize();
@@ -1144,15 +1144,18 @@ class Interpreter {
                     this._stack.pop();
                     break;
 
+                    //FIXME: Using a List<int> for the stack seems to be problematic under certain circumstances
+                    //       Consider refactoring to Uint8List()
                 case OpCodes.OP_INVERT:
                 // (x -- out)
                     if (this._stack.length < 1) {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                     }
-                    buf = stack.peek();
+                    buf = Uint8List.fromList(stack.peek());
                     for (var i = 0; i < buf.length; i++) {
                         buf[i] = ~buf[i];
                     }
+                    stack.replaceAt(stack.length - 1, buf); //replace item at top with modified value
                     break;
 
                 case OpCodes.OP_LSHIFT:
@@ -1350,7 +1353,12 @@ class Interpreter {
                                 this._errStr = 'SCRIPT_ERR_DIV_BY_ZERO';
                                 return false;
                             }
-                            bn = bn1 % bn2;
+                            //FIXME: Is this re-enabled OP_CODE supposed to work in this fucked-up way !?
+                            bn = bn1.abs() % bn2.abs(); //seriously ? I have to convert to abs() to get correct result if bn1 < 0. WTF Bitcoin ?
+
+                            if (bn1.isNegative){
+                                bn = -bn; //flip sign to conform to weird bitcoin mod behaviour. WTF!?
+                            }
                             break;
 
                         case OpCodes.OP_BOOLAND:
