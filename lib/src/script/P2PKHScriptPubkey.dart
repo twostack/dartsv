@@ -52,6 +52,7 @@ class P2PKHScriptPubkey extends SVScript with ScriptPubkey{
 
       return false;
     } catch (ex) {
+      print(ex);
       return false;
     }
   }

@@ -346,7 +346,7 @@ class SVSignature {
             return false;
         }
 
-        var R = buf.sublist(0, 4);
+        var R = buf.sublist(4, buf.length);
         if (buf[4 - 2] != 0x02) {
             //  Non-canonical signature: R value type mismatch
             return false;
@@ -364,7 +364,7 @@ class SVSignature {
             return false;
         }
 
-        var S = buf.sublist(0, 6 + nLenR);
+        var S = buf.sublist(6 + nLenR, buf.length);
         if (buf[6 + nLenR - 2] != 0x02) {
             //  Non-canonical signature: S value type mismatch
             return false;

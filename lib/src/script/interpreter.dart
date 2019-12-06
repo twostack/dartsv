@@ -452,8 +452,7 @@ class Interpreter {
             return true;
         }
 
-        if ((flags & (Interpreter.SCRIPT_VERIFY_DERSIG | Interpreter.SCRIPT_VERIFY_LOW_S | Interpreter.SCRIPT_VERIFY_STRICTENC)) != 0 &&
-            !SVSignature.isTxDER(HEX.encode(buf))) {
+        if ((flags & (Interpreter.SCRIPT_VERIFY_DERSIG | Interpreter.SCRIPT_VERIFY_LOW_S | Interpreter.SCRIPT_VERIFY_STRICTENC)) != 0 && !SVSignature.isTxDER(HEX.encode(buf))) {
             errStr = 'SCRIPT_ERR_SIG_DER_INVALID_FORMAT';
             return false;
         } else if ((flags & Interpreter.SCRIPT_VERIFY_LOW_S) != 0) {
@@ -1491,8 +1490,7 @@ class Interpreter {
                     bufSig = this._stack.peek(index: -2);
                     bufPubkey = this._stack.peek();
 
-                    //FIXME: check flags
-                    if (!checkSignatureEncoding(bufSig, 0) || !checkPubkeyEncoding(bufPubkey)) {
+                    if (!checkSignatureEncoding(bufSig, this.flags) || !checkPubkeyEncoding(bufPubkey)) {
                         return false;
                     }
 
@@ -1505,9 +1503,9 @@ class Interpreter {
 
                     try {
                         pubkey = SVPublicKey.fromHex(HEX.encode(bufPubkey));
-                        sig = SVSignature.fromPublicKey(pubkey);
+                        sig = SVSignature.fromTxFormat(HEX.encode(bufSig));
 
-                        String hash = Sighash().hash(this._tx, this._tx.sighashType, this._nin, subscript, this._satoshis, flags: this._flags);
+                        String hash = Sighash().hash(this._tx, sig.nhashtype, this._nin, subscript, this._satoshis, flags: this._flags);
                         var reversedHash = HEX.encode(HEX
                             .decode(hash)
                             .reversed
@@ -1605,7 +1603,7 @@ class Interpreter {
                         // valtype& vchPubKey = stacktop(-ikey);
                         bufPubkey = this._stack.peek(index: -ikey);
 
-                        if (!checkSignatureEncoding(bufSig, 0) || !this.checkPubkeyEncoding(bufPubkey)) { //FIXME: flags !
+                        if (!checkSignatureEncoding(bufSig, this.flags) || !this.checkPubkeyEncoding(bufPubkey)) { //FIXME: flags !
                             return false;
                         }
 

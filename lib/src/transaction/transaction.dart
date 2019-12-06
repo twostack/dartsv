@@ -255,7 +255,7 @@ class Transaction {
         var scriptPubKey = buffer.sublist(offset, offset + numBytes);
         var txnOutput = TransactionOutput();
         txnOutput.satoshis = satoshis;
-        txnOutput.script = P2PKHScriptPubkey.fromByteArray(scriptPubKey);
+        txnOutput.script = SVScript.fromByteArray(scriptPubKey);
         this._txnOutputs.add(txnOutput);
 
         offset = offset + numBytes;

@@ -115,6 +115,7 @@ class SVScript with ScriptBuilder {
 
     SVScript() {
         this._processChunks(buildScript());
+        _convertChunksToByteArray();
     }
 
     SVScript.fromBitcoindString(String str) {
@@ -352,9 +353,11 @@ class SVScript with ScriptBuilder {
         var chunk = this._chunks[i];
         var buf = chunk.buf;
         var opcodenum = chunk.opcodenum;
-        if (buf.isEmpty) {
-            return true;
-        }
+
+//        if (buf.isEmpty) { //FIXME: NOTE - there is a weird encoded behaviour in the JS library where buf can be null or "falsy"
+//            return true;
+//        }
+
         if (buf.length == 0) {
             // Could have used OP_0.
             return opcodenum == OpCodes.OP_0;
