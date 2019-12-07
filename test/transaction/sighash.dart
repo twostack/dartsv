@@ -1,7 +1,5 @@
 import 'package:dartsv/dartsv.dart';
-import 'package:dartsv/src/script/P2PKHScriptSig.dart';
 import 'package:test/test.dart';
-import 'package:hex/hex.dart';
 import 'dart:io';
 import 'dart:convert';
 

@@ -3,6 +3,7 @@ import 'package:hex/hex.dart';
 import 'package:pointycastle/digests/ripemd160.dart';
 import 'package:pointycastle/digests/sha256.dart';
 import 'dart:typed_data';
+import 'package:buffer/buffer.dart';
 
 //import 'package:pointycastle/src/utils.dart';
 import 'package:pointycastle/export.dart';
@@ -54,6 +55,44 @@ BigInt hexToUint64(List<int> hexBuffer) {
     return BigInt.parse(HEX.encode(hexBuffer), radix: 16).toUnsigned(64);
 }
 
+Uint8List varIntWriter(int length) {
+    ByteDataWriter writer = ByteDataWriter();
+
+    if (length == null) {
+        return writer.toBytes();
+    }
+
+    if (length < 0xFD) {
+        writer.writeUint8(length);
+        return writer.toBytes();
+    }
+
+    if (length < 0xFFFF) {
+//            return HEX.decode("FD" + length.toRadixString(16));
+        writer.writeUint8(253);
+        writer.writeUint16(length, Endian.little);
+        return writer.toBytes();
+    }
+
+    if (length < 0xFFFFFFFF) {
+//            return HEX.decode("FE" + length.toRadixString(16));
+
+        writer.writeUint8(254);
+        writer.writeUint32(length, Endian.little);
+        return writer.toBytes();
+    }
+
+    if (length < 0xFFFFFFFFFFFFFFFF) {
+//            return HEX.decode("FF" + length.toRadixString(16));
+
+        writer.writeUint8(255);
+        writer.writeInt32(length & -1, Endian.little);
+        writer.writeUint32((length / 0x100000000).floor(), Endian.little);
+        return writer.toBytes();
+    }
+
+    return writer.toBytes();
+}
 
 List<int> calcVarInt(int length) {
     if (length == null)
@@ -176,8 +215,6 @@ var _byteMask = new BigInt.from(0xff);
 
 /// Encode a BigInt into bytes using big-endian encoding.
 Uint8List encodeBigInt(BigInt number) {
-
-
     int size = (number.bitLength + 7) >> 3;
 
     var result = Uint8List(size);
@@ -197,15 +234,14 @@ Uint8List encodeBigInt(BigInt number) {
 }
 
 
-toScriptNumBuffer (BigInt value){
+toScriptNumBuffer(BigInt value) {
     return toSM(value, endian: Endian.little);
 }
 
 
 BigInt fromScriptNumBuffer(Uint8List buf, bool fRequireMinimal, {int nMaxNumSize = 4}) {
-
-    if(!(buf.length <= nMaxNumSize)){
-       throw new ScriptException('script number overflow');
+    if (!(buf.length <= nMaxNumSize)) {
+        throw new ScriptException('script number overflow');
     }
 
     if (fRequireMinimal && buf.length > 0) {
@@ -231,19 +267,15 @@ BigInt fromScriptNumBuffer(Uint8List buf, bool fRequireMinimal, {int nMaxNumSize
 
 
 toSM(BigInt value, {Endian endian = Endian.big}) {
-
     var buf = toSMBigEndian(value);
 
     if (endian == Endian.little) {
         buf = buf.reversed.toList();
     }
     return buf;
-
-
 }
 
-List<int> toSMBigEndian(BigInt value){
-
+List<int> toSMBigEndian(BigInt value) {
     List<int> buf = [];
     if (value.compareTo(BigInt.zero) == -1) {
         buf = toBuffer(-value);
@@ -263,11 +295,10 @@ List<int> toSMBigEndian(BigInt value){
         buf = [];
     }
     return buf;
-
 }
 
 
-BigInt fromSM (Uint8List buf, {Endian endian = Endian.big}) {
+BigInt fromSM(Uint8List buf, {Endian endian = Endian.big}) {
     BigInt ret;
     List<int> localBuffer = buf.toList();
     if (localBuffer.length == 0) {
@@ -301,7 +332,6 @@ List<int> toBuffer(BigInt value, {int size = 0, Endian endian = Endian.big}) {
         if (natlen == size) {
             // buf = buf
         } else if (natlen > size) {
-
             buf = buf.sublist(natlen - buf.length, buf.length);
 //            buf = BN.trim(buf, natlen);
         } else if (natlen < size) {

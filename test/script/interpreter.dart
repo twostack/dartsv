@@ -478,16 +478,16 @@ void main() {
         TransactionInput txCredInput = TransactionInput(
             '0000000000000000000000000000000000000000000000000000000000000000',
             0xffffffff,
-            'OP_0 OP_0',
+            SVScript.fromString('OP_0 OP_0').buffer,
             BigInt.zero,
             0xffffffff
         );
-        credtx.inputs.add(txCredInput);
+        credtx.addInput(txCredInput);
+        credtx.serialize(performChecks: false);
         TransactionOutput txCredOut = new TransactionOutput();
         txCredOut.satoshis = BigInt.zero;
-        ;
         txCredOut.script = scriptPubkey;
-        credtx.outputs.add(txCredOut);
+        credtx.addOutput(txCredOut);
 
         String idbuf = credtx.id;
 
@@ -495,15 +495,15 @@ void main() {
         var txSpendInput = new TransactionInput(
             idbuf,
             0,
-            scriptSig.toString(),
+            scriptSig.buffer,
             BigInt.zero,
             0xffffffff,
         );
-        spendtx.inputs.add(txSpendInput);
+        spendtx.addInput(txSpendInput);
         var txSpendOutput = new TransactionOutput();
         txSpendOutput.script = new SVScript();
         txSpendOutput.satoshis = BigInt.from(inputAmount);
-        spendtx.outputs.add(txSpendOutput);
+        spendtx.addOutput(txSpendOutput);
 
         var interp = new Interpreter();
         var verified = interp.verifyScript(scriptSig, scriptPubkey, tx: spendtx, nin: 0, flags: flags, satoshis: BigInt.from(inputAmount));

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
-import 'package:dartsv/src/script/P2PKHScriptSig.dart';
+//import 'package:dartsv/src/script/P2PKHScriptSig.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
 import 'package:sprintf/sprintf.dart';
 import 'package:hex/hex.dart';
@@ -49,7 +49,7 @@ class Sighash {
         }
 
         var txnCopy = Transaction.fromHex(txn.serialize(performChecks: false)); //make a copy
-        var subscriptCopy = P2PKHScriptSig.fromByteArray(HEX.decode(subscript.toHex())); //make a copy
+        var subscriptCopy = SVScript.fromByteArray(HEX.decode(subscript.toHex())); //make a copy
 
         if (flags & ScriptFlags.SCRIPT_ENABLE_REPLAY_PROTECTION > 0) {
             // Legacy chain's value for fork id must be of the form 0xffxxxx.
@@ -121,7 +121,7 @@ class Sighash {
             //create new outputs up to inputnumer + 1
             for (var ndx =0; ndx < inputNumber +1; ndx++){
                 var tx = new TransactionOutput();
-                tx.script = P2PKHScriptSig.fromString("");              //FIXME: What happens if there are no outputs !?
+                tx.script = SVScript.fromString("");              //FIXME: What happens if there are no outputs !?
                 tx.satoshis = BigInt.parse(BITS_64_ON, radix: 16);
                 txnCopy.outputs.add(tx);
             }
@@ -167,7 +167,7 @@ class Sighash {
     Transaction _prepareTransaction(Transaction tx) {
         //delete all input scripts
         tx.inputs.forEach((input) {
-            input.script = P2PKHScriptSig.fromString("");
+            input.script = SVScript.fromString("");
         });
 
         return tx;

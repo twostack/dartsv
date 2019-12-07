@@ -305,7 +305,7 @@ main() {
             String transactionId = simpleUtxoWith100000Satoshis['txId'];
             int outputIndex = simpleUtxoWith100000Satoshis['outputIndex'];
             String scriptPubKey = simpleUtxoWith100000Satoshis['scriptPubKey'];
-            return TransactionInput(transactionId, outputIndex, scriptPubKey, amountToSpend, TransactionInput.UINT_MAX);
+            return TransactionInput(transactionId, outputIndex, SVScript.fromString(scriptPubKey).buffer, amountToSpend, TransactionInput.UINT_MAX);
         });
 
         var transaction = new Transaction()
@@ -628,7 +628,7 @@ main() {
                       var inputSet = vector["inputs"];
                       var tx = new Transaction();
                       var txInputs = inputSet.map((input) {
-                          return TransactionInput(input["txId"], input["vout"], "", BigInt.zero, TransactionInput.UINT_MAX);
+                          return TransactionInput(input["txId"], input["vout"], Uint8List(0), BigInt.zero, TransactionInput.UINT_MAX);
                       }).toList();
 
                       List<TransactionInput> inputs = List<TransactionInput>.from(txInputs);

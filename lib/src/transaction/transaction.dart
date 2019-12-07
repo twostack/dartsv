@@ -87,7 +87,7 @@ class Transaction {
     }
 
     /// transaction ID
-    String get id => HEX.encode(sha256Twice(HEX.decode(this._txnHex)).reversed.toList());
+    String get id => HEX.encode(sha256Twice(HEX.decode(this.serialize(performChecks: false))).reversed.toList());
 
     int get sighashType => this._sighashType;
 
@@ -232,7 +232,7 @@ class Transaction {
         var uintSeq = hexToUint32(sequence);
 
         //TODO: Where do I find UTXO amount ?
-        this._txnInputs.add(TransactionInput(HEX.encode(txnId), outIndex, HEX.encode(sigScript), BigInt.zero, uintSeq));
+        this._txnInputs.add(TransactionInput(HEX.encode(txnId), outIndex, Uint8List.fromList(sigScript), BigInt.zero, uintSeq));
 
         return offset + 4;
     }
@@ -316,6 +316,20 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
         return this;
     }
 
+    Transaction addInput(TransactionInput input){
+
+        this._txnInputs.add(input);
+        this.updateChangeOutput();
+        return this;
+    }
+
+    Transaction addOutput(TransactionOutput txOutput){
+
+        this.outputs.add(txOutput);
+        this.updateChangeOutput();
+        return this;
+    }
+
     Transaction addData(String data) {
 
         var dataOut = new TransactionOutput();
@@ -353,9 +367,17 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
         int outputIndex = map['outputIndex'];
         String scriptPubKey = map['scriptPubKey'];
 
+        //sometimes scriptPubKey from the test harness is HEX encoded
+        Uint8List script;
+        if (BigInt.tryParse(scriptPubKey, radix: 16) != null) {
+            script = SVScript.fromHex(scriptPubKey).buffer;
+        }else{
+            script = SVScript.fromString(scriptPubKey).buffer;
+        }
+
         if (inputExists(transactionId, outputIndex)) return this;
 
-        var txnInput = TransactionInput(transactionId, outputIndex, scriptPubKey, amountToSpend, TransactionInput.UINT_MAX);
+        var txnInput = TransactionInput(transactionId, outputIndex, script, amountToSpend, TransactionInput.UINT_MAX);
 
         _txnInputs.add(txnInput);
 
@@ -431,7 +453,7 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
 
         //delete previous change transaction if exists
         this._changeAddress = changeAddress;
-        updateChangeOutput(); //side-effect programming FTW :facepalm:
+        updateChangeOutput();
         return this;
     }
 
@@ -660,6 +682,7 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
         return int.parse(HEX.encode(this._nLockTime), radix: 16);
     }
 
+    //FIXME: Dangerous. This allows external parties to mutate our internal state.
     List<TransactionInput> get inputs {
         return this._txnInputs;
     }

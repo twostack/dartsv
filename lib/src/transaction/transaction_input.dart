@@ -1,9 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/script/P2PKHScriptSig.dart';
 import 'package:dartsv/src/script/svscript.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
 import 'package:hex/hex.dart';
 import 'package:sprintf/sprintf.dart';
+import 'package:buffer/buffer.dart';
 
 
 class TransactionInput {
@@ -12,12 +15,12 @@ class TransactionInput {
     int sequenceNumber;
     bool _isPubkeyHashInput = false;
 
-    TransactionInput(String txId, int outputIndex, String script, BigInt satoshis, int sequenceNumber) {
+    TransactionInput(String txId, int outputIndex, Uint8List script, BigInt satoshis, int sequenceNumber) {
         this._utxo = TransactionOutput();
         this._utxo.satoshis = satoshis;
         this._utxo.prevTxId = txId;
         this._utxo.outputIndex = outputIndex;
-        this._utxo.script = SVScript.fromHex(script);
+        this._utxo.script = SVScript.fromByteArray(script);
         this.sequenceNumber = sequenceNumber == 0 ? UINT_MAX - 1 : sequenceNumber;
 
         this._isPubkeyHashInput = this._utxo.script is P2PKHScriptSig;
@@ -55,37 +58,48 @@ class TransactionInput {
     }
 
     Iterable<int> serialize() {
-        List<int> buffer = List<int>();
+//        List<int> buffer = List<int>();
+        ByteDataWriter writer = ByteDataWriter();
+
+
+        writer.write(HEX.decode(this.prevTxnId).reversed.toList());
 
         //txid - 32 Bytes
-        buffer.addAll(HEX
-            .decode(this.prevTxnId)
-            .reversed
-            .toList());
+//        buffer.addAll(HEX
+//            .decode(this.prevTxnId)
+//            .reversed
+//            .toList());
 
+        writer.writeUint32(this.output.outputIndex, Endian.little);
         //vout - 4 bytes index
-        var vout = sprintf("%08x", [this.outputIndex]);
-        buffer.addAll(HEX
-            .decode(vout)
-            .reversed
-            .toList());
+//        var vout = sprintf("%08x", [this.outputIndex]);
+//        buffer.addAll(HEX
+//            .decode(vout)
+//            .reversed
+//            .toList());
 
         //scriptSig Size - varInt
         var scriptHex = HEX.decode(this.script.toHex());
-        var varIntVal = calcVarInt(scriptHex.length);
-        buffer.addAll(varIntVal);
+//        var varIntVal = calcVarInt(scriptHex.length);
+//        buffer.addAll(varIntVal);
+
+        writer.write(varIntWriter(scriptHex.length).toList());
+        writer.write(scriptHex);
 
         //scriptSig
-        buffer.addAll(scriptHex);
+//        buffer.addAll(scriptHex);
+
+        writer.writeUint32(this.sequenceNumber, Endian.little);
 
         //sequence number = Oxffffffff - 4 bytes
-        var seq = sprintf("%08x", [this.sequenceNumber]);
-        buffer.addAll(HEX
-            .decode(seq)
-            .reversed
-            .toList());
+//        var seq = sprintf("%08x", [this.sequenceNumber]);
+//        buffer.addAll(HEX
+//            .decode(seq)
+//            .reversed
+//            .toList());
 
-        return buffer;
+//        return buffer;
+        return writer.toBytes().toList();
     }
 
     bool isFullySigned() {

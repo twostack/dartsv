@@ -66,6 +66,7 @@ class SVScript with ScriptBuilder {
     //FIXME: I'm not convinced this does what I think it does. Recheck !
     SVScript.fromString(String script){
         this._processChunks(script);
+        _convertChunksToByteArray();
     }
 
     SVScript.fromHex(String script){
