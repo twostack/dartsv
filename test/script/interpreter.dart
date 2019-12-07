@@ -478,7 +478,7 @@ void main() {
         TransactionInput txCredInput = TransactionInput(
             '0000000000000000000000000000000000000000000000000000000000000000',
             0xffffffff,
-            SVScript.fromString('OP_0 OP_0').buffer,
+            SVScript.fromString('OP_0 OP_0'),
             BigInt.zero,
             0xffffffff
         );
@@ -495,7 +495,7 @@ void main() {
         var txSpendInput = new TransactionInput(
             idbuf,
             0,
-            scriptSig.buffer,
+            scriptSig,
             BigInt.zero,
             0xffffffff,
         );

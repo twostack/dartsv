@@ -65,7 +65,6 @@ class Sighash {
             return HEX.encode(this.sigHashForForkid(txnCopy, sighashType, inputNumber, subscriptCopy, satoshis));
         }
 
-        //subscript.removeCodeseparators() //FIXME: This was removed in my implementation. How did I break things ?
 
         this._sighashType = sighashType;
 
@@ -73,6 +72,7 @@ class Sighash {
 
         this._subScript = _prepareSubScript(subscriptCopy);
 
+        subscript.removeCodeseparators(); //FIXME: This was removed in my implementation. How did I break things ?
 
         //blank out the txn input scripts
         //FIXME: This is redundant. Already taken care of in _prepareTransaction() ?

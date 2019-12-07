@@ -15,15 +15,15 @@ class TransactionInput {
     int sequenceNumber;
     bool _isPubkeyHashInput = false;
 
-    TransactionInput(String txId, int outputIndex, Uint8List script, BigInt satoshis, int sequenceNumber) {
+    TransactionInput(String txId, int outputIndex, SVScript script, BigInt satoshis, int sequenceNumber) {
         this._utxo = TransactionOutput();
         this._utxo.satoshis = satoshis;
         this._utxo.prevTxId = txId;
         this._utxo.outputIndex = outputIndex;
-        this._utxo.script = SVScript.fromByteArray(script);
+        this._utxo.script = script;
         this.sequenceNumber = sequenceNumber == 0 ? UINT_MAX - 1 : sequenceNumber;
 
-        this._isPubkeyHashInput = this._utxo.script is P2PKHScriptSig;
+        this._isPubkeyHashInput = this._utxo.script.isScriptHashOut();
     }
 
     BigInt get satoshis => output.satoshis;
@@ -62,7 +62,7 @@ class TransactionInput {
         ByteDataWriter writer = ByteDataWriter();
 
 
-        writer.write(HEX.decode(this.prevTxnId).reversed.toList());
+        writer.write(HEX.decode(this.prevTxnId).reversed.toList(), copy: true);
 
         //txid - 32 Bytes
 //        buffer.addAll(HEX
@@ -83,8 +83,8 @@ class TransactionInput {
 //        var varIntVal = calcVarInt(scriptHex.length);
 //        buffer.addAll(varIntVal);
 
-        writer.write(varIntWriter(scriptHex.length).toList());
-        writer.write(scriptHex);
+        writer.write(varIntWriter(scriptHex.length).toList(), copy: true);
+        writer.write(scriptHex, copy: true);
 
         //scriptSig
 //        buffer.addAll(scriptHex);

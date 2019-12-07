@@ -52,6 +52,7 @@ class SVSignature {
         this._nhashtype = nhashtype; //this is OK. SighashType is already represented as HEX. No decoding needed
 
         this._parseDER(HEX.encode(derbuf));
+
 //        _secureRandom.seed(KeyParameter(_seed()));
     }
 
@@ -435,6 +436,12 @@ class SVSignature {
     BigInt get r => _r;
 
     SVPublicKey get publicKey => _publicKey;
+
+    void set publicKey(SVPublicKey pubKey) {
+       ECPublicKey ecPubKey = new ECPublicKey(pubKey.point, this._domainParams);
+//        _secureRandom.seed(KeyParameter(_seed()));
+        this._dsaSigner.init(false, PublicKeyParameter(ecPubKey));
+    }
 
     int get i => _i;
 

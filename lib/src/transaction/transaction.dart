@@ -232,7 +232,7 @@ class Transaction {
         var uintSeq = hexToUint32(sequence);
 
         //TODO: Where do I find UTXO amount ?
-        this._txnInputs.add(TransactionInput(HEX.encode(txnId), outIndex, Uint8List.fromList(sigScript), BigInt.zero, uintSeq));
+        this._txnInputs.add(TransactionInput(HEX.encode(txnId), outIndex, SVScript.fromBuffer(sigScript), BigInt.zero, uintSeq));
 
         return offset + 4;
     }
@@ -377,7 +377,7 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
 
         if (inputExists(transactionId, outputIndex)) return this;
 
-        var txnInput = TransactionInput(transactionId, outputIndex, script, amountToSpend, TransactionInput.UINT_MAX);
+        var txnInput = TransactionInput(transactionId, outputIndex, SVScript.fromBuffer(script), amountToSpend, TransactionInput.UINT_MAX);
 
         _txnInputs.add(txnInput);
 

@@ -110,6 +110,7 @@ class SVScript with ScriptBuilder {
     }
 
     SVScript.fromByteArray(Uint8List buffer) {
+
         _processBuffer(buffer);
 //        this._byteArray = buffer; //FIXME: should be redundant... let's see
     }
@@ -220,6 +221,7 @@ class SVScript with ScriptBuilder {
                     ));
                 }
             } catch (e) {
+
                 throw new ScriptException(HEX.encode(buffer));
             }
         };
@@ -273,7 +275,7 @@ class SVScript with ScriptBuilder {
 
     Uint8List get buffer {
         _convertChunksToByteArray();
-        return this._byteArray;
+        return Uint8List.fromList(this._byteArray);
     }
 
     String toString() {
@@ -395,6 +397,19 @@ class SVScript with ScriptBuilder {
 
         return removedItems;
 
+    }
+
+
+    SVScript removeCodeseparators() {
+        var chunks = List<ScriptChunk>();
+        for (var i = 0; i < this._chunks.length; i++) {
+            if (this._chunks[i].opcodenum != OpCodes.OP_CODESEPARATOR) {
+                chunks.add(this._chunks[i]);
+            }
+        }
+        this._chunks = chunks;
+        _convertChunksToByteArray();
+        return this;
     }
 
     //FIXME: Implement !
