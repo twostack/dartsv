@@ -70,8 +70,10 @@ class SVScript with ScriptBuilder {
     }
 
     SVScript.fromHex(String script){
-        this._script = script;
-        parse(script);
+//        this._script = script;
+//        parse(script);
+
+        _processBuffer(HEX.decode(script));
     }
 
 

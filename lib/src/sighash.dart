@@ -49,6 +49,7 @@ class Sighash {
         }
 
         var txnCopy = Transaction.fromHex(txn.serialize(performChecks: false)); //make a copy
+        this._txn = txnCopy;
         var subscriptCopy = SVScript.fromByteArray(HEX.decode(subscript.toHex())); //make a copy
 
         if (flags & ScriptFlags.SCRIPT_ENABLE_REPLAY_PROTECTION > 0) {
@@ -65,25 +66,28 @@ class Sighash {
             return HEX.encode(this.sigHashForForkid(txnCopy, sighashType, inputNumber, subscriptCopy, satoshis));
         }
 
-
         this._sighashType = sighashType;
 
-        this._txn = _prepareTransaction(txnCopy);
-
-        this._subScript = _prepareSubScript(subscriptCopy);
-
-        subscript.removeCodeseparators(); //FIXME: This was removed in my implementation. How did I break things ?
+        // For no ForkId sighash, separators need to be removed.
+        this._subScript = subscript.removeCodeseparators(); //FIXME: This was removed in my implementation. How did I break things ?
 
         //blank out the txn input scripts
-        //FIXME: This is redundant. Already taken care of in _prepareTransaction() ?
-//        txnCopy.inputs.forEach((input) {
-//            input.script = P2PKHScriptSig.fromString("");
-//        });
+        txnCopy.inputs.forEach((input) {
+            input.script = SVScript.fromString("");
+        });
+
+//        this._subScript = _prepareSubScript(subscriptCopy);
+
 
         //setup the input we wish to sign
+//        txcopy.inputs[inputNumber] = new Input(txcopy.inputs[inputNumber]).setScript(subscript)
+//        var tmpInput = txnCopy.inputs[inputNumber];
+//        tmpInput = TransactionInput(tmpInput.prevTxnId, tmpInput.outputIndex, tmpInput.script, tmpInput.satoshis, tmpInput.sequenceNumber);
+//        tmpInput.script = this._subScript;
+//        txnCopy.inputs[inputNumber] = tmpInput;
         txnCopy.inputs[inputNumber].script = this._subScript;
 
-
+//        txnCopy.serialize(performChecks: false);
 
         if ((sighashType & 31) == SighashType.SIGHASH_NONE ||
             (sighashType & 31) == SighashType.SIGHASH_SINGLE) {
@@ -141,6 +145,7 @@ class Sighash {
         return this.toString();
     }
 
+    //NOTE: This is broken. It will arbitrarily remove any bytes that match OP_CODESEPARATOR from *any* hex string
     SVScript _prepareSubScript(SVScript script) {
         //keep everything after last OP_CODESEPARATOR
         var sub = HEX.decode(script.toHex());
@@ -164,14 +169,9 @@ class Sighash {
         return sha256Twice(HEX.decode(txnHex)).reversed.toList();
     }
 
-    Transaction _prepareTransaction(Transaction tx) {
-        //delete all input scripts
-        tx.inputs.forEach((input) {
-            input.script = SVScript.fromString("");
-        });
-
-        return tx;
-    }
+//    Transaction _prepareTransaction(Transaction tx) {
+//        return tx;
+//    }
 
     @override
     String toString() {
