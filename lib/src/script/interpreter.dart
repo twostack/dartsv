@@ -1607,12 +1607,13 @@ class Interpreter {
 
                         var fOk;
                         try {
-                            sig = SVSignature.fromPublicKey(SVPublicKey.fromHex(HEX.encode(bufSig)));
                             pubkey = SVPublicKey.fromHex(HEX.encode(bufPubkey));
+                            sig = SVSignature.fromTxFormat(HEX.encode(bufSig)); //FIXME: Why can't I construct a SVSignature that properly verifies from TxFormat ???
                             sig.publicKey = pubkey;
 //                            fOk = this._tx.verifySignature(sig, pubkey, this._nin, subscript, this._satoshis, this.flags);
-                            String hash = Sighash().hash(this._tx, this._tx.sighashType, this._nin, subscript, this._satoshis);
-                            fOk = sig.verify(hash, HEX.encode(bufSig));
+                            String hash = Sighash().hash(this._tx, sig.nhashtype, this._nin, subscript, this._satoshis);
+                            var reversedHash = HEX.encode(HEX.decode(hash).reversed.toList());
+                            fOk = sig.verify(reversedHash, HEX.encode(bufSig));
                         } catch (e) {
                             // invalid sig or pubkey
                             fOk = false;
