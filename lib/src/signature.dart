@@ -75,8 +75,8 @@ class SVSignature {
             this._rHex = HEX.encode(rVal.valueBytes());
             this._sHex = HEX.encode(sVal.valueBytes());
 
-            this._r = rVal.valueAsBigInteger;
-            this._s = sVal.valueAsBigInteger;
+            this._r = BigInt.parse(this._rHex, radix: 16);
+            this._s = BigInt.parse(this._sHex, radix: 16);
 
             this._signature = ECSignature(r, s);
         } catch (e) {
@@ -98,6 +98,7 @@ class SVSignature {
     /// Initialize from PublicKey to verify ONLY
     SVSignature.fromPublicKey(SVPublicKey publicKey){
         ECPublicKey pubKey = new ECPublicKey(publicKey.point, this._domainParams);
+        this._publicKey = publicKey;
 //        _secureRandom.seed(KeyParameter(_seed()));
         this._dsaSigner.init(false, PublicKeyParameter(pubKey));
     }
@@ -439,6 +440,7 @@ class SVSignature {
 
     void set publicKey(SVPublicKey pubKey) {
        ECPublicKey ecPubKey = new ECPublicKey(pubKey.point, this._domainParams);
+       this._publicKey = pubKey;
 //        _secureRandom.seed(KeyParameter(_seed()));
         this._dsaSigner.init(false, PublicKeyParameter(ecPubKey));
     }
