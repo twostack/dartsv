@@ -23,8 +23,10 @@ main() {
             List.from(jsonData).forEach((vector) {
                 //drop the first item
 
+
                 if (vector.length != 1) {
                     var txbuf = vector[0];
+                    print (txbuf);
                     var scriptbuf = vector[1];
                     var subscript = SVScript.fromHex(scriptbuf);
                     var nin = vector[2];

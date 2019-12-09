@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:buffer/buffer.dart';
 import 'package:dartsv/src/address.dart';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/script/P2PKHScriptPubkey.dart';
@@ -91,6 +94,20 @@ class TransactionOutput {
 
         return buffer;
     }
+
+//FIXME: Swing back to this leaner implementation based on ByteDataWriter()
+//    List<int> serialize2(){
+//        var writer = ByteDataWriter();
+//
+//        writer.writeUint64(this._satoshis.toInt(), Endian.little);
+//
+//        var scriptHex = HEX.decode(this.script.toHex());
+//        writer.write(varIntWriter(scriptHex.length).toList(), copy: true);
+//
+//        writer.write(this.script.buffer);
+//
+//        return writer.toBytes().toList();
+//    }
 
 
 }

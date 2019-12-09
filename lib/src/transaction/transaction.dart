@@ -9,6 +9,7 @@ import 'package:dartsv/src/transaction/transaction_output.dart';
 import 'package:hex/hex.dart';
 import 'package:sprintf/sprintf.dart';
 import 'dart:typed_data';
+import 'package:buffer/buffer.dart';
 
 enum FeeMethod {
     USER_SPECIFIES,
@@ -87,6 +88,7 @@ class Transaction {
     }
 
     /// transaction ID
+//    String get id => HEX.encode(sha256Twice(HEX.decode(this.serialize(performChecks: false))).reversed.toList());
     String get id => HEX.encode(sha256Twice(HEX.decode(this.serialize(performChecks: false))).reversed.toList());
 
     int get sighashType => this._sighashType;
@@ -164,32 +166,48 @@ class Transaction {
 
 
 
+
     //snarfed method off moneybutton/bsv
     String uncheckedSerialize() {
-        List<int> buffer = List<int>();
 
-        //add txn version number
-        buffer.addAll(this._version);
+        ByteDataWriter writer = ByteDataWriter();
 
-        //add all inputs
-        var varIntVal = calcVarInt(this._txnInputs.length);
-        buffer.addAll(varIntVal);
-        this._txnInputs.forEach((input) {
-            buffer.addAll(input.serialize());
+        writer.writeInt32(this.version);
+        writer.write(varIntWriter(this.inputs.length));
+        this.inputs.forEach((input){
+            writer.write(input.serialize());
         });
+        writer.write(varIntWriter(this.outputs.length));
 
-
-        //add all outputs
-        varIntVal = calcVarInt(this._txnOutputs.length);
-        buffer.addAll(varIntVal);
-        this._txnOutputs.forEach((output) {
-            buffer.addAll(output.serialize());
+        this.outputs.forEach((output){
+            writer.write(output.serialize());
         });
-
-        //add nLockTime
-        buffer.addAll(this._nLockTime);
-
-        return HEX.encode(buffer);
+        writer.writeUint32(this.nLockTime);
+        return HEX.encode(writer.toBytes().toList());
+//        List<int> buffer = List<int>();
+//
+//        //add txn version number
+//        buffer.addAll(this._version);
+//
+//        //add all inputs
+//        var varIntVal = calcVarInt(this._txnInputs.length);
+//        buffer.addAll(varIntVal);
+//        this._txnInputs.forEach((input) {
+//            buffer.addAll(input.serialize());
+//        });
+//
+//
+//        //add all outputs
+//        varIntVal = calcVarInt(this._txnOutputs.length);
+//        buffer.addAll(varIntVal);
+//        this._txnOutputs.forEach((output) {
+//            buffer.addAll(output.serialize());
+//        });
+//
+//        //add nLockTime
+//        buffer.addAll(this._nLockTime);
+//
+//        return HEX.encode(buffer);
     }
 
     //returns new buffer pointer

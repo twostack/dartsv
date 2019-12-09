@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:buffer/buffer.dart';
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
+
 //import 'package:dartsv/src/script/P2PKHScriptSig.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
 import 'package:sprintf/sprintf.dart';
@@ -42,9 +44,8 @@ class Sighash {
     Sighash();
 
     String hash(Transaction txn, int sighashType, int inputNumber, SVScript subscript, BigInt satoshis, {flags = _DEFAULT_SIGN_FLAGS }) {
-
         //set a default sighashtype
-        if ( sighashType == 0) {
+        if (sighashType == 0) {
             sighashType = SighashType.SIGHASH_ALL | SighashType.SIGHASH_FORKID;
         }
 
@@ -102,7 +103,6 @@ class Sighash {
         }
 
         if ((sighashType & 31) == SighashType.SIGHASH_NONE) {
-
             txnCopy.outputs.removeWhere((elem) => true); //remove the outputs
 
         } else if ((sighashType & 31) == SighashType.SIGHASH_SINGLE) {
@@ -113,7 +113,7 @@ class Sighash {
             }
 
             var txout = new TransactionOutput();
-            txout.script = txnCopy.outputs[inputNumber].script;              //FIXME: What happens if there are not outputs !?
+            txout.script = txnCopy.outputs[inputNumber].script; //FIXME: What happens if there are not outputs !?
             txout.satoshis = txnCopy.outputs[inputNumber].satoshis;
             txout.outputIndex = txnCopy.outputs[inputNumber].outputIndex;
             txout.prevTxId = txnCopy.outputs[inputNumber].prevTxId;
@@ -123,9 +123,9 @@ class Sighash {
             var outputCount = inputNumber + 1;
             txnCopy.outputs.removeWhere((elem) => true); //remove all the outputs
             //create new outputs up to inputnumer + 1
-            for (var ndx =0; ndx < inputNumber +1; ndx++){
+            for (var ndx = 0; ndx < inputNumber + 1; ndx++) {
                 var tx = new TransactionOutput();
-                tx.script = SVScript.fromString("");              //FIXME: What happens if there are no outputs !?
+                tx.script = SVScript.fromString(""); //FIXME: What happens if there are no outputs !?
                 tx.satoshis = BigInt.parse(BITS_64_ON, radix: 16);
                 txnCopy.outputs.add(tx);
             }
@@ -151,7 +151,6 @@ class Sighash {
         var sub = HEX.decode(script.toHex());
         sub = sub.where((byte) => byte != OpCodes.OP_CODESEPARATOR).toList();
         return SVScript.fromByteArray(Uint8List.fromList(sub));
-
     }
 
     //by the time this function is called, all _prepare* scripts should have been run
@@ -180,50 +179,49 @@ class Sighash {
 
 
     List<int> sigHashForForkid(Transaction txn, int sighashType, int inputNumber, SVScript subscript, BigInt satoshis, {flags = _DEFAULT_SIGN_FLAGS }) {
-        uint32LE(int val) => HEX.decode(val.toUnsigned(32).toRadixString(16));
+        var input = txn.inputs[inputNumber];
 
-        GetPrevoutHash(Transaction tx) {
-            var buffer = List<int>();
+        List<int> GetPrevoutHash(Transaction tx) {
+            var writer = ByteDataWriter();
 
-            tx.inputs.forEach((input) {
-                buffer.addAll(HEX.decode(input.prevTxnId).reversed.toList());
-                var ndxArr = sprintf("%08s", [HEX.encode(uint32LE(input.outputIndex))]).replaceAll(" ", "0");
-                buffer.addAll(HEX.decode(ndxArr).reversed.toList());
-//                buffer.addAll(uint32LE(input.outputIndex));
+            tx.inputs.forEach((TransactionInput input) {
+                writer.write(HEX.decode(input.prevTxnId).reversed.toList());
+                writer.writeUint32(input.outputIndex, Endian.little);
             });
 
-            return sha256Twice(buffer);
+            var buf = writer.toBytes();
+            return sha256Twice(buf.toList());
         }
 
-        GetSequenceHash(Transaction tx) {
-            var buffer = List<int>();
+        List<int> GetSequenceHash(Transaction tx) {
+            var writer = ByteDataWriter();
 
             tx.inputs.forEach((input) {
-                var seqArr = sprintf("%08s", [HEX.encode(uint32LE(input.sequenceNumber))]).replaceAll(" ", "0");
-                buffer.addAll(HEX.decode(seqArr).reversed.toList());
-//                buffer.addAll(uint32LE(input.sequenceNumber).reversed.toList());
+                writer.writeUint32(input.sequenceNumber, Endian.little);
             });
 
-            return sha256Twice(buffer);
+            var buf = writer.toBytes();
+            return sha256Twice(buf.toList());
         }
 
-        GetOutputsHash(Transaction tx, {int n = -1}) {
-            var buffer = List<int>();
+        List<int> GetOutputsHash(Transaction tx, { int n = null}) {
+            var writer = ByteDataWriter();
 
-            if (n < 0) {
+            if (n == null) {
                 tx.outputs.forEach((output) {
-                    buffer.addAll(output.serialize());
+                    writer.write(output.serialize(), copy: true);
                 });
             } else {
-                buffer.addAll(tx.outputs[n].serialize());
+                writer.write(tx.outputs[n].serialize(), copy: true);
             }
 
-            return sha256Twice(buffer);
+            var buf = writer.toBytes();
+            return sha256Twice(buf.toList());
         }
 
-        var hashPrevouts = List<int>(32)..fillRange(0, 32,0);
-        var hashSequence = List<int>(32)..fillRange(0, 32,0);
-        var hashOutputs = List<int>(32)..fillRange(0, 32,0);
+        var hashPrevouts = List<int>(32)..fillRange(0, 32, 0);
+        var hashSequence = List<int>(32)..fillRange(0, 32, 0);
+        var hashOutputs = List<int>(32)..fillRange(0, 32, 0);
 
         if (!(sighashType & SighashType.SIGHASH_ANYONECANPAY > 0)) {
             hashPrevouts = GetPrevoutHash(txn);
@@ -232,7 +230,7 @@ class Sighash {
         if (!(sighashType & SighashType.SIGHASH_ANYONECANPAY > 0) &&
             (sighashType & 31) != SighashType.SIGHASH_SINGLE &&
             (sighashType & 31) != SighashType.SIGHASH_NONE) {
-                hashSequence = GetSequenceHash(txn);
+            hashSequence = GetSequenceHash(txn);
         }
 
         if ((sighashType & 31) != SighashType.SIGHASH_SINGLE && (sighashType & 31) != SighashType.SIGHASH_NONE) {
@@ -241,58 +239,45 @@ class Sighash {
             hashOutputs = GetOutputsHash(txn, n: inputNumber);
         }
 
-        var buffer = List<int>();
+        ByteDataWriter writer = ByteDataWriter();
 
         // Version
-        var verArr= sprintf("%08s", [HEX.encode(uint32LE(txn.version))]).replaceAll(" ", "0");
-        buffer.addAll(HEX.decode(verArr));
-//        buffer.addAll(uint32LE(txn.version));
+        writer.writeInt32(txn.version, Endian.big); //FIXME: This *should* be converted to LE, but shows up already in LE over here
 
         // Input prevouts/nSequence (none/all, depending on flags)
-        buffer.addAll(hashPrevouts);
-        buffer.addAll(hashSequence);
+        writer.write(hashPrevouts);
+        writer.write(hashSequence);
 
         //  outpoint (32-byte hash + 4-byte little endian)
-        var input = txn.inputs[inputNumber];
-        buffer.addAll(HEX.decode(input.prevTxnId).reversed.toList());
-        var ndxArr = sprintf("%08s", [HEX.encode(uint32LE(input.outputIndex))]).replaceAll(" ", "0");
-        buffer.addAll(HEX.decode(ndxArr).reversed.toList());
+        writer.write(HEX
+            .decode(input.prevTxnId)
+            .reversed
+            .toList());
+        writer.writeUint32(input.outputIndex, Endian.little);
 
         // scriptCode of the input (serialized as scripts inside CTxOuts)
-        buffer.addAll(calcVarInt(subscript.buffer.length));
-        buffer.addAll(subscript.buffer);
+        writer.write(varIntWriter(subscript.buffer.length).toList(), copy: true);
+        writer.write(subscript.buffer);
 
         // value of the output spent by this input (8-byte little endian)
-//        var reversedSats = HEX.decode(satoshis.toRadixString(16)).reversed.toList();
-        var reversedSats = HEX.encode(HEX.decode(satoshis.toRadixString(16)).reversed.toList()).padRight(16, "0");
-        var satArr = sprintf("%016s", [reversedSats]); //lazy way to get to 8 byte padding
-//        satArr = satArr.replaceAll(" ", "0"); // hack around sprintf not padding zeros
-//        satArr = utf8.decode(utf8.encode(satArr).reversed.toList()); //reversi!
-        buffer.addAll(HEX.decode(reversedSats));
+        writer.writeUint64(satoshis.toInt(), Endian.little);
 
         // nSequence of the input (4-byte little endian)
         var sequenceNumber = input.sequenceNumber;
-        var seqArr = sprintf("%08s", [HEX.encode(uint32LE(sequenceNumber))]).replaceAll(" ", "0");
-        buffer.addAll(HEX.decode(seqArr).reversed.toList());
-//        buffer.addAll(uint32LE(sequenceNumber).reversed.toList());
+        writer.writeUint32(sequenceNumber, Endian.little);
 
         // Outputs (none/one/all, depending on flags)
-        buffer.addAll(hashOutputs);
+        writer.write(hashOutputs);
 
         // Locktime
-        satArr = sprintf("%08s", [HEX.encode(uint32LE(txn.nLockTime))]); //lazy way to get to 8 byte padding
-        satArr = satArr.replaceAll(" ", "0"); // hack around sprintf not padding zeros
-        buffer.addAll(HEX.decode(satArr));
+        writer.writeUint32(txn.nLockTime, Endian.big); //FIXME: nLockTime is already LE, conversion TO LE should be required here
 
-        //FIXME: All the code that mangles buffer ops like this is one big fail right now. I can't even...
         // sighashType
-        satArr = sprintf("%08s", [HEX.encode(uint32LE((sighashType >> 0).toUnsigned(32)).reversed.toList())]); //lazy way to get to 8 byte padding
-        satArr = satArr.replaceAll(" ", "0"); // hack around sprintf not padding zeros
-        buffer.addAll(HEX.decode(HEX.encode(uint32LE((sighashType >> 0).toUnsigned(32)).reversed.toList()).padRight(8,"0")));
+        writer.writeUint32(sighashType >> 0, Endian.little);
 
-        var ret = sha256Twice(buffer);
+        var buf = writer.toBytes();
+        var ret = sha256Twice(buf.toList());
         return ret.reversed.toList();
     }
-
 
 }

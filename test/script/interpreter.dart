@@ -467,7 +467,7 @@ void main() {
         var scriptSig = SVScript.fromBitcoindString(vector[0]);
         var scriptPubkey = SVScript.fromBitcoindString(vector[1]);
         var flags = getFlags(vector[2]);
-        var inputAmount = 0;
+        var inputAmount = 0.0;
         if (extraData != null) {
             inputAmount = extraData[0] * 1e8;
         }
@@ -485,7 +485,7 @@ void main() {
         credtx.addInput(txCredInput);
         credtx.serialize(performChecks: false);
         TransactionOutput txCredOut = new TransactionOutput();
-        txCredOut.satoshis = BigInt.zero;
+        txCredOut.satoshis = BigInt.from(inputAmount);
         txCredOut.script = scriptPubkey;
         credtx.addOutput(txCredOut);
 
@@ -528,7 +528,7 @@ void main() {
               }
               var extraData;
               if (vect[0] is List) {
-                  extraData = (vect as List<String>).removeAt(0);
+                  extraData = (vect as List<dynamic>).removeAt(0);
               }
 
               String fullScriptString = "${vect[0]} ${vect[1]}";
