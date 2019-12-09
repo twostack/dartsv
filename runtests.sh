@@ -14,3 +14,4 @@ pub run test/transaction/sighash.dart
 pub run test/transaction/transaction.dart
 pub run test/transaction/deserialize.dart
 pub run test/mnemonic/mnemonic.dart
+pub run test/script/interpreter.dart

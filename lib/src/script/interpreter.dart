@@ -318,7 +318,7 @@ class Interpreter {
             flags |= Interpreter.SCRIPT_VERIFY_STRICTENC;
 
             // If FORKID is enabled, we need the input amount.
-            if (satoshis == BigInt.zero) {
+            if (satoshis == null) {
                 throw ScriptException('internal error - need satoshis to verify FORKID transactions');
             }
         }

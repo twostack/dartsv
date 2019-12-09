@@ -492,7 +492,7 @@ class SVScript with ScriptBuilder {
             this._addOpcode(obj, prepend);
         } else if (obj is num) {
             this._addOpcode(obj, prepend);
-        } else if (obj is Uint8List) {
+        } else if (obj is List<int>) {
             this._addBuffer(obj, prepend);
         }
         /*else if (obj instanceof Script) {
