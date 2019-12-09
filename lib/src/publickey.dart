@@ -52,14 +52,44 @@ class SVPublicKey {
         this._publicKey = ECPublicKey(this._point, _domainParams);
     }
 
-    SVPublicKey.fromDER(List<int> buffer, {bool strict = false}){
+    SVPublicKey.fromDER(List<int> buffer, {bool strict = true}){
+
+        if (buffer.isEmpty) {
+            throw new BadParameterException("Empty compressed DER buffer");
+        }
+
         this._point = _transformDER(buffer, strict);
+
+        if (this._point.isInfinity)
+            throw new InvalidPointException("That public key generates point at infinity");
+
+        if (this._point.y.toBigInteger() == BigInt.zero)
+            throw new InvalidPointException("Invalid Y value for this public key");
+
+        _checkIfOnCurve(this._point);
+
         this._publicKey = ECPublicKey(this._point, _domainParams);
     }
 
 
-    SVPublicKey.fromHex(String pubkey, {bool strict = false}) {
-        _parseHexString(pubkey);
+    SVPublicKey.fromHex(String pubkey, {bool strict = true}) {
+
+        if (pubkey.trim() == '') {
+            throw new BadParameterException("Empty compressed public key string");
+        }
+
+//        _parseHexString(pubkey);
+        this._point = _transformDER(HEX.decode(pubkey), strict);
+
+        if (this._point.isInfinity)
+            throw new InvalidPointException("That public key generates point at infinity");
+
+        if (this._point.y.toBigInteger() == BigInt.zero)
+            throw new InvalidPointException("Invalid Y value for this public key");
+
+        _checkIfOnCurve(this._point);
+
+        this._publicKey = ECPublicKey(this._point, _domainParams);
     }
 
 
@@ -74,7 +104,7 @@ class SVPublicKey {
             xbuf = buf.sublist(1, 33);
             ybuf = buf.sublist(33, 65);
             if (xbuf.length != 32 || ybuf.length != 32 || buf.length != 65) {
-                throw new BadParameterException('Length of x and y must be 32 bytes');
+                throw new InvalidPointException('Length of x and y must be 32 bytes');
             }
             x = BigInt.parse(HEX.encode(xbuf), radix: 16);
             y = BigInt.parse(HEX.encode(ybuf), radix: 16);
@@ -87,7 +117,7 @@ class SVPublicKey {
             int yTilde = buf[0] & 1;
             point = _domainParams.curve.decompressPoint(yTilde, x);
         } else {
-            throw BadParameterException('Invalid DER format public key');
+            throw InvalidPointException('Invalid DER format public key');
         }
         return point;
     }
@@ -131,8 +161,9 @@ class SVPublicKey {
     }
 
     static bool isValid(String pubkey) {
+        SVPublicKey publicKey;
         try {
-            SVPublicKey.fromHex(pubkey);
+            publicKey = SVPublicKey.fromHex(pubkey);
         } catch (err) {
             return false;
         }

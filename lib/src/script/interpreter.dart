@@ -1502,7 +1502,7 @@ class Interpreter {
                     subscript.findAndDelete(tmpScript);
 
                     try {
-                        pubkey = SVPublicKey.fromHex(HEX.encode(bufPubkey));
+                        pubkey = SVPublicKey.fromHex(HEX.encode(bufPubkey), strict: false);
                         sig = SVSignature.fromTxFormat(HEX.encode(bufSig)); //FIXME: Why can't I construct a SVSignature that properly verifies from TxFormat ???
                         sig.publicKey = pubkey;
 
@@ -1607,7 +1607,7 @@ class Interpreter {
 
                         var fOk;
                         try {
-                            pubkey = SVPublicKey.fromHex(HEX.encode(bufPubkey));
+                            pubkey = SVPublicKey.fromHex(HEX.encode(bufPubkey), strict: false);
                             sig = SVSignature.fromTxFormat(HEX.encode(bufSig)); //FIXME: Why can't I construct a SVSignature that properly verifies from TxFormat ???
                             sig.publicKey = pubkey;
 //                            fOk = this._tx.verifySignature(sig, pubkey, this._nin, subscript, this._satoshis, this.flags);
