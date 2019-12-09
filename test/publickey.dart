@@ -61,6 +61,25 @@ void main() {
         expect(HEX.encode(puby), equals('7baad41d04514751e6851f5304fd243751703bed21b914f6be218c0fa354a341'));
     });
 
+    group('#fromDER', () {
+        test('should parse this uncompressed public key', () {
+            var pk = SVPublicKey.fromDER(HEX.decode(
+                '041ff0fe0f7b15ffaa85ff9f4744d539139c252a49710fb053bb9f2b933173ff9a7baad41d04514751e6851f5304fd243751703bed21b914f6be218c0fa354a341'));
+            expect(pk.point.x.toBigInteger().toRadixString(16), equals('1ff0fe0f7b15ffaa85ff9f4744d539139c252a49710fb053bb9f2b933173ff9a'));
+            expect(pk.point.y.toBigInteger().toRadixString(16), equals('7baad41d04514751e6851f5304fd243751703bed21b914f6be218c0fa354a341'));
+        });
+
+        test('should parse this compressed public key', () {
+            var pk = SVPublicKey.fromDER(HEX.decode('031ff0fe0f7b15ffaa85ff9f4744d539139c252a49710fb053bb9f2b933173ff9a'));
+            expect(pk.point.x.toBigInteger().toRadixString(16), equals('1ff0fe0f7b15ffaa85ff9f4744d539139c252a49710fb053bb9f2b933173ff9a'));
+            expect(pk.point.y.toBigInteger().toRadixString(16), equals('7baad41d04514751e6851f5304fd243751703bed21b914f6be218c0fa354a341'));
+        });
+
+        test('should throw an error on this invalid public key', () {
+            expect(() => SVPublicKey.fromDER(HEX.decode('091ff0fe0f7b15ffaa85ff9f4744d539139c252a49710fb053bb9f2b933173ff9a')), throwsException);
+        });
+    });
+
 
     test('should be able to instantiate from this X coordinate', () {
         var hexX = '1ff0fe0f7b15ffaa85ff9f4744d539139c252a49710fb053bb9f2b933173ff9a';
