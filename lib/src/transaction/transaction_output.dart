@@ -95,6 +95,18 @@ class TransactionOutput {
         return buffer;
     }
 
+    TransactionOutput.fromReader(ByteDataReader reader) {
+
+        //FIXME: Does readUint64 really do a proper BigInt read ?
+        this.satoshis = BigInt.from(reader.readUint64(Endian.little));
+        var size = readVarIntNum(reader);
+        if (size != 0) {
+            this._script = SVScript.fromBuffer(reader.read(size, copy: true));
+        } else {
+            this._script = SVScript.fromBuffer(Uint8List(0));
+        }
+    }
+
 //FIXME: Swing back to this leaner implementation based on ByteDataWriter()
 //    List<int> serialize2(){
 //        var writer = ByteDataWriter();

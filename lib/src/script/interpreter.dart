@@ -1498,7 +1498,7 @@ class Interpreter {
                     SVScript subscript = SVScript.fromChunks(this._script.chunks.sublist(this.pbegincodehash));
 
                     // Drop the signature, since there's no way for a signature to sign itself
-                    var tmpScript = SVScript.fromByteArray(Uint8List.fromList(bufSig));
+                    var tmpScript = SVScript().add(bufSig);
                     subscript.findAndDelete(tmpScript);
 
                     try {
@@ -1591,7 +1591,7 @@ class Interpreter {
                     // Drop the signatures, since there's no way for a signature to sign itself
                     for (var k = 0; k < nSigsCount; k++) {
                         bufSig = stack.peek(index: -isig - k);
-                        subscript.findAndDelete(SVScript.fromByteArray(Uint8List.fromList(bufSig)));
+                        subscript.findAndDelete(SVScript().add(bufSig));
                     }
 
                     fSuccess = true;

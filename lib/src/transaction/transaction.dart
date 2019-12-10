@@ -34,8 +34,8 @@ enum TransactionOption {
 //        You should consider using traits/mixins for Inputs and Outputs to build something CLEAN.
 class Transaction {
     String _txnHex = "";
-    List<int> _version = HEX.decode("01000000"); //current version number of data structure (4 bytes)
-    List<int> _nLockTime = HEX.decode("00000000"); //HEX.decode("FFFFFFFF"); //default to max value. equivalent to "ignore". (4 bytes)
+    int _version = 1;
+    int _nLockTime = 0;
     List<TransactionInput> _txnInputs = List();
     List<TransactionOutput> _txnOutputs = List();
     Address _changeAddress = null;
@@ -172,17 +172,17 @@ class Transaction {
 
         ByteDataWriter writer = ByteDataWriter();
 
-        writer.writeInt32(this.version);
-        writer.write(varIntWriter(this.inputs.length));
+        writer.writeInt32(this.version, Endian.little);
+        writer.write(varintBufNum(this.inputs.length));
         this.inputs.forEach((input){
             writer.write(input.serialize());
         });
-        writer.write(varIntWriter(this.outputs.length));
+        writer.write(varintBufNum(this.outputs.length));
 
         this.outputs.forEach((output){
             writer.write(output.serialize());
         });
-        writer.writeUint32(this.nLockTime);
+        writer.writeUint32(this.nLockTime, Endian.little);
         return HEX.encode(writer.toBytes().toList());
 //        List<int> buffer = List<int>();
 //
@@ -280,35 +280,31 @@ class Transaction {
         return offset;
     }
 
-    void _parseTransactionHex(String txnHex) {
-        //first four bytes == txn version number
+
+    //FIXME: This whole class needs refactor with ByteBuffer() implementation. Pleaaaaasse !
+    void _parseTransactionHex(String txnHex){
+
         var buffer = HEX.decode(txnHex);
 
-        this._version = buffer.sublist(0, 4);
-        var offset = 4;
-        var firstByte = int.parse(HEX.encode(buffer.sublist(offset, offset + 1)), radix: 16).toUnsigned(8);
-        var varIntSize = getBufferOffset(firstByte);
-        int txnInCount = readVarInt(buffer.sublist(offset, offset + varIntSize)).toInt();
-        offset = offset + varIntSize;
+        var i, sizeTxIns, sizeTxOuts;
 
-        //iterate over reading txnInCount Transactions starting at the calculated offset
-        int ndx = 0;
-        while (ndx < txnInCount) {
-            offset = _parseTransactionInput(offset, buffer);
-            ndx++;
-        }
-        //process transaction Outputs from this point forwards
-        firstByte = int.parse(HEX.encode(buffer.sublist(offset, offset + 1)), radix: 16).toUnsigned(8);
-        varIntSize = getBufferOffset(firstByte);
-        int txnOutCount = readVarInt(buffer.sublist(offset, offset + varIntSize)).toInt();
-        offset = offset + varIntSize;
-        ndx = 0;
-        while (ndx < txnOutCount) {
-            offset = _parseTransactionOutput(offset, buffer);
-            ndx++;
+        ByteDataReader reader = ByteDataReader();
+        reader.add(buffer);
+
+        this._version = reader.readInt32(Endian.little);
+        sizeTxIns = readVarIntNum(reader);
+        for (i = 0; i < sizeTxIns; i++) {
+            var input = TransactionInput.fromReader(reader);
+            this._txnInputs.add(input);
         }
 
-        this._nLockTime = buffer.sublist(buffer.length - 4, buffer.length);
+        sizeTxOuts = readVarIntNum(reader);
+        for (i = 0; i < sizeTxOuts; i++) {
+            var output = TransactionOutput.fromReader(reader);
+            this._txnOutputs.add(output);
+        }
+
+        this._nLockTime = reader.readUint32(Endian.little);
     }
 
     /*
@@ -693,11 +689,11 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
 
 
     int get version {
-        return hexToInt32(this._version);
+        return this._version;
     }
 
     int get nLockTime {
-        return int.parse(HEX.encode(this._nLockTime), radix: 16);
+        return this._nLockTime;
     }
 
     //FIXME: Dangerous. This allows external parties to mutate our internal state.
@@ -750,7 +746,7 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
         var txin = this.inputs[i];
 
         var inputid = txin.prevTxnId + ":" + txin.outputIndex.toString();
-        if (txinmap[inputid]) {
+        if (txinmap[inputid] != null) {
           return 'transaction input ' + i.toString() + ' duplicate input';
         }
         txinmap[inputid] = true;
@@ -776,7 +772,7 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
     //I really don't like type overloading like this.
     //FIXME: Figure out how to use Type System to force consumer of this method to think about the return value. e.g. scala.Option
     getLockTime() {
-        var timestamp = int.parse(HEX.encode(this._nLockTime), radix: 16);
+        var timestamp = this._nLockTime;
         if (timestamp < 500000000) {
             return timestamp;
         }else {
@@ -796,14 +792,14 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
             }
         }
 
-        this._nLockTime = HEX.decode(future.millisecondsSinceEpoch.toRadixString(16));
+        this._nLockTime = future.millisecondsSinceEpoch;
     }
 
     lockUntilUnixTime(int timestamp) {
         if (timestamp < NLOCKTIME_BLOCKHEIGHT_LIMIT)
             throw new LockTimeException("Block time is set too early");
 
-        this._nLockTime = HEX.decode(timestamp.toRadixString(16));
+        this._nLockTime = timestamp;
     }
 
     lockUntilBlockHeight(int blockHeight) {
@@ -821,8 +817,7 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
         }
 
         //FIXME: assumption on the length of _nLockTime. Risks indexexception
-        this._nLockTime.fillRange(0, 3, 0);
-        this._nLockTime.setRange(1, 4, HEX.decode(blockHeight.toRadixString(16))) ;
+        this._nLockTime = blockHeight;
     }
 
 

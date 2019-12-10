@@ -44,14 +44,10 @@ class Sighash {
     Sighash();
 
     String hash(Transaction txn, int sighashType, int inputNumber, SVScript subscript, BigInt satoshis, {flags = _DEFAULT_SIGN_FLAGS }) {
-        //set a default sighashtype
-        if (sighashType == 0) {
-            sighashType = SighashType.SIGHASH_ALL | SighashType.SIGHASH_FORKID;
-        }
 
         var txnCopy = Transaction.fromHex(txn.serialize(performChecks: false)); //make a copy
         this._txn = txnCopy;
-        var subscriptCopy = SVScript.fromByteArray(HEX.decode(subscript.toHex())); //make a copy
+        var subscriptCopy = SVScript.fromHex(subscript.toHex()); //make a copy
 
         if (flags & ScriptFlags.SCRIPT_ENABLE_REPLAY_PROTECTION > 0) {
             // Legacy chain's value for fork id must be of the form 0xffxxxx.
@@ -82,11 +78,11 @@ class Sighash {
 
         //setup the input we wish to sign
 //        txcopy.inputs[inputNumber] = new Input(txcopy.inputs[inputNumber]).setScript(subscript)
-//        var tmpInput = txnCopy.inputs[inputNumber];
-//        tmpInput = TransactionInput(tmpInput.prevTxnId, tmpInput.outputIndex, tmpInput.script, tmpInput.satoshis, tmpInput.sequenceNumber);
-//        tmpInput.script = this._subScript;
-//        txnCopy.inputs[inputNumber] = tmpInput;
-        txnCopy.inputs[inputNumber].script = this._subScript;
+        var tmpInput = txnCopy.inputs[inputNumber];
+        tmpInput = TransactionInput(tmpInput.prevTxnId, tmpInput.outputIndex, tmpInput.script, tmpInput.satoshis, tmpInput.sequenceNumber);
+        tmpInput.script = this._subScript;
+        txnCopy.inputs[inputNumber] = tmpInput;
+//        txnCopy.inputs[inputNumber].script = this._subScript;
 
 //        txnCopy.serialize(performChecks: false);
 
@@ -156,16 +152,12 @@ class Sighash {
     //by the time this function is called, all _prepare* scripts should have been run
     List<int> getHash() {
         String txnHex = this._txn.serialize(performChecks: false);
-        var revHashtype = HEX
-            .decode(this._sighashType.toUnsigned(32).toRadixString(16))
-            .reversed
-            .toList();
 
-        //my super-complicated method of reversing a hex value while preserving leading zeros in byte positions
-        var revMap = revHashtype.map((elem) => elem.toRadixString(16).padLeft(2, "0")).fold("", (prev, elem) => prev + elem).padRight(8, "0");
-        txnHex = txnHex + revMap;
+        var writer = ByteDataWriter();
+        writer.write(HEX.decode(txnHex));
+        writer.writeInt32(this._sighashType, Endian.little);
 
-        return sha256Twice(HEX.decode(txnHex)).reversed.toList();
+        return sha256Twice(writer.toBytes().toList()).reversed.toList();
     }
 
 //    Transaction _prepareTransaction(Transaction tx) {
@@ -247,7 +239,7 @@ class Sighash {
         ByteDataWriter writer = ByteDataWriter();
 
         // Version
-        writer.writeInt32(txn.version, Endian.big); //FIXME: This *should* be converted to LE, but shows up already in LE over here
+        writer.writeInt32(txn.version, Endian.little);
 
         // Input prevouts/nSequence (none/all, depending on flags)
         writer.write(hashPrevouts);
@@ -275,7 +267,7 @@ class Sighash {
         writer.write(hashOutputs);
 
         // Locktime
-        writer.writeUint32(txn.nLockTime, Endian.big); //FIXME: nLockTime is already LE, conversion TO LE should be required here
+        writer.writeUint32(txn.nLockTime, Endian.little);
 
         // sighashType
         writer.writeUint32(sighashType >> 0, Endian.little);

@@ -486,6 +486,83 @@ void main() {
         });
     });
 
+    void testTransaction(List<dynamic> vector, bool expected){
+
+        int c = 0;
+        if (vector.length == 1) {
+          return;
+        };
+
+        print(vector[0]);
+
+        c++;
+        var cc = c; // copy to local
+
+//        it('should pass tx_' + (expected ? '' : 'in') + 'valid vector ' + cc, function () {
+          var inputs = vector[0];
+          var txhex = vector[1];
+
+          var flags = getFlags(vector[2]);
+          var map = {};
+          inputs.forEach((input) {
+            var txid = input[0];
+            var txoutnum = input[1];
+            var scriptPubKeyStr = input[2];
+            if (txoutnum == -1) {
+              txoutnum = 0xffffffff; // bitcoind casts -1 to an unsigned int
+            }
+            map[txid + ':' + txoutnum.toString()] = SVScript.fromBitcoindString(scriptPubKeyStr);
+          });
+
+          var tx = Transaction.fromHex(txhex);
+          var allInputsVerified = true;
+          int index = 0;
+          tx.inputs.forEach((TransactionInput txin) {
+//            if (txin.isNull()) {
+//              return;
+//            }
+            var scriptSig = txin.script;
+            var txidhex = txin.prevTxnId;
+            var txoutnum = txin.outputIndex;
+            var scriptPubkey = map[txidhex + ':' + txoutnum.toString()];
+            expect(scriptPubkey, isNotNull);
+            expect(scriptSig, isNotNull);
+            var interp = Interpreter();
+            var verified = interp.verifyScript(scriptSig, scriptPubkey, tx: tx, nin: index, flags: flags);
+            if (!verified) {
+              allInputsVerified = false;
+            }
+            index++;
+          });
+
+          var txVerified = tx.verify().isEmpty;
+          allInputsVerified = allInputsVerified && txVerified;
+          expect(allInputsVerified, equals(expected));
+    }
+
+    test('bitcoind valid transaction evaluation fixtures', () async {
+        await File("${Directory.current.path}/test/data/bitcoind/tx_valid.json")
+            .readAsString()
+            .then((contents) => jsonDecode(contents))
+            .then((jsonData) {
+            List.from(jsonData).forEach((vect) {
+                testTransaction(vect, true);
+            });
+        });
+    });
+
+
+    test('bitcoind invalid transaction evaluation fixtures', () async {
+        await File("${Directory.current.path}/test/data/bitcoind/tx_invalid.json")
+            .readAsString()
+            .then((contents) => jsonDecode(contents))
+            .then((jsonData) {
+            List.from(jsonData).forEach((vect) {
+                testTransaction(vect, false);
+            });
+        });
+    });
+
     CheckBinaryOpMagnetic(List<int> a, List<int> b, int op, List<int> expected) {
         var interp = evaluateScript(a, b, op);
         var result = interp.stack.pop();
@@ -694,55 +771,10 @@ describe('Interpreter', function () {
 
 
 
-  describe('bitcoind transaction evaluation fixtures', function () {
+  describe('', function () {
     var testTxs = function (set, expected) {
       var c = 0
       set.forEach(function (vector) {
-        if (vector.length === 1) {
-          return
-        }
-        c++
-        var cc = c // copy to local
-        it('should pass tx_' + (expected ? '' : 'in') + 'valid vector ' + cc, function () {
-          var inputs = vector[0]
-          var txhex = vector[1]
-
-          var flags = getFlags(vector[2])
-          var map = {}
-          inputs.forEach(function (input) {
-            var txid = input[0]
-            var txoutnum = input[1]
-            var scriptPubKeyStr = input[2]
-            if (txoutnum === -1) {
-              txoutnum = 0xffffffff // bitcoind casts -1 to an unsigned int
-            }
-            map[txid + ':' + txoutnum] = Script.fromBitcoindString(scriptPubKeyStr)
-          })
-
-          var tx = new Transaction(txhex)
-          var allInputsVerified = true
-          tx.inputs.forEach(function (txin, j) {
-            if (txin.isNull()) {
-              return
-            }
-            var scriptSig = txin.script
-            var txidhex = txin.prevTxId.toString('hex')
-            var txoutnum = txin.outputIndex
-            var scriptPubkey = map[txidhex + ':' + txoutnum]
-            should.exist(scriptPubkey);
-            (scriptSig !== undefined).should.equal(true)
-            var interp = new Interpreter()
-            var verified = interp.verify(scriptSig, scriptPubkey, tx, j, flags)
-            if (!verified) {
-              allInputsVerified = false
-            }
-          })
-          var txVerified = tx.verify()
-          txVerified = (txVerified === true)
-          allInputsVerified = allInputsVerified && txVerified
-          allInputsVerified.should.equal(expected)
-        })
-      })
     }
     testTxs(txValid, true)
     testTxs(txInvalid, false)

@@ -4,6 +4,7 @@ import 'package:pointycastle/digests/ripemd160.dart';
 import 'package:pointycastle/digests/sha256.dart';
 import 'dart:typed_data';
 import 'package:buffer/buffer.dart';
+import 'dart:math';
 
 //import 'package:pointycastle/src/utils.dart';
 import 'package:pointycastle/export.dart';
@@ -53,6 +54,26 @@ int hexToInt64(List<int> hexBuffer) {
 
 BigInt hexToUint64(List<int> hexBuffer) {
     return BigInt.parse(HEX.encode(hexBuffer), radix: 16).toUnsigned(64);
+}
+
+
+List<int> varintBufNum(n) {
+//    List<int> buf ;
+    ByteDataWriter writer = ByteDataWriter();
+    if (n < 253) {
+        writer.writeUint8(n);
+    } else if (n < 0x10000) {
+        writer.writeUint8(253);
+        writer.writeUint16(n, Endian.little);
+    } else if (n < 0x100000000) {
+        writer.writeUint8(254);
+        writer.writeUint32(n, Endian.little);
+    } else {
+        writer.writeUint8(255);
+        writer.writeInt32(n & -1, Endian.little);
+        writer.writeUint32((n / 0x100000000).floor(), Endian.little);
+    }
+    return writer.toBytes().toList();
 }
 
 Uint8List varIntWriter(int length) {
@@ -107,6 +128,31 @@ List<int> calcVarInt(int length) {
     if (length < 0xFFFFFFFFFFFFFFFF) return HEX.decode("FF" + length.toRadixString(16));
 
     return Uint8List(0);
+}
+
+
+//Implementation from bsv lib
+int readVarIntNum(ByteDataReader reader){
+    var first = reader.readUint8();
+    switch (first) {
+        case 0xFD:
+            return reader.readUint16(Endian.little);
+            break;
+        case 0xFE:
+            return reader.readUint32(Endian.little);
+            break;
+        case 0xFF:
+            var bn = BigInt.from(reader.readUint64(Endian.little));
+            var n = bn.toInt();
+            if (n <= pow(2, 53)) {
+                return n;
+            } else {
+                throw new Exception('number too large to retain precision - use readVarintBN');
+            }
+            break;
+        default:
+            return first;
+    }
 }
 
 

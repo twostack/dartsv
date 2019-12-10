@@ -106,5 +106,19 @@ class TransactionInput {
         return this._isPubkeyHashInput;
     }
 
+  TransactionInput.fromReader(ByteDataReader reader) {
+
+      this._utxo = TransactionOutput();
+      this._utxo.prevTxId = HEX.encode(reader.read(32, copy: true).reversed.toList());
+      this._utxo.outputIndex = reader.readUint32(Endian.little);
+
+      var len = readVarIntNum(reader);
+      this._utxo.script = SVScript.fromBuffer(reader.read(len, copy: true));
+
+      this.sequenceNumber = reader.readUint32(Endian.little);
+
+      this._isPubkeyHashInput = this._utxo.script.isScriptHashOut();
+  }
+
 
 }
