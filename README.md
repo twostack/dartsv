@@ -17,9 +17,9 @@ Current Supported features are :
 * Original Bitcoin Address format 
 * Bitcoin Signed Messages
 * Bip39 Mnemonic Support (currently lacks test coverages)
+* Script Interpreter (high priority)
 
 Pending Features : 
-* Script Interpreter (high priority)
 * P2SH support (low priority since it will be deprecated in BitcoinSV)
 * Broader support for original OP_CODES as they become available on BitcoinSV mainnet 
 
