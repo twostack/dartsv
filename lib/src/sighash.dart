@@ -179,6 +179,11 @@ class Sighash {
 
 
     List<int> sigHashForForkid(Transaction txn, int sighashType, int inputNumber, SVScript subscript, BigInt satoshis, {flags = _DEFAULT_SIGN_FLAGS }) {
+
+        if (satoshis == null){
+            throw BadParameterException("For ForkId=0 signatures, satoshis or complete input must be provided");
+        }
+
         var input = txn.inputs[inputNumber];
 
         List<int> GetPrevoutHash(Transaction tx) {
