@@ -482,7 +482,7 @@ class SVScript with ScriptBuilder {
     }
 
 
-    add(obj) {
+    SVScript add(obj) {
         this._addByType(obj, false);
         return this;
     }

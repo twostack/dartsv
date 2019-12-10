@@ -12,59 +12,6 @@ import 'package:hex/hex.dart';
 import 'package:test/test.dart';
 
 void main() {
-
-
-
-//    // the script string format used in bitcoind data tests
-//    fromBitcoindString(String str) {
-////    var bw = new BufferWriter();
-//        List<int> bw = []; //growable list. Initialised as empty
-//
-//        List<String> tokens = str.split(' ');
-//        for (var i = 0; i < tokens.length; i++) {
-//            var token = tokens[i];
-//            if (token == '') {
-//                continue;
-//            }
-//
-//            var opstr;
-//            var opcodenum;
-//            var tbuf;
-//
-//            if (token[0] == '0' && token[1] == 'x') {
-//                var hex = token.substring(0, 2);
-////        bw.write(Buffer.from(hex, 'hex'));
-//                bw.addAll(HEX.decode(hex));
-//            } else if (token[0] == '\'') {
-//                var tstr = token.substring(1, token.length - 1);
-////        var cbuf = Buffer.from(tstr);
-//                var cbuf = utf8.encode(tstr);
-//                SVScript script = SVScript()
-//                    ..add(cbuf);
-//                bw.addAll(script.buffer); //FIXME: This WILL BREAK ! Internally `buffer` does not honor scriptChunks!
-//
-//            } else if (!OpCodes.opcodeMap.containsKey('OP_' + token.toUpperCase())) {
-//                opstr = 'OP_' + token;
-//                opcodenum = OpCodes.opcodeMap[opstr];
-////        bw.writeUInt8(opcodenum);
-//                bw.add(opcodenum);
-//            } else if (OpCodes.opcodeMap.containsKey(token)) {
-//                opstr = token;
-//                opcodenum = OpCodes.opcodeMap[opstr];
-//                bw.add(opcodenum);
-////        bw.writeUInt8(opcodenum);
-//            } else if (BigInt.tryParse(token) != null) {
-//                var script = SVScript()
-//                    ..add(utf8.encode(BigInt.parse(token).toString())); //FIXME: meant to be little endian buffer. Might need reversing.
-//                bw.addAll(script.buffer); //FIXME: This WILL BREAK ! Internally `buffer` does not honor scriptChunks!
-//            } else {
-//                throw new Exception('Could not determine type of script value');
-//            }
-//        }
-//        return SVScript.fromByteArray(bw);
-//    }
-
-
     getFlags(flagstr) {
         var flags = 0;
         if (flagstr.indexOf('NONE') != -1) {
@@ -253,7 +200,6 @@ void main() {
     group('#OP_LSHIFT tests from bitcoind', () {
         test('should not shift when no n value', () {
             var interp = evaluateScript([0x9F, 0x11, 0xF5, 0x55], [], OpCodes.OP_LSHIFT);
-//      console.log(interp.script);
             var result = interp.stack.pop();
             var bitPattern = toBitpattern('10011111000100011111010101010101');
             expect(HEX.encode(result), equals(bitPattern));
@@ -511,82 +457,142 @@ void main() {
     };
 
 
-  test('bitcoind script evaluation fixtures', () async {
+    test('bitcoind script evaluation fixtures', () async {
+        await File("${Directory.current.path}/test/data/bitcoind/script_tests.json")
+            .readAsString()
+            .then((contents) => jsonDecode(contents))
+            .then((jsonData) {
+            List.from(jsonData).forEach((vect) {
+                if (vect.length == 1) {
+                    return;
+                }
+                var extraData;
+                if (vect[0] is List) {
+                    extraData = (vect as List<dynamic>).removeAt(0);
+                }
 
-//  var scriptTests = require('../data/bitcoind/script_tests');
-//  var txValid     = require('../data/bitcoind/tx_valid');
-//  var txInvalid   = require('../data/bitcoind/tx_invalid');
+                String fullScriptString = "${vect[0]} ${vect[1]}";
+                bool expected = vect[3] == 'OK';
+                String comment = "";
+                if (vect.length > 4) {
+                    comment = vect[4];
+                }
 
-      await File("${Directory.current.path}/test/data/bitcoind/script_tests.json")
-          .readAsString()
-          .then((contents) => jsonDecode(contents))
-          .then((jsonData) {
-          List.from(jsonData).forEach((vect) {
+                var txt = "should ${vect[3]} script_tests vector : ${fullScriptString}${comment}";
+                print(txt);
 
-              if (vect.length == 1){
-                  return;
-              }
-              var extraData;
-              if (vect[0] is List) {
-                  extraData = (vect as List<dynamic>).removeAt(0);
-              }
+                testFixture(vect, expected, extraData);
+            });
+        });
+    });
 
-              String fullScriptString = "${vect[0]} ${vect[1]}";
-              bool expected = vect[3] == 'OK';
-              String comment = "";
-              if (vect.length > 4) {
-                  comment = vect[4];
-              }
+    CheckBinaryOpMagnetic(List<int> a, List<int> b, int op, List<int> expected) {
+        var interp = evaluateScript(a, b, op);
+        var result = interp.stack.pop();
+        expect(result, equals(expected));
+    }
 
-              var txt = "should ${vect[3]} script_tests vector : ${fullScriptString}${comment}";
-              print(txt);
 
-              testFixture(vect, expected, extraData);
+    List<int> NegativeValtype(List<int> v) {
+        var copy = v.sublist(0);
+        if (copy.isNotEmpty) {
+            copy[copy.length - 1] ^= 0x80;
+        }
 
-          });
-      });
+        // TODO: expose minimally encode as public method?
+        return Interpreter().minimallyEncode(copy);
+    }
 
+    CheckMul(List<int> a, List<int> b, List<int> expected) {
+        // Negative values for multiplication
+        CheckBinaryOpMagnetic(a, b, OpCodes.OP_MUL, expected);
+        CheckBinaryOpMagnetic(a, NegativeValtype(b), OpCodes.OP_MUL, NegativeValtype(expected));
+        CheckBinaryOpMagnetic(NegativeValtype(a), b, OpCodes.OP_MUL, NegativeValtype(expected));
+        CheckBinaryOpMagnetic(NegativeValtype(a), NegativeValtype(b), OpCodes.OP_MUL, expected);
+
+        // Commutativity
+        CheckBinaryOpMagnetic(b, a, OpCodes.OP_MUL, expected);
+        CheckBinaryOpMagnetic(b, NegativeValtype(a), OpCodes.OP_MUL, NegativeValtype(expected));
+        CheckBinaryOpMagnetic(NegativeValtype(b), a, OpCodes.OP_MUL, NegativeValtype(expected));
+        CheckBinaryOpMagnetic(NegativeValtype(b), NegativeValtype(a), OpCodes.OP_MUL, expected);
+
+        // Multiplication identities
+        CheckBinaryOpMagnetic(a, [0x01], OpCodes.OP_MUL, a);
+        CheckBinaryOpMagnetic(a, [0x81], OpCodes.OP_MUL, NegativeValtype(a));
+        CheckBinaryOpMagnetic(a, [], OpCodes.OP_MUL, []);
+
+        CheckBinaryOpMagnetic([0x01], b, OpCodes.OP_MUL, b);
+        CheckBinaryOpMagnetic([0x81], b, OpCodes.OP_MUL, NegativeValtype(b));
+        CheckBinaryOpMagnetic([], b, OpCodes.OP_MUL, []);
+    }
+
+
+    group('#OP_MUL tests from bitcoind', () {
+        test('OP_MUL tests', () {
+            CheckMul([0x05], [0x06], [0x1E]);
+            CheckMul([0x05], [0x26], [0xBE, 0x00]);
+            CheckMul([0x45], [0x26], [0x3E, 0x0A]);
+            CheckMul([0x02], [0x56, 0x24], [0xAC, 0x48]);
+            CheckMul([0x05], [0x26, 0x03, 0x32], [0xBE, 0x0F, 0xFA, 0x00]);
+            CheckMul([0x06], [0x26, 0x03, 0x32, 0x04], [0xE4, 0x12, 0x2C, 0x19]);
+            CheckMul([0xA0, 0xA0], [0xF5, 0xE4], [0x20, 0xB9, 0xDD, 0x0C]); // -20A0*-64F5=0CDDB920
+            CheckMul([0x05, 0x26], [0x26, 0x03, 0x32], [0xBE, 0xB3, 0x71, 0x6D, 0x07]);
+            CheckMul([0x06, 0x26], [0x26, 0x03, 0x32, 0x04], [0xE4, 0xB6, 0xA3, 0x85, 0x9F, 0x00]);
+            CheckMul([0x05, 0x26, 0x09], [0x26, 0x03, 0x32], [0xBE, 0xB3, 0xC7, 0x89, 0xC9, 0x01]);
+            CheckMul([0x06, 0x26, 0x09], [0x26, 0x03, 0x32, 0x04], [0xE4, 0xB6, 0xF9, 0xA1, 0x61, 0x26]);
+            CheckMul([0x06, 0x26, 0x09, 0x34], [0x26, 0x03, 0x32, 0x04], [0xE4, 0xB6, 0xF9, 0x59, 0x05, 0x4F, 0xDA, 0x00]);
+        });
+    });
+
+
+    group('#Empty and null script', () {
+        test('Empty buffer should have value 0x00 in script', () {
+            var s = SVScript().add(<int>[]);
+            // script does not render anything so it appears invisible
+            expect(s.toHex(), equals(''));
+            // yet there is a script chunk there
+            expect(s.chunks.length, equals(1));
+            expect(s.chunks[0].opcodenum, equals(0));
+        });
+
+        test('Zero value (0x00) buffer should have value 0x01 0x00 in script', () {
+            var s = SVScript().add(<int>[0x00]);
+            expect(s.toString(), equals('1 0x00'));
+            expect(s.chunks.length, equals(1));
+            expect(s.chunks[0].opcodenum, equals(1));
+        });
+    });
+
+  group('#NegativeValType', () {
+    test('should pass all tests', () {
+      // Test zero values
+      expect(SVScript().add(NegativeValtype([])).toHex(), equals(SVScript().add(<int>[]).toHex()));
+      expect(SVScript().add(NegativeValtype([0x00])).toHex(), equals(SVScript().add(<int>[]).toHex()));
+      expect(SVScript().add(NegativeValtype([0x80])).toHex(), equals(SVScript().add(<int>[]).toHex()));
+      expect(SVScript().add(NegativeValtype([0x00, 0x00])).toHex(), equals(SVScript().add(<int>[]).toHex()));
+      expect(SVScript().add(NegativeValtype([0x00, 0x80])).toHex(), equals(SVScript().add(<int>[]).toHex()));
+
+      // Non-zero values
+      expect(NegativeValtype([0x01]), equals([0x81]));
+      expect(NegativeValtype([0x81]), equals([0x01]));
+      expect(NegativeValtype([0x02, 0x01]), equals([0x02, 0x81]));
+      expect(NegativeValtype([0x02, 0x81]), equals([0x02, 0x01]));
+      expect(NegativeValtype([0xff, 0x02, 0x01]), equals([0xff, 0x02, 0x81]));
+      expect(NegativeValtype([0xff, 0x02, 0x81]), equals([0xff, 0x02, 0x01]));
+      expect(NegativeValtype([0xff, 0xff, 0x02, 0x01]),equals([0xff, 0xff, 0x02, 0x81]));
+      expect(NegativeValtype([0xff, 0xff, 0x02, 0x81]),equals([0xff, 0xff, 0x02, 0x01]));
+
+      // Should not be overly-minimized
+      expect(NegativeValtype([0xff, 0x80]),equals([0xff, 0x00]));
+      expect(NegativeValtype([0xff, 0x00]),equals([0xff, 0x80]));
+    });
   });
+
+
 
     /*
 
-  const CheckMul = function (a, b, expected) {
-    // Negative values for multiplication
-    CheckBinaryOpMagnetic(a, b, Opcode.OP_MUL, expected)
-    CheckBinaryOpMagnetic(a, NegativeValtype(b), Opcode.OP_MUL, NegativeValtype(expected))
-    CheckBinaryOpMagnetic(NegativeValtype(a), b, Opcode.OP_MUL, NegativeValtype(expected))
-    CheckBinaryOpMagnetic(NegativeValtype(a), NegativeValtype(b), Opcode.OP_MUL, expected)
 
-    // Commutativity
-    CheckBinaryOpMagnetic(b, a, Opcode.OP_MUL, expected)
-    CheckBinaryOpMagnetic(b, NegativeValtype(a), Opcode.OP_MUL, NegativeValtype(expected))
-    CheckBinaryOpMagnetic(NegativeValtype(b), a, Opcode.OP_MUL, NegativeValtype(expected))
-    CheckBinaryOpMagnetic(NegativeValtype(b), NegativeValtype(a), Opcode.OP_MUL, expected)
-
-    // Multiplication identities
-    CheckBinaryOpMagnetic(a, [0x01], Opcode.OP_MUL, a)
-    CheckBinaryOpMagnetic(a, [0x81], Opcode.OP_MUL, NegativeValtype(a))
-    CheckBinaryOpMagnetic(a, [], Opcode.OP_MUL, [])
-
-    CheckBinaryOpMagnetic([0x01], b, Opcode.OP_MUL, b)
-    CheckBinaryOpMagnetic([0x81], b, Opcode.OP_MUL, NegativeValtype(b))
-    CheckBinaryOpMagnetic([], b, Opcode.OP_MUL, [])
-  }
-
-  const CheckBinaryOpMagnetic = function (a, b, op, expected) {
-    const interp = evaluateScript(a, b, op)
-    const result = [...interp.stack.pop()]
-    result.should.to.deep.equal(expected)
-  }
-
-  const NegativeValtype = function (v) {
-    let copy = v.slice()
-    if (copy.length) {
-      copy[copy.length - 1] ^= 0x80
-    }
-    // TODO: expose minimally encode as public method?
-    return Interpreter._minimallyEncode(copy)
-  }
 
 
   const debugScript = function (step, stack, altstack) {
@@ -685,65 +691,8 @@ describe('Interpreter', function () {
 
 
 
-  describe('#Empty and null script', function () {
-    it('Empty buffer should have value 0x00 in script', function () {
-      const s = new Script().add(Buffer.from([]))
-      // script does not render anything so it appears invisible
-      s.toString().should.equal('')
-      // yet there is a script chunk there
-      s.chunks.length.should.equal(1)
-      s.chunks[0].opcodenum.should.equal(0)
-    })
-    it('Zero value (0x00) buffer should have value 0x01 0x00 in script', function () {
-      const s = new Script().add(Buffer.from([0x00]))
-      s.toString().should.equal('1 0x00')
-      s.chunks.length.should.equal(1)
-      s.chunks[0].opcodenum.should.equal(1)
-    })
-  })
-
-  describe('#NegativeValType', function () {
-    it('should pass all tests', function () {
-      // Test zero values
-      new Script().add(Buffer.from(NegativeValtype([]))).should.to.deep.equal(new Script().add(Buffer.from([])))
-      new Script().add(Buffer.from(NegativeValtype([0x00]))).should.to.deep.equal(new Script().add(Buffer.from([])))
-      new Script().add(Buffer.from(NegativeValtype([0x80]))).should.to.deep.equal(new Script().add(Buffer.from([])))
-      new Script().add(Buffer.from(NegativeValtype([0x00, 0x00]))).should.to.deep.equal(new Script().add(Buffer.from([])))
-      new Script().add(Buffer.from(NegativeValtype([0x00, 0x80]))).should.to.deep.equal(new Script().add(Buffer.from([])))
-
-      // Non-zero values
-      NegativeValtype([0x01]).should.to.deep.equal([0x81])
-      NegativeValtype([0x81]).should.to.deep.equal([0x01])
-      NegativeValtype([0x02, 0x01]).should.to.deep.equal([0x02, 0x81])
-      NegativeValtype([0x02, 0x81]).should.to.deep.equal([0x02, 0x01])
-      NegativeValtype([0xff, 0x02, 0x01]).should.to.deep.equal([0xff, 0x02, 0x81])
-      NegativeValtype([0xff, 0x02, 0x81]).should.to.deep.equal([0xff, 0x02, 0x01])
-      NegativeValtype([0xff, 0xff, 0x02, 0x01]).should.to.deep.equal([0xff, 0xff, 0x02, 0x81])
-      NegativeValtype([0xff, 0xff, 0x02, 0x81]).should.to.deep.equal([0xff, 0xff, 0x02, 0x01])
-
-      // Should not be overly-minimized
-      NegativeValtype([0xff, 0x80]).should.to.deep.equal([0xff, 0x00])
-      NegativeValtype([0xff, 0x00]).should.to.deep.equal([0xff, 0x80])
-    })
-  })
 
 
-  describe('#OP_MUL tests from bitcoind', function () {
-    it('OP_MUL tests', function () {
-      CheckMul([0x05], [0x06], [0x1E])
-      CheckMul([0x05], [0x26], [0xBE, 0x00])
-      CheckMul([0x45], [0x26], [0x3E, 0x0A])
-      CheckMul([0x02], [0x56, 0x24], [0xAC, 0x48])
-      CheckMul([0x05], [0x26, 0x03, 0x32], [0xBE, 0x0F, 0xFA, 0x00])
-      CheckMul([0x06], [0x26, 0x03, 0x32, 0x04], [0xE4, 0x12, 0x2C, 0x19])
-      CheckMul([0xA0, 0xA0], [0xF5, 0xE4], [0x20, 0xB9, 0xDD, 0x0C]) // -20A0*-64F5=0CDDB920
-      CheckMul([0x05, 0x26], [0x26, 0x03, 0x32], [0xBE, 0xB3, 0x71, 0x6D, 0x07])
-      CheckMul([0x06, 0x26], [0x26, 0x03, 0x32, 0x04], [0xE4, 0xB6, 0xA3, 0x85, 0x9F, 0x00])
-      CheckMul([0x05, 0x26, 0x09], [0x26, 0x03, 0x32], [0xBE, 0xB3, 0xC7, 0x89, 0xC9, 0x01])
-      CheckMul([0x06, 0x26, 0x09], [0x26, 0x03, 0x32, 0x04], [0xE4, 0xB6, 0xF9, 0xA1, 0x61, 0x26])
-      CheckMul([0x06, 0x26, 0x09, 0x34], [0x26, 0x03, 0x32, 0x04], [0xE4, 0xB6, 0xF9, 0x59, 0x05, 0x4F, 0xDA, 0x00])
-    })
-  })
 
   describe('bitcoind transaction evaluation fixtures', function () {
     var testTxs = function (set, expected) {

@@ -264,7 +264,7 @@ class Interpreter {
         return true;
     }
 
-    List<int> _minimallyEncode (List<int> buf) {
+    List<int> minimallyEncode (List<int> buf) {
         if (buf.length == 0) {
             return buf;
         }
@@ -1746,7 +1746,7 @@ class Interpreter {
                     this._stack.pop();
                     var rawnum = stack.peek();
 
-                    rawnum = this._minimallyEncode(rawnum);
+                    rawnum = this.minimallyEncode(rawnum);
 
                     // Try to see if we can fit that number in the number of
                     // byte requested.
@@ -1794,7 +1794,7 @@ class Interpreter {
                     }
 
                     buf1 = this._stack.peek();
-                    buf2 = this._minimallyEncode(buf1);
+                    buf2 = this.minimallyEncode(buf1);
 
                     this._stack.replaceAt(this._stack.length - 1, buf2);
 
