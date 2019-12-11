@@ -1821,11 +1821,84 @@ class Interpreter {
     }
 
     bool checkLockTime(BigInt nLockTime) {
-        return false;
+
+        // We want to compare apples to apples, so fail the script
+        // unless the type of nLockTime being tested is the same as
+        // the nLockTime in the transaction.
+        if (!((this._tx.nLockTime < Interpreter.LOCKTIME_THRESHOLD && nLockTime < (Interpreter.LOCKTIME_THRESHOLD_BN)) ||
+                (this._tx.nLockTime >= Interpreter.LOCKTIME_THRESHOLD && nLockTime >= (Interpreter.LOCKTIME_THRESHOLD_BN)))) {
+            return false;
+        }
+
+        // Now that we know we're comparing apples-to-apples, the
+        // comparison is a simple numeric one.
+        if (nLockTime > BigInt.from(this._tx.nLockTime)) {
+            return false;
+        }
+
+        // Finally the nLockTime feature can be disabled and thus
+        // CHECKLOCKTIMEVERIFY bypassed if every txin has been
+        // finalized by setting nSequence to maxint. The
+        // transaction would be allowed into the blockchain, making
+        // the opcode ineffective.
+        //
+        // Testing if this vin is not final is sufficient to
+        // prevent this condition. Alternatively we could test all
+        // inputs, but testing just this input minimizes the data
+        // required to prove correct CHECKLOCKTIMEVERIFY execution.
+        if (this._tx.inputs[this._nin].isFinal()) {
+            return false;
+        }
+
+        return true;
     }
 
     bool checkSequence(BigInt nSequence) {
-        return false;
+
+        // Relative lock times are supported by comparing the passed in operand to
+        // the sequence number of the input.
+        var txToSequence = this._tx.inputs[this._nin].sequenceNumber;
+
+        // Fail if the transaction's version number is not set high enough to
+        // trigger BIP 68 rules.
+        if (this._tx.version < 2) {
+            return false;
+        }
+
+        // Sequence numbers with their most significant bit set are not consensus
+        // constrained. Testing that the transaction's sequence number do not have
+        // this bit set prevents using this property to get around a
+        // CHECKSEQUENCEVERIFY check.
+        if (txToSequence & Interpreter.SEQUENCE_LOCKTIME_DISABLE_FLAG != 0) {
+            return false;
+        }
+
+        // Mask off any bits that do not have consensus-enforced meaning before
+        // doing the integer comparisons
+        var nLockTimeMask = Interpreter.SEQUENCE_LOCKTIME_TYPE_FLAG | Interpreter.SEQUENCE_LOCKTIME_MASK;
+        var txToSequenceMasked = BigInt.from(txToSequence & nLockTimeMask);
+        var nSequenceMasked = nSequence & BigInt.from(nLockTimeMask);
+
+        // There are two kinds of nSequence: lock-by-blockheight and
+        // lock-by-blocktime, distinguished by whether nSequenceMasked <
+        // CTxIn::SEQUENCE_LOCKTIME_TYPE_FLAG.
+        //
+        // We want to compare apples to apples, so fail the script unless the type
+        // of nSequenceMasked being tested is the same as the nSequenceMasked in the
+        // transaction.
+        var SEQUENCE_LOCKTIME_TYPE_FLAG_BN = BigInt.from(Interpreter.SEQUENCE_LOCKTIME_TYPE_FLAG);
+
+        if (!((txToSequenceMasked < SEQUENCE_LOCKTIME_TYPE_FLAG_BN && nSequenceMasked < SEQUENCE_LOCKTIME_TYPE_FLAG_BN) ||
+            (txToSequenceMasked >= SEQUENCE_LOCKTIME_TYPE_FLAG_BN && nSequenceMasked >= SEQUENCE_LOCKTIME_TYPE_FLAG_BN))) {
+            return false;
+        }
+
+        // Now that we know we're comparing apples-to-apples, the comparison is a
+        // simple numeric one.
+        if (nSequenceMasked > txToSequenceMasked) {
+            return false;
+        }
+        return true;
     }
 
     bool checkPubkeyEncoding(List<int> pubkey) {

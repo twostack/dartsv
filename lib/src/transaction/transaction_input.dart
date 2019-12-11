@@ -120,5 +120,9 @@ class TransactionInput {
       this._isPubkeyHashInput = this._utxo.script.isScriptHashOut();
   }
 
+  bool isFinal() {
+      return this.sequenceNumber == UINT_MAX;
+  }
+
 
 }
