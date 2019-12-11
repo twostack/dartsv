@@ -21,7 +21,7 @@ class TransactionInput {
         this._utxo.prevTxId = txId;
         this._utxo.outputIndex = outputIndex;
         this._utxo.script = script;
-        this.sequenceNumber = sequenceNumber == 0 ? UINT_MAX - 1 : sequenceNumber;
+        this.sequenceNumber = sequenceNumber == null ? UINT_MAX - 1 : sequenceNumber;
 
         this._isPubkeyHashInput = this._utxo.script.isScriptHashOut();
     }

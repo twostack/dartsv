@@ -39,7 +39,7 @@ class Sighash {
 
     Transaction _txn;
     SVScript _subScript;
-    int _sighashType;
+    int _sighashType = 0;
 
     Sighash();
 
@@ -58,10 +58,14 @@ class Sighash {
             sighashType = (newForkValue << 8) | (sighashType & 0xff);
         }
 
-        if ((sighashType & SighashType.SIGHASH_FORKID == SighashType.SIGHASH_FORKID) &&
-            (flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID == ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID)) {
+        if ((sighashType & SighashType.SIGHASH_FORKID != 0) && (flags & Interpreter.SCRIPT_ENABLE_SIGHASH_FORKID != 0)) {
             return HEX.encode(this.sigHashForForkid(txnCopy, sighashType, inputNumber, subscriptCopy, satoshis));
         }
+
+//        if ((sighashType & SighashType.SIGHASH_FORKID == SighashType.SIGHASH_FORKID) &&
+//            (flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID == ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID)) {
+//            return HEX.encode(this.sigHashForForkid(txnCopy, sighashType, inputNumber, subscriptCopy, satoshis));
+//        }
 
         this._sighashType = sighashType;
 
@@ -84,7 +88,7 @@ class Sighash {
         txnCopy.inputs[inputNumber] = tmpInput;
 //        txnCopy.inputs[inputNumber].script = this._subScript;
 
-//        txnCopy.serialize(performChecks: false);
+        txnCopy.serialize(performChecks: false);
 
         if ((sighashType & 31) == SighashType.SIGHASH_NONE ||
             (sighashType & 31) == SighashType.SIGHASH_SINGLE) {
