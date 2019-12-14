@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/script/OpReturnScriptPubkey.dart';
@@ -81,14 +83,61 @@ class Transaction {
 
     Transaction();
 
-    Transaction.fromJSON(){
+    /*
+        Expected JSON/Map Format
+    {
+      "hash":"a6f7b4284fb753eab9b554283c4fe1f1d7e143e6cf3b975d0376d7c08ba4cdf5",
+      "version":1,
+      "inputs":[
+        {
+          "prevTxId":"0000000000000000000000000000000000000000000000000000000000000000",
+          "outputIndex":4294967295,
+          "sequenceNumber":4294967295,
+          "script":"03e45201062f503253482f"
+        }
+      ],
+      "outputs":[
+        {
+          "satoshis":5001000000,
+          "script":"76a914ee9a7590f91e04832054f0645bbf243c9fac8e2288ac"
+        },
+        {
+          "satoshis":0,
+          "script":"4104ffd03de44a6e11b9917f3a29f9443283d9871c9d743ef30d5eddcd37094b64d1b3d8090496b53256786bf5c82932ec23c3b74d9f05a6f95a8b5529352656664bac"
+        },
+        {
+          "satoshis":0,
+          "script":"2458e99e66e2b90bd8b2a0e2bfcce91e1f09ee7621d95e9a728ca2372d45df3ded00000000"
+        }
+      ],
+      "nLockTime":0
+    },
+     */
+    Transaction.fromJSONMap(LinkedHashMap<String, dynamic> map){
 
+        this._version = map["version"];
+        this._nLockTime = map["nLockTime"];
+        (map["inputs"] as List).forEach((input) {
+            this._txnInputs.add(
+                TransactionInput(input["prevTxId"], input["outputIndex"], SVScript.fromHex(input["script"]), BigInt.zero, input["sequenceNumber"]));
+        });
+
+        (map["outputs"] as List).forEach((output) {
+            var txOut = TransactionOutput();
+            txOut.satoshis = BigInt.from(output["satoshis"]);
+            txOut.script = SVScript.fromHex(output["script"]);
+            this._txnOutputs.add(txOut);
+        });
     }
 
     Transaction.fromHex(String txnHex) {
         this._parseTransactionHex(txnHex);
 
         this._txnHex = txnHex;
+    }
+
+    Transaction.fromBufferReader(ByteDataReader reader){
+        _fromBufferReader(reader);
     }
 
     /// transaction ID
@@ -167,9 +216,6 @@ class Transaction {
             }
         }
     }
-
-
-
 
     //snarfed method off moneybutton/bsv
     String uncheckedSerialize() {
@@ -290,10 +336,16 @@ class Transaction {
 
         var buffer = HEX.decode(txnHex);
 
-        var i, sizeTxIns, sizeTxOuts;
 
         ByteDataReader reader = ByteDataReader();
         reader.add(buffer);
+
+        _fromBufferReader(reader);
+    }
+
+    void _fromBufferReader(ByteDataReader reader){
+
+        var i, sizeTxIns, sizeTxOuts;
 
         this._version = reader.readInt32(Endian.little);
         sizeTxIns = readVarIntNum(reader);
