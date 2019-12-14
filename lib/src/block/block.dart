@@ -1,5 +1,6 @@
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:buffer/buffer.dart';
 import 'package:dartsv/src/encoding/utils.dart';
@@ -10,7 +11,6 @@ import 'blockheader.dart';
 
 class Block {
 
-    List<int> _buffer;
     List<Transaction> _transactions;
     BlockHeader _header;
 
@@ -57,18 +57,38 @@ class Block {
         });
     }
 
-    void _fromBuffer(List<int> blockbuf){
+    List<int> get buffer {
+        ByteDataWriter writer = ByteDataWriter();
 
+        //concatenate all transactions
+        List<int> txBuf = this._transactions.fold(<int>[], (List<int> prev, Transaction tx) => prev + HEX.decode(tx.serialize(performChecks: false)));
+
+        writer.write(this._header.buffer);
+        writer.write(varIntWriter(this._transactions.length).toList());
+        writer.write(txBuf);
+
+        return writer.toBytes().toList();
+    }
+
+    /*
+        returns the block's hash (header hash) as a buffer
+     */
+    List<int> get hash => this._header.hash;
+
+    /*
+        returns a HEX encoded version of the block's hash
+     */
+    get id => HEX.encode(this.hash);
+
+    void _fromBuffer(List<int> blockbuf) {
         this._transactions = List<Transaction>();
 
         if (blockbuf.isEmpty) {
             throw new BlockException('Empty blocks are not allowed');
         }
 
-        this._buffer = blockbuf;
-
         ByteDataReader dataReader = ByteDataReader()
-            ..add(this._buffer);
+            ..add(blockbuf);
 
         var headerBuf = dataReader.read(80);
 
@@ -82,15 +102,22 @@ class Block {
         }
     }
 
+    Object toObject(){
+       return {
+           "header": this._header.toObject(),
+           "transactions": this._transactions.map((tx) => tx.toObject()).toList()
+       };
+    }
+
 
     String toHex() {
-        return HEX.encode(this._buffer);
+        return HEX.encode(this.buffer);
     }
 
     String toJSON() {
         return jsonEncode({
-          "header" : this._header.toObject(),
-          "transactions": this._transactions.map((tx) => tx.toObject()).toList()
+            "header": this._header.toObject(),
+            "transactions": this._transactions.map((tx) => tx.toObject()).toList()
         });
     }
 

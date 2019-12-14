@@ -72,7 +72,8 @@ void main() {
     });
 
 
-    group('Block', () {
+    group('Block', ()
+    {
         test('should make a new block', () {
             var b = Block.fromBuffer(blockbuf);
             expect(b.toHex(), equals(blockhex));
@@ -125,7 +126,96 @@ void main() {
         });
 
 
-        /* TODO: I Don't really see the need for raw block reading right now. Revisit.
+        group('#fromBuffer', () {
+            test('should make a block from this known buffer', () {
+                var block = Block.fromBuffer(blockbuf);
+                expect(HEX.encode(block.buffer), equals(blockhex));
+            });
+
+            test('should instantiate from block buffer from the network', () async {
+                var networkBlockHex = await File("${Directory.current.path}/test/data/test_block.json")
+                    .readAsString()
+                    .then((contents) => jsonDecode(contents))
+                    .then((arr) => arr[0]["block"]);
+
+                var x = Block.fromBuffer(HEX.decode(networkBlockHex));
+                expect(HEX.encode(x.buffer), equals(networkBlockHex));
+            });
+        });
+
+
+        group('#toBuffer', () {
+            test('should recover a block from this known buffer', () {
+                var block = Block.fromBuffer(blockbuf);
+                expect(HEX.encode(block.buffer), equals(blockhex));
+            });
+        });
+
+
+        group('#_getHash', () {
+            test('should return the correct hash of the genesis block', () {
+                var block = Block.fromBuffer(genesisBuf);
+                var blockhash = HEX.decode(genesisIdHex);
+                expect(HEX.encode(block.hash), equals(HEX.encode(blockhash)));
+            });
+        });
+
+        group('#id', () {
+            test('should return the correct id of the genesis block', () {
+                var block = Block.fromBuffer(genesisBuf);
+                expect(block.id, equals(genesisIdHex));
+            });
+
+            test('"hash" should be the same as "id"', () {
+                var block = Block.fromBuffer(genesisBuf);
+                expect(block.id, equals(HEX.encode(block.hash)));
+            });
+        });
+
+        group('#toObject', () {
+            test('should recover a block from genesis block buffer', () {
+                var block = Block.fromBuffer(blockOneBuf);
+                expect(block.id, equals(blockOneId));
+                expect(block.toObject(), equals({
+                    "header": {
+                        "hash": '00000000839a8e6886ab5951d76f411475428afc90947ee320161bbf18eb6048',
+                        "version": 1,
+                        "prevHash": '000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f',
+                        "merkleRoot": '0e3e2357e806b6cdb1f70b54c3a3a17b6714ee1f0e68bebb44a74b1efd512098',
+                        "time": 1231469665,
+                        "bits": 486604799,
+                        "nonce": 2573394689
+                    },
+                    "transactions": [{
+                        "hash": '0e3e2357e806b6cdb1f70b54c3a3a17b6714ee1f0e68bebb44a74b1efd512098',
+                        "version": 1,
+                        "inputs": [{
+                            "prevTxId": '0000000000000000000000000000000000000000000000000000000000000000',
+                            "outputIndex": 4294967295,
+                            "sequenceNumber": 4294967295,
+                            "script": '04ffff001d0104'
+                        }
+                        ],
+                        "outputs": [{
+                            "satoshis": 5000000000,
+                            "script": '410496b538e853519c726a2c91e61ec11600ae1390813a627c66fb8be7947be63c52da7589379515d4e0a604f8141781e62294721166bf621e73a82cbf2342c858eeac'
+                        }
+                        ],
+                        "nLockTime": 0
+                    }
+                    ]
+                }));
+
+//                test('roundtrips correctly', () {
+//                var block = Block.fromBuffer(blockOneBuf);
+//                var obj = block.toObject();
+//                var block2 = Block.fromObject(obj);
+//                block2.toObject().should.deep.equal(block.toObject())
+//                })
+            });
+
+
+            /* TODO: I Don't really see the need for raw block reading right now. Revisit.
 
         group('#fromRawBlock', () {
         test('should instantiate from a raw block binary', () {
@@ -145,22 +235,11 @@ void main() {
          */
 
 
+        });
     });
 }
 
 /*
-'use strict'
-
-var bsv = require('../..')
-var BN = require('../../lib/crypto/bn')
-var BufferReader = bsv.encoding.BufferReader
-var BufferWriter = bsv.encoding.BufferWriter
-var BlockHeader = bsv.BlockHeader
-var Block = bsv.Block
-var chai = require('chai')
-var fs = require('fs')
-var should = chai.should()
-var Transaction = bsv.Transaction
 
 // https://test-insight.bitpay.com/block/000000000b99b16390660d79fcc138d2ad0c89a0d044c4201a02bdf1f61ffa11
 var dataRawBlockBuffer = fs.readFileSync('test/data/blk86756-testnet.dat')
@@ -170,108 +249,6 @@ var data = require('../data/blk86756-testnet')
 
 describe('Block', function () {
 
-
-
-
-  describe('#fromBuffer', function () {
-    it('should make a block from this known buffer', function () {
-      var block = Block.fromBuffer(blockbuf)
-      block.toBuffer().toString('hex').should.equal(blockhex)
-    })
-
-    it('should instantiate from block buffer from the network', function () {
-      var networkBlock = File("${Directory.current.path}/test/data/test_block.json");
-      var x = Block.fromBuffer(networkBlock)
-      x.toBuffer().toString('hex').should.equal(networkBlock)
-    })
-  })
-
-  describe('#fromBufferReader', function () {
-    it('should make a block from this known buffer', function () {
-      var block = Block.fromBufferReader(BufferReader(blockbuf))
-      block.toBuffer().toString('hex').should.equal(blockhex)
-    })
-  })
-
-  describe('#toBuffer', function () {
-    it('should recover a block from this known buffer', function () {
-      var block = Block.fromBuffer(blockbuf)
-      block.toBuffer().toString('hex').should.equal(blockhex)
-    })
-  })
-
-  describe('#toBufferWriter', function () {
-    it('should recover a block from this known buffer', function () {
-      var block = Block.fromBuffer(blockbuf)
-      block.toBufferWriter().concat().toString('hex').should.equal(blockhex)
-    })
-
-    it('doesn\'t create a bufferWriter if one provided', function () {
-      var writer = new BufferWriter()
-      var block = Block.fromBuffer(blockbuf)
-      block.toBufferWriter(writer).should.equal(writer)
-    })
-  })
-
-  describe('#toObject', function () {
-    it('should recover a block from genesis block buffer', function () {
-      var block = Block.fromBuffer(blockOneBuf)
-      block.id.should.equal(blockOneId)
-      block.toObject().should.deep.equal({
-        header: {
-          hash: '00000000839a8e6886ab5951d76f411475428afc90947ee320161bbf18eb6048',
-          version: 1,
-          prevHash: '000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f',
-          merkleRoot: '0e3e2357e806b6cdb1f70b54c3a3a17b6714ee1f0e68bebb44a74b1efd512098',
-          time: 1231469665,
-          bits: 486604799,
-          nonce: 2573394689
-        },
-        transactions: [{
-          hash: '0e3e2357e806b6cdb1f70b54c3a3a17b6714ee1f0e68bebb44a74b1efd512098',
-          version: 1,
-          inputs: [{
-            prevTxId: '0000000000000000000000000000000000000000000000000000000000000000',
-            outputIndex: 4294967295,
-            sequenceNumber: 4294967295,
-            script: '04ffff001d0104'
-          }],
-          outputs: [{
-            satoshis: 5000000000,
-            script: '410496b538e853519c726a2c91e61ec11600ae1390813a627c66fb8be7947be63c' +
-              '52da7589379515d4e0a604f8141781e62294721166bf621e73a82cbf2342c858eeac'
-          }],
-          nLockTime: 0
-        }]
-      })
-    })
-
-    it('roundtrips correctly', function () {
-      var block = Block.fromBuffer(blockOneBuf)
-      var obj = block.toObject()
-      var block2 = Block.fromObject(obj)
-      block2.toObject().should.deep.equal(block.toObject())
-    })
-  })
-
-  describe('#_getHash', function () {
-    it('should return the correct hash of the genesis block', function () {
-      var block = Block.fromBuffer(genesisbuf)
-      var blockhash = Buffer.from(Array.apply([], Buffer.from(genesisidhex, 'hex')).reverse())
-      block._getHash().toString('hex').should.equal(blockhash.toString('hex'))
-    })
-  })
-
-  describe('#id', function () {
-    it('should return the correct id of the genesis block', function () {
-      var block = Block.fromBuffer(genesisbuf)
-      block.id.should.equal(genesisidhex)
-    })
-    it('"hash" should be the same as "id"', function () {
-      var block = Block.fromBuffer(genesisbuf)
-      block.id.should.equal(block.hash)
-    })
-  })
 
   describe('#inspect', function () {
     it('should return the correct inspect of the genesis block', function () {

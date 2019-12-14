@@ -2,6 +2,7 @@ import 'dart:collection';
 import 'dart:typed_data';
 
 import 'package:buffer/buffer.dart';
+import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/exceptions.dart';
 import 'package:hex/hex.dart';
 
@@ -47,28 +48,42 @@ class BlockHeader {
           }
      */
     BlockHeader.fromJSONMap(LinkedHashMap<String, dynamic> map) {
-       this._hash = HEX.decode(map["hash"]);
-       this._prevHash = HEX.decode(map["prevHash"]);
-       this._merkleRoot = HEX.decode(map["merkleRoot"]);
-       this._time = map["time"];
-       this._bits = map["bits"];
-       this._nonce = map["nonce"];
+        this._version = map["version"];
+        this._hash = HEX.decode(map["hash"]);
+        this._prevHash = HEX.decode(map["prevHash"]);
+        this._merkleRoot = HEX.decode(map["merkleRoot"]);
+        this._time = map["time"];
+        this._bits = map["bits"];
+        this._nonce = map["nonce"];
+    }
+
+    List<int> get buffer {
+        ByteDataWriter writer = ByteDataWriter();
+
+        writer.writeInt32(this._version, Endian.little);//  = byteDataReader.readInt32(Endian.little);
+        writer.write(this._prevHash); // = byteDataReader.read(32);
+        writer.write(this._merkleRoot); // = byteDataReader.read(32);
+        writer.writeUint32(this._time, Endian.little); // = byteDataReader.readUint32(Endian.little);
+        writer.writeUint32(this._bits, Endian.little); // = byteDataReader.readUint32(Endian.little);
+        writer.writeUint32(this._nonce, Endian.little);// = byteDataReader.readUint32(Endian.little);
+
+        return writer.toBytes().toList();
     }
 
     Object toObject() {
-       return {
-           "hash": this.hash, //FIXME: implement hash calculation for header
-           "version": this._version,
-           "prevHash": HEX.encode(this._prevHash),
-           "merkleRoot": HEX.encode(this._merkleRoot),
-           "time": this._time,
-           "bits": this._bits,
-           "nonce": this._nonce
-       };
+        return {
+            "hash": HEX.encode(this.hash),
+            "version": this._version,
+            "prevHash": HEX.encode(this._prevHash.reversed.toList()),
+            "merkleRoot": HEX.encode(this._merkleRoot.reversed.toList()),
+            "time": this._time,
+            "bits": this._bits,
+            "nonce": this._nonce
+        };
     }
 
-    String get hash {
-       return HEX.encode(this._hash); //FIXME;
+    List<int> get hash {
+        return sha256Twice(this.buffer).reversed.toList();
     }
 
 }
