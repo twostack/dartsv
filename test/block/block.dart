@@ -107,6 +107,24 @@ void main() {
             });
         });
 
+
+        group('#toJSON', () {
+            test('should recover these known values', () {
+                var block = Block.fromJSONMap(dataJson);
+                var b = block.toJSON();
+                expect(jsonDecode(b)["header"], isNotNull);
+                expect(jsonDecode(b)["transactions"], isNotNull);
+            });
+        });
+
+        group('#fromHex/#toHex', () {
+            test('should output/input a block hex string', () {
+                var b = Block.fromHex(blockhex);
+                expect(b.toHex(), equals(blockhex));
+            });
+        });
+
+
         /* TODO: I Don't really see the need for raw block reading right now. Revisit.
 
         group('#fromRawBlock', () {
@@ -154,22 +172,6 @@ describe('Block', function () {
 
 
 
-
-  describe('#toJSON', function () {
-    it('should recover these known values', function () {
-      var block = Block.fromObject(JSON.parse(json))
-      var b = block.toJSON()
-      should.exist(b.header)
-      should.exist(b.transactions)
-    })
-  })
-
-  describe('#fromString/#toString', function () {
-    it('should output/input a block hex string', function () {
-      var b = Block.fromString(blockhex)
-      b.toString().should.equal(blockhex)
-    })
-  })
 
   describe('#fromBuffer', function () {
     it('should make a block from this known buffer', function () {

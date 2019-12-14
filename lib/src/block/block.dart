@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:convert';
 
 import 'package:buffer/buffer.dart';
 import 'package:dartsv/src/encoding/utils.dart';
@@ -20,28 +21,11 @@ class Block {
 
 
     Block.fromBuffer(List<int> blockbuf) {
+        _fromBuffer(blockbuf);
+    }
 
-        this._transactions = List<Transaction>();
-
-        if (blockbuf.isEmpty) {
-            throw new BlockException('Empty blocks are not allowed');
-        }
-
-        this._buffer = blockbuf;
-
-        ByteDataReader dataReader = ByteDataReader()
-            ..add(this._buffer);
-
-        var headerBuf = dataReader.read(80);
-
-        this._header = BlockHeader.fromBuffer(headerBuf);
-
-
-        var txCount = readVarIntNum(dataReader);
-
-        for (var i = 0; i < txCount; i++) {
-            this._transactions.add(Transaction.fromBufferReader(dataReader));
-        }
+    Block.fromHex(String blockHex) {
+        _fromBuffer(HEX.decode(blockHex));
     }
 
 
@@ -68,18 +52,49 @@ class Block {
 
         this._header = BlockHeader.fromJSONMap(map["header"]);
 
-        (map["transactions"] as List).forEach((tx){
+        (map["transactions"] as List).forEach((tx) {
             this._transactions.add(Transaction.fromJSONMap(tx));
+        });
+    }
+
+    void _fromBuffer(List<int> blockbuf){
+
+        this._transactions = List<Transaction>();
+
+        if (blockbuf.isEmpty) {
+            throw new BlockException('Empty blocks are not allowed');
+        }
+
+        this._buffer = blockbuf;
+
+        ByteDataReader dataReader = ByteDataReader()
+            ..add(this._buffer);
+
+        var headerBuf = dataReader.read(80);
+
+        this._header = BlockHeader.fromBuffer(headerBuf);
+
+
+        var txCount = readVarIntNum(dataReader);
+
+        for (var i = 0; i < txCount; i++) {
+            this._transactions.add(Transaction.fromBufferReader(dataReader));
+        }
+    }
+
+
+    String toHex() {
+        return HEX.encode(this._buffer);
+    }
+
+    String toJSON() {
+        return jsonEncode({
+          "header" : this._header.toObject(),
+          "transactions": this._transactions.map((tx) => tx.toObject()).toList()
         });
     }
 
     get header => this._header;
 
     get transactions => this._transactions;
-
-    String toHex() {
-        return HEX.encode(this._buffer);
-    }
-
-
 }

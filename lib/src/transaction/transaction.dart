@@ -114,7 +114,6 @@ class Transaction {
     },
      */
     Transaction.fromJSONMap(LinkedHashMap<String, dynamic> map){
-
         this._version = map["version"];
         this._nLockTime = map["nLockTime"];
         (map["inputs"] as List).forEach((input) {
@@ -140,6 +139,16 @@ class Transaction {
         _fromBufferReader(reader);
     }
 
+    Object toObject() {
+        return {
+            "hash": this.id,
+            "version": this._version,
+            "inputs": this._txnInputs.map((input) => input.toObject()).toList(),
+            "outputs": this._txnOutputs.map((output) => output.toObject()).toList(),
+            "nLockTime": this._nLockTime
+        };
+    }
+
     /// transaction ID
 //    String get id => HEX.encode(sha256Twice(HEX.decode(this.serialize(performChecks: false))).reversed.toList());
     String get id => HEX.encode(sha256Twice(HEX.decode(this.serialize(performChecks: false))).reversed.toList());
@@ -161,7 +170,6 @@ class Transaction {
 
 
     _doSerializationChecks() {
-
         if (this.invalidSatoshis()) {
             throw TransactionAmountException("Invalid quantity of satoshis");
         }
@@ -180,14 +188,14 @@ class Transaction {
     }
 
     void _checkForDustErrors() {
-      if (transactionOptions.contains(TransactionOption.DISABLE_DUST_OUTPUTS))
-          return;
+        if (transactionOptions.contains(TransactionOption.DISABLE_DUST_OUTPUTS))
+            return;
 
-      for (var output in this._txnOutputs) {
-        if (output.satoshis < Transaction.DUST_AMOUNT && !(output.script is OpReturnScriptPubkey)) {
-            throw new TransactionAmountException("You have outputs with spending values below the dust limit");
+        for (var output in this._txnOutputs) {
+            if (output.satoshis < Transaction.DUST_AMOUNT && !(output.script is OpReturnScriptPubkey)) {
+                throw new TransactionAmountException("You have outputs with spending values below the dust limit");
+            }
         }
-      }
     }
 
     void _checkForMissingSignatures() {
@@ -195,7 +203,6 @@ class Transaction {
 
         if (!this.isFullySigned())
             throw new TransactionException("Missing Signatures");
-
     }
 
 
@@ -219,17 +226,16 @@ class Transaction {
 
     //snarfed method off moneybutton/bsv
     String uncheckedSerialize() {
-
         ByteDataWriter writer = ByteDataWriter();
 
         writer.writeInt32(this.version, Endian.little);
         writer.write(varintBufNum(this.inputs.length));
-        this.inputs.forEach((input){
+        this.inputs.forEach((input) {
             writer.write(input.serialize());
         });
         writer.write(varintBufNum(this.outputs.length));
 
-        this.outputs.forEach((output){
+        this.outputs.forEach((output) {
             writer.write(output.serialize());
         });
         writer.writeUint32(this.nLockTime, Endian.little);
@@ -332,8 +338,7 @@ class Transaction {
 
 
     //FIXME: This whole class needs refactor with ByteBuffer() implementation. Pleaaaaasse !
-    void _parseTransactionHex(String txnHex){
-
+    void _parseTransactionHex(String txnHex) {
         var buffer = HEX.decode(txnHex);
 
 
@@ -343,8 +348,7 @@ class Transaction {
         _fromBufferReader(reader);
     }
 
-    void _fromBufferReader(ByteDataReader reader){
-
+    void _fromBufferReader(ByteDataReader reader) {
         var i, sizeTxIns, sizeTxOuts;
 
         this._version = reader.readInt32(Endian.little);
@@ -386,22 +390,19 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
         return this;
     }
 
-    Transaction addInput(TransactionInput input){
-
+    Transaction addInput(TransactionInput input) {
         this._txnInputs.add(input);
         this.updateChangeOutput();
         return this;
     }
 
-    Transaction addOutput(TransactionOutput txOutput){
-
+    Transaction addOutput(TransactionOutput txOutput) {
         this.outputs.add(txOutput);
         this.updateChangeOutput();
         return this;
     }
 
     Transaction addData(String data) {
-
         var dataOut = new TransactionOutput();
         dataOut.script = OpReturnScriptPubkey(data);
         dataOut.satoshis = BigInt.zero;
@@ -440,9 +441,13 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
         //sometimes scriptPubKey from the test harness is HEX encoded
         Uint8List script;
         if (BigInt.tryParse(scriptPubKey, radix: 16) != null) {
-            script = SVScript.fromHex(scriptPubKey).buffer;
-        }else{
-            script = SVScript.fromString(scriptPubKey).buffer;
+            script = SVScript
+                .fromHex(scriptPubKey)
+                .buffer;
+        } else {
+            script = SVScript
+                .fromString(scriptPubKey)
+                .buffer;
         }
 
         if (inputExists(transactionId, outputIndex)) return this;
@@ -466,7 +471,7 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
 
     //FIXME: implementation pending
     bool isFullySigned() {
-       /*
+        /*
 
   _.each(this.inputs, function (input) {
     if (input.isFullySigned === Input.prototype.isFullySigned) {
@@ -480,7 +485,7 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
     return input.isFullySigned()
   }))
         */
-       return this._txnInputs.fold(true, (prev, elem) => prev && elem.isFullySigned());
+        return this._txnInputs.fold(true, (prev, elem) => prev && elem.isFullySigned());
     }
 
     void updateChangeOutput() {
@@ -532,6 +537,7 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
     BigInt _recipientTotals() => this._txnOutputs.fold(BigInt.zero, (BigInt prev, elem) => prev + elem.satoshis);
 
     BigInt get outputAmount => this._recipientTotals();
+
     BigInt get inputAmount => this._inputTotals();
 
     BigInt _nonChangeRecipientTotals() {
@@ -570,7 +576,10 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
 
             //FIXME: Revisit this issue surrounding the need to sign a reversed copy of the hash.
             ///      Right now I've factored this out of signature.dart because "coupling" & "seperation of concerns".
-            var reversedHash = HEX.encode(HEX.decode(hash).reversed.toList());
+            var reversedHash = HEX.encode(HEX
+                .decode(hash)
+                .reversed
+                .toList());
             sig.sign(reversedHash);
 
             var txSignature = sig.toTxFormat(); //signed hash with SighashType appended
@@ -749,14 +758,14 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
     }
 
     void set version(int version) {
-       this._version = version;
+        this._version = version;
     }
 
     int get nLockTime {
         return this._nLockTime;
     }
 
-    void set nLockTime(int lockTime){
+    void set nLockTime(int lockTime) {
         this._nLockTime = lockTime;
     }
 
@@ -772,64 +781,64 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
     Set<TransactionOption> get transactionOptions => _transactionOptions;
 
     String verify() {
-
-      // Basic checks that don't depend on any context
-      if (this._txnInputs.isEmpty) {
-        return 'transaction txins empty';
-      }
-
-      if (this._txnOutputs.isEmpty) {
-        return 'transaction txouts empty';
-      }
-
-      // Check for negative or overflow output values
-      var valueoutbn = BigInt.zero;
-      var ndx = 0;
-      for (var txout in this._txnOutputs) {
-
-        if (txout.invalidSatoshis()) {
-          return 'transaction txout $ndx satoshis is invalid';
+        // Basic checks that don't depend on any context
+        if (this._txnInputs.isEmpty) {
+            return 'transaction txins empty';
         }
-        if (txout.satoshis > Transaction.MAX_MONEY) {
-          return 'transaction txout ${ndx} greater than MAX_MONEY';
-        }
-        valueoutbn = valueoutbn + txout.satoshis;
-        if (valueoutbn > Transaction.MAX_MONEY) {
-          return 'transaction txout ${ndx} total output greater than MAX_MONEY';
-        }
-      }
 
-      // Size limits
-      if (this.serialize(performChecks: false).length > MAX_BLOCK_SIZE) {
-        return 'transaction over the maximum block size';
-      }
-
-      // Check for duplicate inputs
-      var txinmap = {};
-      for (var i = 0; i < this.inputs.length; i++) {
-        var txin = this.inputs[i];
-
-        var inputid = txin.prevTxnId + ":" + txin.outputIndex.toString();
-        if (txinmap[inputid] != null) {
-          return 'transaction input ' + i.toString() + ' duplicate input';
+        if (this._txnOutputs.isEmpty) {
+            return 'transaction txouts empty';
         }
-        txinmap[inputid] = true;
-      }
 
-      var isCoinbase = this.isCoinbase();
-      if (isCoinbase) {
-        var buf = this.inputs[0].script.buffer;
-        if (buf.length < 2 || buf.length > 100) {
-          return 'coinbase transaction script size invalid';
+        // Check for negative or overflow output values
+        var valueoutbn = BigInt.zero;
+        var ndx = 0;
+        for (var txout in this._txnOutputs) {
+            if (txout.invalidSatoshis()) {
+                return 'transaction txout $ndx satoshis is invalid';
+            }
+            if (txout.satoshis > Transaction.MAX_MONEY) {
+                return 'transaction txout ${ndx} greater than MAX_MONEY';
+            }
+            valueoutbn = valueoutbn + txout.satoshis;
+            if (valueoutbn > Transaction.MAX_MONEY) {
+                return 'transaction txout ${ndx} total output greater than MAX_MONEY';
+            }
         }
-      } else {
+
+        // Size limits
+        if (this
+            .serialize(performChecks: false)
+            .length > MAX_BLOCK_SIZE) {
+            return 'transaction over the maximum block size';
+        }
+
+        // Check for duplicate inputs
+        var txinmap = {};
         for (var i = 0; i < this.inputs.length; i++) {
-          if (this.inputs[i] == null) {
-            return 'transaction input ' + i.toString() + ' has null input';
-          }
+            var txin = this.inputs[i];
+
+            var inputid = txin.prevTxnId + ":" + txin.outputIndex.toString();
+            if (txinmap[inputid] != null) {
+                return 'transaction input ' + i.toString() + ' duplicate input';
+            }
+            txinmap[inputid] = true;
         }
-      }
-      return "";
+
+        var isCoinbase = this.isCoinbase();
+        if (isCoinbase) {
+            var buf = this.inputs[0].script.buffer;
+            if (buf.length < 2 || buf.length > 100) {
+                return 'coinbase transaction script size invalid';
+            }
+        } else {
+            for (var i = 0; i < this.inputs.length; i++) {
+                if (this.inputs[i] == null) {
+                    return 'transaction input ' + i.toString() + ' has null input';
+                }
+            }
+        }
+        return "";
     }
 
     //returns either DateTime or int (blockHeight)
@@ -839,14 +848,13 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
         var timestamp = this._nLockTime;
         if (timestamp < 500000000) {
             return timestamp;
-        }else {
+        } else {
             var date = DateTime.fromMillisecondsSinceEpoch(timestamp);
             return date;
         }
     }
 
     lockUntilDate(DateTime future) {
-
         if (future.millisecondsSinceEpoch < NLOCKTIME_BLOCKHEIGHT_LIMIT)
             throw new LockTimeException("Block time is set too early");
 

@@ -120,6 +120,15 @@ class TransactionInput {
       this._isPubkeyHashInput = this._utxo.script.isScriptHashOut();
   }
 
+  Object toObject(){
+        return {
+            "prevTxId": this.prevTxnId,
+            "outputIndex": this.outputIndex,
+            "sequenceNumber": this.sequenceNumber,
+            "script": this.script.toHex()
+        };
+  }
+
   bool isFinal() {
       return this.sequenceNumber == UINT_MAX;
   }

@@ -55,4 +55,20 @@ class BlockHeader {
        this._nonce = map["nonce"];
     }
 
+    Object toObject() {
+       return {
+           "hash": this.hash, //FIXME: implement hash calculation for header
+           "version": this._version,
+           "prevHash": HEX.encode(this._prevHash),
+           "merkleRoot": HEX.encode(this._merkleRoot),
+           "time": this._time,
+           "bits": this._bits,
+           "nonce": this._nonce
+       };
+    }
+
+    String get hash {
+       return HEX.encode(this._hash); //FIXME;
+    }
+
 }
