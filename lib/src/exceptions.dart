@@ -115,4 +115,9 @@ class InterpreterException implements Exception {
     InterpreterException(this.cause);
 }
 
+class BlockException implements Exception {
+    String cause;
+
+    BlockException(this.cause);
+}
 

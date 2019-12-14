@@ -81,6 +81,10 @@ class Transaction {
 
     Transaction();
 
+    Transaction.fromJSON(){
+
+    }
+
     Transaction.fromHex(String txnHex) {
         this._parseTransactionHex(txnHex);
 
@@ -692,8 +696,16 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
         return this._version;
     }
 
+    void set version(int version) {
+       this._version = version;
+    }
+
     int get nLockTime {
         return this._nLockTime;
+    }
+
+    void set nLockTime(int lockTime){
+        this._nLockTime = lockTime;
     }
 
     //FIXME: Dangerous. This allows external parties to mutate our internal state.
