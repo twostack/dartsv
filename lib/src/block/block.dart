@@ -1,5 +1,6 @@
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:buffer/buffer.dart';
@@ -11,6 +12,9 @@ import 'blockheader.dart';
 
 class Block {
 
+    static final START_OF_BLOCK = 8; // Start of block in raw block data
+    static final NULL_HASH = HEX.decode('0000000000000000000000000000000000000000000000000000000000000000');
+
     List<Transaction> _transactions;
     BlockHeader _header;
 
@@ -19,6 +23,9 @@ class Block {
         this._transactions = transactions;
     }
 
+    Block.fromRawBlock(List<int> dataRawBlockBinary) {
+        _fromBuffer(dataRawBlockBinary, rawDataRead: true);
+    }
 
     Block.fromBuffer(List<int> blockbuf) {
         _fromBuffer(blockbuf);
@@ -28,6 +35,10 @@ class Block {
         _fromBuffer(HEX.decode(blockHex));
     }
 
+    Block.fromObject(Object obj) {
+        _parseObject(obj);
+
+    }
 
     //JSON as decoded using dart:convert:jsonDecode()
     /*
@@ -48,6 +59,11 @@ class Block {
 
      */
     Block.fromJSONMap(LinkedHashMap<String, dynamic> map) {
+        _parseObject(map);
+    }
+
+    _parseObject(map){
+
         this._transactions = List<Transaction>();
 
         this._header = BlockHeader.fromJSONMap(map["header"]);
@@ -80,7 +96,7 @@ class Block {
      */
     get id => HEX.encode(this.hash);
 
-    void _fromBuffer(List<int> blockbuf) {
+    void _fromBuffer(List<int> blockbuf, {bool rawDataRead = false}) {
         this._transactions = List<Transaction>();
 
         if (blockbuf.isEmpty) {
@@ -89,6 +105,10 @@ class Block {
 
         ByteDataReader dataReader = ByteDataReader()
             ..add(blockbuf);
+
+        if (rawDataRead){
+            dataReader.read(START_OF_BLOCK); //consume first eight bytes if reading raw data
+        }
 
         var headerBuf = dataReader.read(80);
 
@@ -121,7 +141,59 @@ class Block {
         });
     }
 
-    get header => this._header;
 
-    get transactions => this._transactions;
+    bool validMerkleRoot() {
+
+        var h = BigInt.parse(HEX.encode(this.header.merkleRoot), radix: 16);
+        var c = BigInt.parse(HEX.encode(this.getMerkleRoot()), radix: 16);
+
+        if (h != c) {
+            return false;
+        }
+
+        return true;
+    }
+
+    List<int> getMerkleRoot() {
+        var tree = this.getMerkleTree();
+        return tree[tree.length - 1];
+    }
+
+    List<List<int>> getMerkleTree() {
+
+        var tree = this.getTransactionHashes();
+
+        var j = 0;
+        for (int size = this.transactions.length; size > 1; size = ((size + 1) / 2).floor()) {
+            for (int i = 0; i < size; i += 2) {
+                var i2 = min(i + 1, size - 1);
+                var buf = tree[j + i] + tree[j + i2];
+                tree.add(sha256Twice(buf));
+            }
+            j += size;
+        }
+
+        return tree;
+    }
+
+    List<List<int>> getTransactionHashes() {
+        List<List<int>> hashes = [];
+        if (this.transactions.length == 0) {
+            return [Block.NULL_HASH];
+        }
+
+        hashes = this.transactions.map((Transaction tx) => tx.hash).toList();
+
+        return hashes;
+    }
+
+    BlockHeader get header => this._header;
+
+    List<Transaction> get transactions => this._transactions;
+
+    set transactions(List<Transaction> txns){
+        this._transactions = txns;
+    }
+
+
 }

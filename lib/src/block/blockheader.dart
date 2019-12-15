@@ -9,7 +9,6 @@ import 'package:hex/hex.dart';
 class BlockHeader {
 
     int _version;
-    List<int> _hash;
     List<int> _prevHash;
     List<int> _merkleRoot;
     int _time;
@@ -49,9 +48,8 @@ class BlockHeader {
      */
     BlockHeader.fromJSONMap(LinkedHashMap<String, dynamic> map) {
         this._version = map["version"];
-        this._hash = HEX.decode(map["hash"]);
-        this._prevHash = HEX.decode(map["prevHash"]);
-        this._merkleRoot = HEX.decode(map["merkleRoot"]);
+        this._prevHash = HEX.decode(map["prevHash"]).reversed.toList();
+        this._merkleRoot = HEX.decode(map["merkleRoot"]).reversed.toList();
         this._time = map["time"];
         this._bits = map["bits"];
         this._nonce = map["nonce"];
@@ -82,8 +80,25 @@ class BlockHeader {
         };
     }
 
-    List<int> get hash {
-        return sha256Twice(this.buffer).reversed.toList();
+    List<int> _calculateHash(List<int> buffer){
+        return sha256Twice(buffer).reversed.toList();
     }
+
+    List<int> get hash {
+        return _calculateHash(this.buffer);
+    }
+
+    int get nonce => _nonce;
+
+    int get bits => _bits;
+
+    int get time => _time;
+
+    int get version => _version;
+
+    List<int> get merkleRoot => _merkleRoot;
+
+    List<int> get prevHash => _prevHash;
+
 
 }

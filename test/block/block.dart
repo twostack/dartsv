@@ -37,6 +37,8 @@ void main() {
     String blockOneId = '00000000839a8e6886ab5951d76f411475428afc90947ee320161bbf18eb6048';
 
     var dataJson, dataBlocks;
+    List<int> dataRawBlockBuffer, dataRawBlockBinary;
+
     List<Transaction> transactions = List<Transaction>();
 
     setUp(() async {
@@ -47,6 +49,10 @@ void main() {
         dataBlocks = await File("${Directory.current.path}/test/data/bitcoind/blocks.json")
             .readAsString()
             .then((contents) => jsonDecode(contents));
+
+
+        dataRawBlockBuffer = await File("${Directory.current.path}/test/data/blk86756-testnet.dat").readAsBytesSync();
+        dataRawBlockBinary = await File("${Directory.current.path}/test/data/blk86756-testnet.dat").readAsBytesSync();
 
         List.from(dataJson["transactions"]).forEach((tx) {
             var transaction = Transaction();
@@ -72,8 +78,7 @@ void main() {
     });
 
 
-    group('Block', ()
-    {
+    group('Block', () {
         test('should make a new block', () {
             var b = Block.fromBuffer(blockbuf);
             expect(b.toHex(), equals(blockhex));
@@ -205,78 +210,53 @@ void main() {
                     }
                     ]
                 }));
+            });
 
-//                test('roundtrips correctly', () {
-//                var block = Block.fromBuffer(blockOneBuf);
-//                var obj = block.toObject();
-//                var block2 = Block.fromObject(obj);
-//                block2.toObject().should.deep.equal(block.toObject())
-//                })
+            test('roundtrips correctly', () {
+                var block = Block.fromBuffer(blockOneBuf);
+                var obj = block.toObject();
+                var block2 = Block.fromObject(obj);
+                expect(block2.toObject(), equals(block.toObject()));
+            });
+        });
+
+        group('#fromRawBlock', () {
+            test('should instantiate from a raw block binary', () {
+                var x = Block.fromRawBlock(dataRawBlockBinary);
+                expect(x.header.version, equals(2));
+                expect(BigInt.from(x.header.bits).toRadixString(16), equals('1c3fffc0'));
+            });
+
+            test('should instantiate from raw block buffer', () {
+                var x = Block.fromRawBlock(dataRawBlockBuffer);
+                expect(x.header.version, equals(2));
+                expect(BigInt.from(x.header.bits).toRadixString(16), equals('1c3fffc0'));
+            });
+        });
+
+        group('#merkleRoot', () {
+            test('should describe as valid merkle root', () {
+                var x = Block.fromRawBlock(dataRawBlockBinary);
+                var valid = x.validMerkleRoot();
+                expect(valid, isTrue);
             });
 
 
-            /* TODO: I Don't really see the need for raw block reading right now. Revisit.
-
-        group('#fromRawBlock', () {
-        test('should instantiate from a raw block binary', () {
-        var x = Block.fromRawBlock(dataRawBlockBinary);
-        x.header.version.should.equal(2);
-        new BN(x.header.bits).toString('hex').should.equal('1c3fffc0');
-        });
-
-        test('should instantiate from raw block buffer', () {
-        var x = Block.fromRawBlock(dataRawBlockBuffer);
-        x.header.version.should.equal(2);
-        new BN(x.header.bits).toString('hex').should.equal('1c3fffc0');
-        });
-
-        });
-
-         */
+            test('should describe as invalid merkle root', () {
+                var x = Block.fromRawBlock(dataRawBlockBinary);
+                x.transactions.add(new Transaction());
+                var valid = x.validMerkleRoot();
+                expect(valid, isFalse);
+            });
 
 
+            test('should get a null hash merkle root', () {
+                var x = Block.fromRawBlock(dataRawBlockBinary);
+                x.transactions = []; // empty the txs
+                var mr = x.getMerkleRoot();
+                expect(mr, equals(Block.NULL_HASH));
+            });
         });
     });
 }
 
-/*
-
-// https://test-insight.bitpay.com/block/000000000b99b16390660d79fcc138d2ad0c89a0d044c4201a02bdf1f61ffa11
-var dataRawBlockBuffer = fs.readFileSync('test/data/blk86756-testnet.dat')
-var dataRawBlockBinary = fs.readFileSync('test/data/blk86756-testnet.dat', 'binary')
-var dataJson = fs.readFileSync('test/data/blk86756-testnet.json').toString()
-var data = require('../data/blk86756-testnet')
-
-describe('Block', function () {
-
-
-  describe('#inspect', function () {
-    it('should return the correct inspect of the genesis block', function () {
-      var block = Block.fromBuffer(genesisbuf)
-      block.inspect().should.equal('<Block ' + genesisidhex + '>')
-    })
-  })
-
-  describe('#merkleRoot', function () {
-    it('should describe as valid merkle root', function () {
-      var x = Block.fromRawBlock(dataRawBlockBinary)
-      var valid = x.validMerkleRoot()
-      valid.should.equal(true)
-    })
-
-    it('should describe as invalid merkle root', function () {
-      var x = Block.fromRawBlock(dataRawBlockBinary)
-      x.transactions.push(new Transaction())
-      var valid = x.validMerkleRoot()
-      valid.should.equal(false)
-    })
-
-    it('should get a null hash merkle root', function () {
-      var x = Block.fromRawBlock(dataRawBlockBinary)
-      x.transactions = [] // empty the txs
-      var mr = x.getMerkleRoot()
-      mr.should.deep.equal(Block.Values.NULL_HASH)
-    })
-  })
-})
-*/

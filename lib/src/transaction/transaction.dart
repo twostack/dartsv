@@ -150,8 +150,10 @@ class Transaction {
     }
 
     /// transaction ID
-//    String get id => HEX.encode(sha256Twice(HEX.decode(this.serialize(performChecks: false))).reversed.toList());
     String get id => HEX.encode(sha256Twice(HEX.decode(this.serialize(performChecks: false))).reversed.toList());
+
+    /// transaction Hash - FIXME: I thought 'id' should be equal to 'hash' ? VALIDATE !
+    List<int> get hash => sha256Twice(HEX.decode(this.serialize(performChecks: false)));
 
     int get sighashType => this._sighashType;
 
