@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:buffer/buffer.dart';
@@ -15,11 +16,25 @@ class BlockHeader {
     int _bits;
     int _nonce;
 
+    BlockHeader(this._version, this._prevHash, this._merkleRoot, this._time, this._bits, this._nonce);
+
+
+    BlockHeader.fromHex(String blockHeaderHex) {
+       _parseBuffer(HEX.decode(blockHeaderHex));
+    }
+
     BlockHeader.fromBuffer(List<int> buffer){
-        //FIXME: Blockheader is supposed to be 80 bytes. Assert the size of buffer here!
+       _parseBuffer(buffer);
+    }
+
+    void _parseBuffer(List<int> buffer){
 
         if (buffer.isEmpty) {
             throw BlockException("Header buffer can't be empty");
+        }
+
+        if (buffer.length != 80){
+            throw BlockException("Header should be 80 bytes long");
         }
 
         ByteDataReader byteDataReader = ByteDataReader()
@@ -55,17 +70,13 @@ class BlockHeader {
         this._nonce = map["nonce"];
     }
 
-    List<int> get buffer {
-        ByteDataWriter writer = ByteDataWriter();
+    String toHex() {
+        return HEX.encode(this.buffer);
+    }
 
-        writer.writeInt32(this._version, Endian.little);//  = byteDataReader.readInt32(Endian.little);
-        writer.write(this._prevHash); // = byteDataReader.read(32);
-        writer.write(this._merkleRoot); // = byteDataReader.read(32);
-        writer.writeUint32(this._time, Endian.little); // = byteDataReader.readUint32(Endian.little);
-        writer.writeUint32(this._bits, Endian.little); // = byteDataReader.readUint32(Endian.little);
-        writer.writeUint32(this._nonce, Endian.little);// = byteDataReader.readUint32(Endian.little);
 
-        return writer.toBytes().toList();
+    String toJSON() {
+        return jsonEncode(toObject());
     }
 
     Object toObject() {
@@ -99,6 +110,21 @@ class BlockHeader {
     List<int> get merkleRoot => _merkleRoot;
 
     List<int> get prevHash => _prevHash;
+
+
+    List<int> get buffer {
+        ByteDataWriter writer = ByteDataWriter();
+
+        writer.writeInt32(this._version, Endian.little);//  = byteDataReader.readInt32(Endian.little);
+        writer.write(this._prevHash); // = byteDataReader.read(32);
+        writer.write(this._merkleRoot); // = byteDataReader.read(32);
+        writer.writeUint32(this._time, Endian.little); // = byteDataReader.readUint32(Endian.little);
+        writer.writeUint32(this._bits, Endian.little); // = byteDataReader.readUint32(Endian.little);
+        writer.writeUint32(this._nonce, Endian.little);// = byteDataReader.readUint32(Endian.little);
+
+        return writer.toBytes().toList();
+    }
+
 
 
 }
