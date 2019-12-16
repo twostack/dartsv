@@ -1,8 +1,62 @@
+import 'dart:convert';
+import 'dart:io';
 
+import 'package:dartsv/src/block/merkleblock.dart';
+import 'package:hex/hex.dart';
 import 'package:test/test.dart';
 
-void main(){
+import '../data/merkledata.dart';
 
+void main() {
+    String blockhex = MerkleData.HEX[0];
+    List<int> blockbuf = HEX.decode(blockhex);
+    String blockJSON = jsonEncode(MerkleData.JSON[0]);
+    var blockObject = MerkleData.JSON[0];
+    var transactionVector = jsonDecode(File("${Directory.current.path}/test/data/tx_creation.json").readAsStringSync());
+
+    group("MerkleBlock", () {
+        group('#constructor', () {
+            test('should make a new merkleblock from buffer', () {
+                var b = MerkleBlock.fromBuffer(blockbuf);
+                expect(HEX.encode(b.buffer), equals(blockhex));
+            });
+
+            test('should make a new merkleblock from object', () {
+                MerkleBlock b = MerkleBlock.fromObject(blockObject);
+                expect(b.toObject(), equals(blockObject));
+            });
+
+            test('should make a new merkleblock from JSON', () {
+                var b = MerkleBlock.fromJSON(blockJSON);
+                expect(jsonEncode(b.toObject()), equals(blockJSON));
+            });
+
+            test('should not make an empty block', () {
+                expect(() => MerkleBlock.fromBuffer([]), throwsException);
+                expect(() => MerkleBlock.fromJSON(""), throwsException);
+                expect(() => MerkleBlock.fromObject({}), throwsException);
+            });
+        });
+
+
+        group('#fromObject', () {
+            test('should set these known values', () {
+                var block = MerkleBlock.fromObject(jsonDecode(blockJSON));
+                expect(block.header, isNotNull);
+                expect(block.numTransactions, isNotNull);
+                expect(block.hashes, isNotNull);
+                expect(block.flags, isNotNull);
+            });
+
+            test('should set these known values', () {
+                var block = MerkleBlock.fromJSON(blockJSON);
+                expect(block.header, isNotNull);
+                expect(block.numTransactions, isNotNull);
+                expect(block.hashes, isNotNull);
+                expect(block.flags, isNotNull);
+            });
+        });
+    });
 }
 
 /*
@@ -15,60 +69,12 @@ var MerkleBlock = bsv.MerkleBlock
 var BufferReader = bsv.encoding.BufferReader
 var BufferWriter = bsv.encoding.BufferWriter
 var Transaction = bsv.Transaction
-var data = require('../data/merkleblocks.js')
+var data = require('../data/merkledata.dart')
 var transactionVector = require('../data/tx_creation')
 
 describe('MerkleBlock', function () {
-  var blockhex = data.HEX[0]
-  var blockbuf = Buffer.from(blockhex, 'hex')
-  var blockJSON = JSON.stringify(data.JSON[0])
-  var blockObject = JSON.parse(JSON.stringify(data.JSON[0]))
 
-  describe('#constructor', function () {
-    it('should make a new merkleblock from buffer', function () {
-      var b = MerkleBlock(blockbuf)
-      b.toBuffer().toString('hex').should.equal(blockhex)
-    })
 
-    it('should make a new merkleblock from object', function () {
-      var b = MerkleBlock(blockObject)
-      b.toObject().should.deep.equal(blockObject)
-    })
-
-    it('should make a new merkleblock from JSON', function () {
-      var b = MerkleBlock(JSON.parse(blockJSON))
-      JSON.stringify(b).should.equal(blockJSON)
-    })
-
-    it('should not make an empty block', function () {
-      (function () {
-        return new MerkleBlock()
-      }).should.throw('Unrecognized argument for MerkleBlock')
-    })
-  })
-
-  describe('#fromObject', function () {
-    it('should set these known values', function () {
-      var block = MerkleBlock.fromObject(JSON.parse(blockJSON))
-      should.exist(block.header)
-      should.exist(block.numTransactions)
-      should.exist(block.hashes)
-      should.exist(block.flags)
-    })
-
-    it('should set these known values', function () {
-      var block = MerkleBlock(JSON.parse(blockJSON))
-      should.exist(block.header)
-      should.exist(block.numTransactions)
-      should.exist(block.hashes)
-      should.exist(block.flags)
-    })
-
-    it('accepts an object as argument', function () {
-      var block = MerkleBlock(blockbuf)
-      should.exist(MerkleBlock.fromObject(block.toObject()))
-    })
-  })
 
   describe('#toJSON', function () {
     it('should recover these known values', function () {
