@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dartsv/src/block/blockheader.dart';
 import 'package:hex/hex.dart';
@@ -9,6 +10,8 @@ void main() {
     int time = 1371410638;
     int bits = 473956288;
     int nonce = 3594009557;
+
+    List<int> dataRawBlockBinary = File("${Directory.current.path}/test/data/blk86756-testnet.dat").readAsBytesSync();
     String prevblockIdHex = '4baaa9507c3b27908397ea7bc177a998e9f4fe38b9d5130be7b5353c00000000';
     String merkleRootHex = '97fc4c97868288e984ff9f246f2c38510f5c37a3d5b41aae7004b01e2dd5e658';
     String blockHeaderHex = '020000004baaa9507c3b27908397ea7bc177a998e9f4fe38b9d5130be7b5353c0000000097fc4c97868288e984ff9f246f2c38510f5c37a3d5b41aae7004b01e2dd5e658ce10be51c0ff3f1cd53b38d6';
@@ -49,217 +52,143 @@ void main() {
             });
         });
 
-
-        group('#fromObject', () {
-//    test('should set all the variables', () {
-//      var bh = BlockHeader.fromObject({
-//        "version": version,
-//        "prevHash": prevBlockIdBuf,
-//        "merkleRoot": merkleRootBuf,
-//        "time": time,
-//        "bits": bits,
-//        "nonce": nonce
-//      });
-//      should.exist(bh.version)
-//      should.exist(bh.prevHash)
-//      should.exist(bh.merkleRoot)
-//      should.exist(bh.time)
-//      should.exist(bh.bits)
-//      should.exist(bh.nonce)
-//    })
-//  })
-
-            group('#toJSON', () {
-                test('should set all the variables', () {
-                    var json = jsonDecode(blockHeader.toJSON());
-                    expect(json["version"], isNotNull);
-                    expect(json["prevHash"], isNotNull);
-                    expect(json["merkleRoot"], isNotNull);
-                    expect(json["time"], isNotNull);
-                    expect(json["bits"], isNotNull);
-                    expect(json["nonce"], isNotNull);
-                });
+        group('#fromRawBlock', () {
+            test('should instantiate from a raw block binary', () {
+                var x = BlockHeader.fromRawBlock(dataRawBlockBinary);
+                expect(x.version, equals(2));
+                expect(BigInt.from(x.bits).toRadixString(16), equals('1c3fffc0'));
             });
         });
 
 
-        group('#fromJSON', () {
-            test('should parse this known json string', () {
-                var jsonString = jsonEncode({
-                    "version": version,
-                    "prevHash": prevblockIdHex,
-                    "merkleRoot": merkleRootHex,
-                    "time": time,
-                    "bits": bits,
-                    "nonce": nonce
-                });
-
-                var bh = BlockHeader.fromJSONMap(jsonDecode(jsonString));
-                expect(bh.version, isNotNull);
-                expect(bh.prevHash, isNotNull);
-                expect(bh.merkleRoot, isNotNull);
-                expect(bh.time, isNotNull);
-                expect(bh.bits, isNotNull);
-                expect(bh.nonce, isNotNull);
-            });
-        });
-
-
-        group('#fromString/#toString', () {
-            test('should output/input a block hex string', () {
-                var b = BlockHeader.fromHex(blockHeaderHex);
-                expect(b.toHex(), equals(blockHeaderHex));
+        group('#toJSON', () {
+            test('should set all the variables', () {
+                var json = jsonDecode(blockHeader.toJSON());
+                expect(json["version"], isNotNull);
+                expect(json["prevHash"], isNotNull);
+                expect(json["merkleRoot"], isNotNull);
+                expect(json["time"], isNotNull);
+                expect(json["bits"], isNotNull);
+                expect(json["nonce"], isNotNull);
             });
         });
     });
+
+
+    group('#fromJSON', () {
+        test('should parse this known json string', () {
+            var jsonString = jsonEncode({
+                "version": version,
+                "prevHash": prevblockIdHex,
+                "merkleRoot": merkleRootHex,
+                "time": time,
+                "bits": bits,
+                "nonce": nonce
+            });
+
+            var bh = BlockHeader.fromJSONMap(jsonDecode(jsonString));
+            expect(bh.version, isNotNull);
+            expect(bh.prevHash, isNotNull);
+            expect(bh.merkleRoot, isNotNull);
+            expect(bh.time, isNotNull);
+            expect(bh.bits, isNotNull);
+            expect(bh.nonce, isNotNull);
+        });
+    });
+
+
+    group('#fromString/#toString', () {
+        test('should output/input a block hex string', () {
+            var b = BlockHeader.fromHex(blockHeaderHex);
+            expect(b.toHex(), equals(blockHeaderHex));
+        });
+    });
+
+
+    group('#fromBuffer', () {
+        test('should parse this known buffer', () {
+            var buf = BlockHeader
+                .fromBuffer(HEX.decode(blockHeaderHex))
+                .buffer;
+            var hexForm = HEX.encode(buf);
+            expect(hexForm, equals(blockHeaderHex));
+        });
+    });
+
+
+    group('#validTimestamp', () {
+        var x = BlockHeader.fromRawBlock(dataRawBlockBinary);
+
+        test('should validate timestamp as true', () {
+            var valid = x.hasValidTimestamp();
+            expect(valid, isTrue);
+        });
+
+        test('should validate timestamp as false', () {
+            x.time = (DateTime
+                .now()
+                .millisecondsSinceEpoch / 1000).round() + BlockHeader.MAX_TIME_OFFSET + 100;
+            var valid = x.hasValidTimestamp();
+            expect(valid, isFalse);
+        });
+    });
+
+
+    group('#validProofOfWork', () {
+        test('should validate proof-of-work as true', () {
+            var x = BlockHeader.fromRawBlock(dataRawBlockBinary);
+            var valid = x.hasValidProofOfWork();
+            expect(valid, isTrue);
+        });
+
+        test('should validate proof of work as false because incorrect proof of work', () {
+            var x = BlockHeader.fromRawBlock(dataRawBlockBinary);
+            x.nonce = 0;
+            var valid = x.hasValidProofOfWork();
+            expect(valid, isFalse);
+        });
+    });
+
+
+    group('#getDifficulty', () {
+        test('should get the correct difficulty for block 86756', () {
+            var x = BlockHeader.fromRawBlock(dataRawBlockBinary);
+            expect(x.bits, equals(0x1c3fffc0));
+            expect(x.getDifficulty(), equals(4));
+        });
+
+        test('should get the correct difficulty for testnet block 552065', () {
+            var prevHash = HEX.decode('0000000000001fb81830e9b50a9973b275a843b4158460ac5a5dc53d310c217d');
+            var merkleRoot = HEX.decode('8dafcc0119abff36c6dcfcbc0520a6395255d08f792b79ce49173c0de6f5ab62');
+            var x = new BlockHeader(
+                3,
+                prevHash,
+                merkleRoot,
+                DateTime
+                    .parse('2015-09-04 21:26:02')
+                    .millisecond,
+                0x1b00c2a8,
+                163555806
+            );
+
+            expect(x.getDifficulty(), equals(86187.62562209));
+        });
+
+        test('should get the correct difficulty for livenet block 373043', () {
+            var x = new BlockHeader(null, null, null, null, 0x18134dc1, null);
+            expect(x.getDifficulty(), equals(56957648455.01001));
+        });
+
+        test('should get the correct difficulty for livenet block 340000', () {
+            var x = new BlockHeader(null, null, null, null, 0x1819012f, null);
+            expect(x.getDifficulty(), equals(43971662056.08958));
+        });
+
+        test('should use exponent notation if difficulty is larger than Javascript number', () {
+            var x = new BlockHeader(null, null, null, null, 0x0900c2a8, null);
+            expect(x.getDifficulty(), equals(1.9220482782645836 * 1e48));
+        });
+    });
+
 }
 
-/*
-'use strict'
-
-var bsv = require('../..')
-var BN = require('../../lib/crypto/bn')
-var BufferReader = bsv.encoding.BufferReader
-var BufferWriter = bsv.encoding.BufferWriter
-
-var BlockHeader = bsv.BlockHeader
-var fs = require('fs')
-var should = require('chai').should()
-
-// https://test-insight.bitpay.com/block/000000000b99b16390660d79fcc138d2ad0c89a0d044c4201a02bdf1f61ffa11
-var dataRawBlockBuffer = fs.readFileSync('test/data/blk86756-testnet.dat')
-var dataRawBlockBinary = fs.readFileSync('test/data/blk86756-testnet.dat', 'binary')
-var dataRawId = '000000000b99b16390660d79fcc138d2ad0c89a0d044c4201a02bdf1f61ffa11'
-var data = require('../data/blk86756-testnet')
-
-describe('BlockHeader', function () {
-
-
-
-
-
-  describe('#fromBuffer', function () {
-    it('should parse this known buffer', function () {
-      BlockHeader.fromBuffer(bhbuf).toBuffer().toString('hex').should.equal(bhhex)
-    })
-  })
-
-  describe('#fromBufferReader', function () {
-    it('should parse this known buffer', function () {
-      BlockHeader.fromBufferReader(BufferReader(bhbuf)).toBuffer().toString('hex').should.equal(bhhex)
-    })
-  })
-
-  describe('#toBuffer', function () {
-    it('should output this known buffer', function () {
-      BlockHeader.fromBuffer(bhbuf).toBuffer().toString('hex').should.equal(bhhex)
-    })
-  })
-
-  describe('#toBufferWriter', function () {
-    it('should output this known buffer', function () {
-      BlockHeader.fromBuffer(bhbuf).toBufferWriter().concat().toString('hex').should.equal(bhhex)
-    })
-
-    it('doesn\'t create a bufferWriter if one provided', function () {
-      var writer = new BufferWriter()
-      var blockHeader = BlockHeader.fromBuffer(bhbuf)
-      blockHeader.toBufferWriter(writer).should.equal(writer)
-    })
-  })
-
-  describe('#inspect', function () {
-    it('should return the correct inspect of the genesis block', function () {
-      var block = BlockHeader.fromRawBlock(dataRawBlockBinary)
-      block.inspect().should.equal('<BlockHeader ' + dataRawId + '>')
-    })
-  })
-
-  describe('#fromRawBlock', function () {
-    it('should instantiate from a raw block binary', function () {
-      var x = BlockHeader.fromRawBlock(dataRawBlockBinary)
-      x.version.should.equal(2)
-      new BN(x.bits).toString('hex').should.equal('1c3fffc0')
-    })
-
-    it('should instantiate from raw block buffer', function () {
-      var x = BlockHeader.fromRawBlock(dataRawBlockBuffer)
-      x.version.should.equal(2)
-      new BN(x.bits).toString('hex').should.equal('1c3fffc0')
-    })
-  })
-
-  describe('#validTimestamp', function () {
-    var x = BlockHeader.fromRawBlock(dataRawBlockBuffer)
-
-    it('should validate timpstamp as true', function () {
-      var valid = x.validTimestamp(x)
-      valid.should.equal(true)
-    })
-
-    it('should validate timestamp as false', function () {
-      x.time = Math.round(new Date().getTime() / 1000) + BlockHeader.Constants.MAX_TIME_OFFSET + 100
-      var valid = x.validTimestamp(x)
-      valid.should.equal(false)
-    })
-  })
-
-  describe('#validProofOfWork', function () {
-    it('should validate proof-of-work as true', function () {
-      var x = BlockHeader.fromRawBlock(dataRawBlockBuffer)
-      var valid = x.validProofOfWork(x)
-      valid.should.equal(true)
-    })
-
-    it('should validate proof of work as false because incorrect proof of work', function () {
-      var x = BlockHeader.fromRawBlock(dataRawBlockBuffer)
-      var nonce = x.nonce
-      x.nonce = 0
-      var valid = x.validProofOfWork(x)
-      valid.should.equal(false)
-      x.nonce = nonce
-    })
-  })
-
-  describe('#getDifficulty', function () {
-    it('should get the correct difficulty for block 86756', function () {
-      var x = BlockHeader.fromRawBlock(dataRawBlockBuffer)
-      x.bits.should.equal(0x1c3fffc0)
-      x.getDifficulty().should.equal(4)
-    })
-
-    it('should get the correct difficulty for testnet block 552065', function () {
-      var x = new BlockHeader({
-        bits: 0x1b00c2a8
-      })
-      x.getDifficulty().should.equal(86187.62562209)
-    })
-
-    it('should get the correct difficulty for livenet block 373043', function () {
-      var x = new BlockHeader({
-        bits: 0x18134dc1
-      })
-      x.getDifficulty().should.equal(56957648455.01001)
-    })
-
-    it('should get the correct difficulty for livenet block 340000', function () {
-      var x = new BlockHeader({
-        bits: 0x1819012f
-      })
-      x.getDifficulty().should.equal(43971662056.08958)
-    })
-
-    it('should use exponent notation if difficulty is larger than Javascript number', function () {
-      var x = new BlockHeader({
-        bits: 0x0900c2a8
-      })
-      x.getDifficulty().should.equal(1.9220482782645836 * 1e48)
-    })
-  })
-
-  it('coverage: caches the "_id" property', function () {
-    var blockHeader = BlockHeader.fromRawBlock(dataRawBlockBuffer)
-    blockHeader.id.should.equal(blockHeader.id)
-  })
-})
-*/
