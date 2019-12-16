@@ -56,6 +56,57 @@ void main() {
                 expect(block.flags, isNotNull);
             });
         });
+
+
+        group('#toJSON', () {
+            test('should recover these known values', () {
+                var block = MerkleBlock.fromJSON(blockJSON);
+                var b = jsonDecode(block.toJSON());
+                expect(block.header, isNotNull);
+                expect(block.numTransactions, isNotNull);
+                expect(block.hashes, isNotNull);
+                expect(block.flags, isNotNull);
+                expect(b["header"], isNotNull);
+                expect(b["numTransactions"], isNotNull);
+                expect(b["hashes"], isNotNull);
+                expect(b["flags"], isNotNull);
+            });
+        });
+
+
+        group('#fromBuffer', () {
+            test('should make a block from this known buffer', () {
+                var block = MerkleBlock.fromBuffer(blockbuf);
+                expect(HEX.encode(block.buffer), equals(blockhex));
+            });
+        });
+
+
+  group('#validMerkleTree', () {
+    test('should validate good merkleblocks', () {
+      MerkleData.JSON.forEach((data) {
+        var b = MerkleBlock.fromObject(data);
+        expect(b.validMerkleTree(), isTrue);
+      });
+    });
+
+    test('should not validate merkleblocks with too many hashes', () {
+      var b = MerkleBlock.fromObject(MerkleData.JSON[0]);
+      // Add too many hashes
+      var i = 0;
+      while (i <= b.numTransactions) {
+        b.hashes.add('bad' + (i++).toString());
+      }
+      expect(b.validMerkleTree(), isFalse);
+    });
+
+    test('should not validate merkleblocks with too few bit flags', () {
+      var b = MerkleBlock.fromObject(jsonDecode(blockJSON));
+      b.flags.removeLast();
+      expect(b.validMerkleTree(), isFalse);
+    });
+  });
+
     });
 }
 
@@ -76,79 +127,6 @@ describe('MerkleBlock', function () {
 
 
 
-  describe('#toJSON', function () {
-    it('should recover these known values', function () {
-      var block = new MerkleBlock(JSON.parse(blockJSON))
-      var b = JSON.parse(JSON.stringify(block))
-      should.exist(block.header)
-      should.exist(block.numTransactions)
-      should.exist(block.hashes)
-      should.exist(block.flags)
-      should.exist(b.header)
-      should.exist(b.numTransactions)
-      should.exist(b.hashes)
-      should.exist(b.flags)
-    })
-  })
-
-  describe('#fromBuffer', function () {
-    it('should make a block from this known buffer', function () {
-      var block = MerkleBlock.fromBuffer(blockbuf)
-      block.toBuffer().toString('hex').should.equal(blockhex)
-    })
-  })
-
-  describe('#fromBufferReader', function () {
-    it('should make a block from this known buffer', function () {
-      var block = MerkleBlock.fromBufferReader(BufferReader(blockbuf))
-      block.toBuffer().toString('hex').should.equal(blockhex)
-    })
-  })
-
-  describe('#toBuffer', function () {
-    it('should recover a block from this known buffer', function () {
-      var block = MerkleBlock.fromBuffer(blockbuf)
-      block.toBuffer().toString('hex').should.equal(blockhex)
-    })
-  })
-
-  describe('#toBufferWriter', function () {
-    it('should recover a block from this known buffer', function () {
-      var block = MerkleBlock.fromBuffer(blockbuf)
-      block.toBufferWriter().concat().toString('hex').should.equal(blockhex)
-    })
-
-    it('doesn\'t create a bufferWriter if one provided', function () {
-      var writer = new BufferWriter()
-      var block = MerkleBlock.fromBuffer(blockbuf)
-      block.toBufferWriter(writer).should.equal(writer)
-    })
-  })
-
-  describe('#validMerkleTree', function () {
-    it('should validate good merkleblocks', function () {
-      data.JSON.forEach(function (data) {
-        var b = MerkleBlock(data)
-        b.validMerkleTree().should.equal(true)
-      })
-    })
-
-    it('should not validate merkleblocks with too many hashes', function () {
-      var b = MerkleBlock(data.JSON[0])
-      // Add too many hashes
-      var i = 0
-      while (i <= b.numTransactions) {
-        b.hashes.push('bad' + i++)
-      }
-      b.validMerkleTree().should.equal(false)
-    })
-
-    it('should not validate merkleblocks with too few bit flags', function () {
-      var b = MerkleBlock(JSON.parse(blockJSON))
-      b.flags.pop()
-      b.validMerkleTree().should.equal(false)
-    })
-  })
 
   describe('#filterdTxsHash', function () {
     it('should validate good merkleblocks', function () {
