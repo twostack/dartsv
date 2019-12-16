@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dartsv/src/block/merkleblock.dart';
+import 'package:dartsv/src/transaction/transaction.dart';
 import 'package:hex/hex.dart';
 import 'package:test/test.dart';
 
@@ -82,119 +83,96 @@ void main() {
         });
 
 
-  group('#validMerkleTree', () {
-    test('should validate good merkleblocks', () {
-      MerkleData.JSON.forEach((data) {
-        var b = MerkleBlock.fromObject(data);
-        expect(b.validMerkleTree(), isTrue);
-      });
-    });
+        group('#validMerkleTree', () {
+            test('should validate good merkleblocks', () {
+                MerkleData.JSON.forEach((data) {
+                    var b = MerkleBlock.fromObject(data);
+                    expect(b.validMerkleTree(), isTrue);
+                });
+            });
 
-    test('should not validate merkleblocks with too many hashes', () {
-      var b = MerkleBlock.fromObject(MerkleData.JSON[0]);
-      // Add too many hashes
-      var i = 0;
-      while (i <= b.numTransactions) {
-        b.hashes.add('bad' + (i++).toString());
-      }
-      expect(b.validMerkleTree(), isFalse);
-    });
+            test('should not validate merkleblocks with too many hashes', () {
+                var b = MerkleBlock.fromObject(MerkleData.JSON[0]);
+                // Add too many hashes
+                var i = 0;
+                while (i <= b.numTransactions) {
+                    b.hashes.add('bad' + (i++).toString());
+                }
+                expect(b.validMerkleTree(), isFalse);
+            });
 
-    test('should not validate merkleblocks with too few bit flags', () {
-      var b = MerkleBlock.fromObject(jsonDecode(blockJSON));
-      b.flags.removeLast();
-      expect(b.validMerkleTree(), isFalse);
-    });
-  });
+            test('should not validate merkleblocks with too few bit flags', () {
+                var b = MerkleBlock.fromObject(jsonDecode(blockJSON));
+                b.flags.removeLast();
+                expect(b.validMerkleTree(), isFalse);
+            });
+        });
 
+        group('#filterdTxsHash', () {
+            test('should return the correct filtered transaction', () {
+                var hashOfFilteredTx = '6f64fd5aa9dd01f74c03656d376625cf80328d83d9afebe60cc68b8f0e245bd9';
+                var b = MerkleBlock.fromObject(MerkleData.JSON[3]);
+                expect(b.filteredTxsHash()[0], equals(hashOfFilteredTx));
+            });
+
+            test('should fail with merkleblocks with too many hashes', () {
+                var b = MerkleBlock.fromObject(MerkleData.JSON[0]);
+                // Add too many hashes
+                var i = 0;
+                while (i <= b.numTransactions) {
+                    b.hashes.add('bad' + (i++).toString());
+                }
+                expect(() => b.filteredTxsHash(), throwsException);
+            });
+
+            test('should fail with merkleblocks with too few bit flags', () {
+                var b = MerkleBlock.fromJSON(blockJSON);
+                b.flags.removeLast();
+                expect(() => b.filteredTxsHash(), throwsException);
+            });
+        });
+
+
+        group('#hasTransaction', () {
+            test('should find transactions via hash string', () {
+                Map<String, dynamic> jsonData = MerkleData.JSON[0];
+                var txId = jsonData["hashes"][1];
+                var b = MerkleBlock.fromObject(jsonData);
+                expect(b.hasTransactionId(txId), equals(true));
+                expect(b.hasTransactionId(txId + 'abcd'), equals(false));
+            });
+
+            test('should find transactions via Transaction object', () {
+                var jsonData = MerkleData.JSON[0];
+                var txHex = MerkleData.TXHEX[0][0];
+                var tx = Transaction.fromHex(txHex);
+                var b = MerkleBlock.fromObject(jsonData);
+                expect(b.hasTransaction(tx), equals(true));
+            });
+
+            test('should not find non-existent Transaction object', () {
+                // Reuse another transaction already in data/ dir
+                var serialized = transactionVector[0]["serialize"];
+                var tx = Transaction.fromHex(serialized);
+                var b = MerkleBlock.fromObject(MerkleData.JSON[0]);
+                expect(b.hasTransaction(tx), equals(false));
+            });
+
+            test('should not match with merkle nodes', () {
+                var b = MerkleBlock.fromObject(MerkleData.JSON[0]);
+
+                var hashData = [
+                    ['3612262624047ee87660be1a707519a443b1c1ce3d248cbfc6c15870f6c5daa2', false],
+                    ['019f5b01d4195ecbc9398fbf3c3b1fa9bb3183301d7a1fb3bd174fcfa40a2b65', true],
+                    ['41ed70551dd7e841883ab8f0b16bf04176b7d1480e4f0af9f3d4c3595768d068', false],
+                    ['20d2a7bc994987302e5b1ac80fc425fe25f8b63169ea78e68fbaaefa59379bbf', false]
+                ];
+
+                hashData.forEach((d) {
+                    expect(b.hasTransactionId(d[0]), equals(d[1]));
+                });
+            });
+        });
     });
 }
 
-/*
-'use strict'
-
-var should = require('chai').should()
-
-var bsv = require('../..')
-var MerkleBlock = bsv.MerkleBlock
-var BufferReader = bsv.encoding.BufferReader
-var BufferWriter = bsv.encoding.BufferWriter
-var Transaction = bsv.Transaction
-var data = require('../data/merkledata.dart')
-var transactionVector = require('../data/tx_creation')
-
-describe('MerkleBlock', function () {
-
-
-
-
-  describe('#filterdTxsHash', function () {
-    it('should validate good merkleblocks', function () {
-      var hashOfFilteredTx = '6f64fd5aa9dd01f74c03656d376625cf80328d83d9afebe60cc68b8f0e245bd9'
-      var b = MerkleBlock(data.JSON[3])
-      b.filterdTxsHash()[0].should.equal(hashOfFilteredTx)
-    })
-
-    it('should fail with merkleblocks with too many hashes', function () {
-      var b = MerkleBlock(data.JSON[0])
-      // Add too many hashes
-      var i = 0
-      while (i <= b.numTransactions) {
-        b.hashes.push('bad' + i++)
-      }
-      (function () {
-        b.filterdTxsHash()
-      }).should.throw('This MerkleBlock contain an invalid Merkle Tree')
-    })
-
-    it('should fail with merkleblocks with too few bit flags', function () {
-      var b = MerkleBlock(JSON.parse(blockJSON))
-      b.flags.pop();
-      (function () {
-        b.filterdTxsHash()
-      }).should.throw('This MerkleBlock contain an invalid Merkle Tree')
-    })
-  })
-
-  describe('#hasTransaction', function () {
-    it('should find transactions via hash string', function () {
-      var jsonData = data.JSON[0]
-      var txId = Buffer.from(jsonData.hashes[1], 'hex').toString('hex')
-      var b = MerkleBlock(jsonData)
-      b.hasTransaction(txId).should.equal(true)
-      b.hasTransaction(txId + 'abcd').should.equal(false)
-    })
-
-    it('should find transactions via Transaction object', function () {
-      var jsonData = data.JSON[0]
-      var txBuf = Buffer.from(data.TXHEX[0][0], 'hex')
-      var tx = new Transaction().fromBuffer(txBuf)
-      var b = MerkleBlock(jsonData)
-      b.hasTransaction(tx).should.equal(true)
-    })
-
-    it('should not find non-existant Transaction object', function () {
-      // Reuse another transaction already in data/ dir
-      var serialized = transactionVector[0][7]
-      var tx = new Transaction().fromBuffer(Buffer.from(serialized, 'hex'))
-      var b = MerkleBlock(data.JSON[0])
-      b.hasTransaction(tx).should.equal(false)
-    })
-
-    it('should not match with merkle nodes', function () {
-      var b = MerkleBlock(data.JSON[0])
-
-      var hashData = [
-        ['3612262624047ee87660be1a707519a443b1c1ce3d248cbfc6c15870f6c5daa2', false],
-        ['019f5b01d4195ecbc9398fbf3c3b1fa9bb3183301d7a1fb3bd174fcfa40a2b65', true],
-        ['41ed70551dd7e841883ab8f0b16bf04176b7d1480e4f0af9f3d4c3595768d068', false],
-        ['20d2a7bc994987302e5b1ac80fc425fe25f8b63169ea78e68fbaaefa59379bbf', false]
-      ]
-
-      hashData.forEach(function check (d) {
-        b.hasTransaction(d[0]).should.equal(d[1])
-      })
-    })
-  })
-})
-*/

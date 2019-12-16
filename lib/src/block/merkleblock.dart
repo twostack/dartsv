@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:buffer/buffer.dart';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/exceptions.dart';
+import 'package:dartsv/src/transaction/transaction.dart';
 import 'package:hex/hex.dart';
 
 import 'blockheader.dart';
@@ -163,7 +164,7 @@ class MerkleBlock {
                 flagBitsUsed = result["flagBitsUsed"];
             }
             if (checkForTxs) {
-                return {"transactions" : txs};
+                return {"transactions" : txs, "hashesUsed": hashesUsed, "flagBitsUsed": flagBitsUsed};
             } else {
                 return {"nodeValue" : sha256Twice((left as List<int>) + (right as List<int>)), "hashesUsed" : hashesUsed, "flagBitsUsed" : flagBitsUsed};
             }
@@ -203,6 +204,50 @@ class MerkleBlock {
         return HEX.encode(resultMap["nodeValue"]) == HEX.encode(this.header.merkleRoot);
     }
 
+
+    List<String> filteredTxsHash() {
+
+
+        // Can't have more hashes than numTransactions
+        if (this.hashes.length > this.numTransactions) {
+            throw MerkleTreeException("Invalid merkle tree - more hashes than transactions");
+        }
+
+        // Can't have more flag bits than num hashes
+        if (this.flags.length * 8 < this.hashes.length) {
+            throw MerkleTreeException("Invalid merkle tree - more flag bits than hashes");
+        }
+
+        // If there is only one hash the filter do not match any txs in the block
+        if (this.hashes.length == 1) {
+            return [];
+        };
+
+        var height = this._calcTreeHeight();
+        var hashesUsed = 0, flagBitsUsed = 0;
+        var result = this._traverseMerkleTree(height, 0, hashesUsed: hashesUsed, flagBitsUsed: flagBitsUsed, checkForTxs: true);
+        if (result["hashesUsed"] != this.hashes.length) {
+            throw MerkleTreeException("Invalid merkle tree");
+        }
+        return result["transactions"];
+    }
+
+    bool hasTransactionId(txId) {
+
+        //flip and reverse it !
+        var hash = txId;  //FIXME: Another place where TransactionID is expected to be reversed and needs flippening. !!!
+
+        List<String> txs = [];
+        var height = this._calcTreeHeight();
+        _traverseMerkleTree(height, 0, txs: txs );
+        return txs.indexOf(hash) != -1;
+    }
+
+
+    bool hasTransaction(Transaction tx) {
+        return hasTransactionId(HEX.encode(HEX.decode(tx.id).reversed.toList())); //FIXME: More txId flippening shenanigans. FIX !!!
+    }
+
     List<int> get buffer {
         ByteDataWriter writer = ByteDataWriter();
 
@@ -233,6 +278,9 @@ class MerkleBlock {
     String toJSON() {
         return jsonEncode(toObject());
     }
+
+
+
 
 
 }

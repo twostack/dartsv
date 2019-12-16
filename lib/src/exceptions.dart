@@ -121,3 +121,8 @@ class BlockException implements Exception {
     BlockException(this.cause);
 }
 
+class MerkleTreeException implements Exception {
+    String cause;
+
+    MerkleTreeException(this.cause);
+}
