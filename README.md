@@ -1,35 +1,38 @@
-##### THIS IS AN ALPHA RELEASE. PROCEED WITH MAXIMUM CAUTION.
+# Introduction
 
-### Overview
+## Overview
 
-DartSV is a Bitcoin library for the Dart Language ( [dartlang.org](https://dartlang.org) ), loosely based on the Moneybutton/BSV Javascript library. 
-This library has been built in line with the ideals espoused by BitcoinSV, i.e. massive on-chain scaling, protocol stability and original-bitcoin-protocol implementation.  
+TwoStack is a Bitcoin library for the Dart Language \( [dartlang.org](https://dartlang.org) \), loosely based on the Moneybutton/BSV Javascript library. This library has been built in line with the ideals espoused by BitcoinSV, i.e. massive on-chain scaling, protocol stability and original-bitcoin-protocol implementation.
 
-This library therefore lacks , and will not implement :  
-* Segregated Witness (Segwit) Transaction support
+This library therefore lacks , and will not implement :
+
+* Segregated Witness \(Segwit\) Transaction support
 * Schnorr Signature support 
-* Check Datasig (OP_CHECKDATASIG) 
+* Check Datasig \(OP\_CHECKDATASIG\) 
 
-Current Supported features are : 
-* P2PKH Transactions (building and spending from)
-* Data-only Transactions (untested)
-* HD Key Derivation (BIP32)
+Current Supported features are :
+
+* P2PKH Transactions \(building and spending from\)
+* Data-only Transactions \(untested\)
+* HD Key Derivation \(BIP32\)
 * Original Bitcoin Address format 
 * Bitcoin Signed Messages
-* Bip39 Mnemonic Support (currently lacks test coverages)
-* Script Interpreter (high priority)
+* Bip39 Mnemonic Support
+* A built-in Bitcoin Script Interpreter
 
-Pending Features : 
-* P2SH support (low priority since it will be deprecated in BitcoinSV)
-* Broader support for original OP_CODES as they become available on BitcoinSV mainnet 
+Pending Features :
 
-### Note to Developers
-This is an Alpha-Release aimed at interested individuals and experienced developers for the purpose of getting feedback on library improvements as I build towards a stable 0.1.0 release. 
-I am especially interested in hearing from Flutter developers. 
+* P2SH support \(low priority since it will be deprecated in BitcoinSV\)
+* Broader support for original OP\_CODES as they become available on BitcoinSV mainnet 
+
+## Note to Developers
+
+This is an Alpha-Release aimed at interested individuals and experienced developers for the purpose of getting feedback on library improvements as I build towards a stable 0.1.0 release. I am especially interested in hearing from Flutter developers.
 
 Documentation is lacking. Your best source for seeing how the library works is the `cli-example` application on GitHub: [DartSV CLI Example](https://github.com/twostack/cli-example)
 
-Here is a small sample of the Transaction API (method taken from `cli-example`): 
+Here is a small sample of the Transaction API \(method taken from `cli-example`\):
+
 ```dart
 String createWalletTxn(Address address, List<TransactionInput> utxosToSpendFrom, BigInt amount ){
 
@@ -42,34 +45,36 @@ String createWalletTxn(Address address, List<TransactionInput> utxosToSpendFrom,
 
     return transaction.serialize();
 }
-
 ```
 
-#### Installation 
-This library was built using version (2.3.1) of the Dart SDK [https://dart.dev/tools/sdk](https://dart.dev/tools/sdk), but should work with *Dart SDK 2.1.x* onwards.  
-Therefore, as a pre-requisite ensure that you have at least that version of the Dart SDK installed before proceeding.  
+### Installation
 
-Navigate to the root folder of this project, and pull the required supported Dart libraries using the `pub` package manager. 
-```
-> pub get 
+This library was built using version \(2.3.1\) of the Dart SDK [https://dart.dev/tools/sdk](https://dart.dev/tools/sdk), but should work with _Dart SDK 2.1.x_ onwards.  
+Therefore, as a pre-requisite ensure that you have at least that version of the Dart SDK installed before proceeding.
+
+Navigate to the root folder of this project, and pull the required supported Dart libraries using the `pub` package manager.
+
+```text
+> pub get
 ```
 
-#### Running the Tests
-In the root folder of this project, run the shell script : 
-```
+### Running the Tests
+
+In the root folder of this project, run the shell script :
+
+```text
 > ./runtests.sh
 ```
 
-### Acknowledgement
-A debt of gratitude is owed to the developers acknowledged in the LICENSE file. Without the hard work of individuals working on earlier library and node implementations like Bitcoin Core, Bitcoin Cash, MoneyButton/BSV, BitcoinJ and many more, this library would likely not have come to fruition. Thank you. 
+## Acknowledgement
 
-### Contact
-You can reach the author at : 
+A debt of gratitude is owed to the developers acknowledged in the LICENSE file. Without the hard work of individuals working on earlier library and node implementations like Bitcoin Core, Bitcoin Cash, MoneyButton/BSV, BitcoinJ and many more, this library would likely not have come to fruition. Thank you.
+
+## Contact
+
+You can reach the author at :
+
 * @beardpappa on Twitter
-* $beardpappa (to buy me a beer)
+* beardpappa@moneybutton.com \(PayMail to buy me a beer\)
 * stephan@werkswinkel.com
-
-
-
-
 
