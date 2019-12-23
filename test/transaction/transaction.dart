@@ -2,7 +2,6 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:bip39/bip39.dart' as bip39; //third-party library. NOT PART OF DART-SV
 
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/script/P2PKHScriptPubkey.dart';
