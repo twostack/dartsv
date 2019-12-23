@@ -1,6 +1,6 @@
 name: dartsv
 description: Dart Library for interacting with the Bitcoin network
-version: 0.1.0-alpha2
+version: 0.1.0-RC1
 author: Stephan M. February <stephan@werkswinkel.com>
 homepage: https://github.com/twostack/dartsv
 
