@@ -10,12 +10,6 @@ enum KeyType { PUBLIC, PRIVATE }
 
 enum NetworkAddressType {MAIN_PKH, MAIN_P2SH, TEST_PKH, TEST_P2SH}
 
-class CKDVersionBytes {
-    static final List<int> MAINNET_PUBLIC  = HEX.decode("0488B21E");
-    static final List<int> MAINNET_PRIVATE = HEX.decode("0488ADE4");
-    static final List<int> TESTNET_PUBLIC  = HEX.decode("043587CF");
-    static final List<int> TESTNET_PRIVATE = HEX.decode("04358394");
-}
 
 
 /*
