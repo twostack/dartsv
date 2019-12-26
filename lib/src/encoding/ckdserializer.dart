@@ -6,14 +6,21 @@ import 'dart:typed_data';
 import 'base58check.dart' as bs58check;
 import 'utils.dart' as utils;
 
+
+
 abstract class CKDSerializer {
 
+    static final List<int> MAINNET_PUBLIC  = HEX.decode("0488B21E");
+    static final List<int> MAINNET_PRIVATE = HEX.decode("0488ADE4");
+    static final List<int> TESTNET_PUBLIC  = HEX.decode("043587CF");
+    static final List<int> TESTNET_PRIVATE = HEX.decode("04358394");
+
     int _nodeDepth;
-    List<int> _parentFingerprint = List(4);
-    List<int> _childNumber = List(4);
-    List<int> _chainCode = List(32);
-    List<int> _keyHex = List(33);
-    List<int> _versionBytes = List(4);
+    List<int> _parentFingerprint = List(4); //Uint32
+    List<int> _childNumber = List(4);       //Uint32
+    List<int> _chainCode = List(32);        //Uint8List(32)
+    List<int> _keyHex = List(33);           //Uint8List(33)
+    List<int> _versionBytes = List(4);      //Uint32
     NetworkType _networkType;
     KeyType _keyType;
 
@@ -33,15 +40,8 @@ abstract class CKDSerializer {
 
     }
 
+    // FIXME: Rewrite using the Buffer class
     String serialize(){
-        /*
-        4 byte: version bytes (mainnet: 0x0488B21E public, 0x0488ADE4 private; testnet: 0x043587CF public, 0x04358394 private)
-        1 byte: depth: 0x00 for master nodes, 0x01 for level-1 derived keys, ....
-        4 bytes: the fingerprint of the parent's key (0x00000000 if master key)
-        4 bytes: child number. This is ser32(i) for i in xi = xpar/i, with xi the key being serialized. (0x00000000 if master key)
-        32 bytes: the chain code
-        33 bytes: the public key or private key data (serP(K) for public keys, 0x00 || ser256(k) for private keys)
-        */
 
         var versionBytes =   getVersionBytes();
 
@@ -71,15 +71,15 @@ abstract class CKDSerializer {
 
         switch (this._networkType){
             case NetworkType.MAIN:  {
-                return this._keyType == KeyType.PUBLIC ? CKDVersionBytes.MAINNET_PUBLIC : CKDVersionBytes.MAINNET_PRIVATE;
+                return this._keyType == KeyType.PUBLIC ? MAINNET_PUBLIC : MAINNET_PRIVATE;
             }
             case NetworkType.REGTEST:
             case NetworkType.SCALINGTEST:
             case NetworkType.TEST:  {
-                return this._keyType == KeyType.PUBLIC ? CKDVersionBytes.TESTNET_PUBLIC : CKDVersionBytes.TESTNET_PRIVATE;
+                return this._keyType == KeyType.PUBLIC ? TESTNET_PUBLIC : TESTNET_PRIVATE;
             }
             default: {
-                return this._keyType == KeyType.PUBLIC ? CKDVersionBytes.TESTNET_PUBLIC : CKDVersionBytes.TESTNET_PRIVATE;
+                return this._keyType == KeyType.PUBLIC ? TESTNET_PUBLIC : TESTNET_PRIVATE;
             }
         }
     }
@@ -99,11 +99,16 @@ abstract class CKDSerializer {
         return this._chainCode; 
     }
 
-    set keyHex (List<int> bytes) {
+    /// Initialize the key from a byte buffer
+    ///
+    /// `bytes` - Hexadecimal version of key encoded as a byte buffer
+    set keyBuffer(List<int> bytes) {
         this._keyHex = bytes;
     }
 
-    List<int> get keyHex {
+    /// Retrieves the key as a byte buffer
+    ///
+    List<int> get keyBuffer {
        return Uint8List.fromList(this._keyHex).toList();
     }
 

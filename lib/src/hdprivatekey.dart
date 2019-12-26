@@ -211,20 +211,7 @@ class HDPrivateKey extends CKDSerializer{
 
 
     HDPublicKey _generatePubKey(){
-
-        HDPublicKey hdPublicKey = new HDPublicKey(this.networkType, KeyType.PUBLIC);
-
-        //ask for a public key
-        var pubkey = publicKey;
-        hdPublicKey.keyBuffer = HEX.decode(pubkey.getEncoded(true));
-
-        //all other serializer params should be the same ?
-        hdPublicKey.nodeDepth =         nodeDepth;
-        hdPublicKey.parentFingerprint = parentFingerprint;
-        hdPublicKey.childNumber =       childNumber;
-        hdPublicKey.chainCode =         chainCode;
-        hdPublicKey.versionBytes =      versionBytes;
-
+        HDPublicKey hdPublicKey = HDPublicKey(publicKey, networkType, nodeDepth, parentFingerprint, childNumber, chainCode, versionBytes);
         return hdPublicKey;
     }
 
@@ -236,6 +223,15 @@ class HDPrivateKey extends CKDSerializer{
     }
 
     /// Returns the serialized `xpriv`-encoded private key as a string.
+    ///
+    /// ```
+    ///    4 byte: version bytes (mainnet: 0x0488B21E public, 0x0488ADE4 private; testnet: 0x043587CF public, 0x04358394 private)
+    ///    1 byte: depth: 0x00 for master nodes, 0x01 for level-1 derived keys, ....
+    ///    4 bytes: the fingerprint of the parent's key (0x00000000 if master key)
+    ///    4 bytes: child number. This is ser32(i) for i in xi = xpar/i, with xi the key being serialized. (0x00000000 if master key)
+    ///    32 bytes: the chain code
+    ///    33 bytes: the private key data ( 0x00 or ser256(k) )
+    /// ```
     get xprivkey {
         return this.serialize();
     }
