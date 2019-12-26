@@ -59,7 +59,7 @@ class MerkleBlock {
             HEX
                 .decode(headerObj["prevHash"])
                 .reversed
-                .toList(), //FIXME: I have the feeling this won't always be a String needing decoding
+                .toList(),
             HEX
                 .decode(headerObj["merkleRoot"])
                 .reversed
@@ -118,21 +118,8 @@ class MerkleBlock {
     }
 
 
-    /**
-     * Traverse a the tree in this MerkleBlock, validating it along the way
-     * Modeled after Bitcoin Core merkleblock.cpp TraverseAndExtract()
-     * @param {Number} - depth - Current height
-     * @param {Number} - pos - Current position in the tree
-     * @param {Object} - opts - Object with values that need to be mutated throughout the traversal
-     * @param {Boolean} - checkForTxs - if true return opts.txs else return the Merkle Hash
-     * @param {Number} - opts.flagBitsUsed - Number of flag bits used, should start at 0
-     * @param {Number} - opts.hashesUsed - Number of hashes used, should start at 0
-     * @param {Array} - opts.txs - Will finish populated by transactions found during traversal that match the filter
-     * @returns {Buffer|null} - Buffer containing the Merkle Hash for that height  <--- FIXME: WTF is THIS !!!!
-     * @returns {Array} - transactions found during traversal that match the filter <---- FIXME: AND THIS !! Dear lord. *facepalm*
-     * @private
-     */
     Map<String, dynamic> _traverseMerkleTree(int depth, int pos, {List<String> txs, int hashesUsed = 0, int flagBitsUsed = 0, bool checkForTxs = false}) {
+
         //FIXME: I hate this, but optional params must be const. A lot of "out" params in this method. Refactor!
         txs = txs == null ? [] : txs;
 

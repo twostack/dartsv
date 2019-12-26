@@ -222,7 +222,7 @@ class HDPrivateKey extends CKDSerializer{
         return pubkey.serialize();
     }
 
-    /// Returns the serialized `xpriv`-encoded private key as a string.
+    /// Returns the serialized representation of the extended private key.
     ///
     /// ```
     ///    4 byte: version bytes (mainnet: 0x0488B21E public, 0x0488ADE4 private; testnet: 0x043587CF public, 0x04358394 private)

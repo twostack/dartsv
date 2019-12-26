@@ -186,7 +186,7 @@ class HDPublicKey extends CKDSerializer {
         return hdPublicKey;
     }
 
-    /// Returns the serialized representation of the extended public key `xpub` as a String
+    /// Returns the serialized representation of the extended public key.
     ///
     ///    4 byte: version bytes (mainnet: 0x0488B21E public, 0x0488ADE4 private; testnet: 0x043587CF public, 0x04358394 private)
     ///    1 byte: depth: 0x00 for master nodes, 0x01 for level-1 derived keys, ....

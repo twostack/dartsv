@@ -198,7 +198,6 @@ class BlockHeader {
             nShift--;
         }
 
-        //FIXME: My hack to fall in line with BSV implementation. Is eight digits actual difficulty precision ?
         return double.parse(dDiff.toStringAsFixed(8));
 
     }
