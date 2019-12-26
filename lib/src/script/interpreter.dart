@@ -1,4 +1,4 @@
-import 'dart:collection';
+        import 'dart:collection';
 import 'dart:core';
 import 'dart:core' as prefix0;
 import 'dart:typed_data';
@@ -9,31 +9,45 @@ import 'package:dartsv/src/script/P2PKHScriptSig.dart';
 import 'package:hex/hex.dart';
 
 
+/// Utility class to represent the Script Interpreter Stack.
+///
+/// This class is used internally by the Script Interpreter, and should not really be useful in everyday wallet development.
 class Stack {
     Queue<List<int>> _queue = new Queue<List<int>>();
 
     Stack();
 
+
+    /// Construct a stack instance from a Dart Queue
+    ///
+    /// Dart does not have a native representation for a Stack. This implementation
+    /// wraps a Queue datastructure with the needed operations.
+    /// Each element in the stack is represented as a byte buffer in the Queue.
     Stack.fromQueue(Queue<List<int>> queue){
         this._queue = Queue.from(queue);
     }
 
-
+    /// push an element onto the stack
     void push(List<int> item) {
         _queue.addLast(List.from(item));
     }
 
+    /// get the height of the stack
     int get length => _queue.length;
 
+    /// remove all items from the stack
     void removeAll() {
         this._queue.clear();
     }
 
+    /// convenience method to create a copy of the stack
     Stack slice() {
         return Stack.fromQueue(_queue);
     }
 
-    //peek up to "index"
+    /// Return the item at the specified index on the stack without modifying the stack
+    ///
+    /// `index` - a negative number specifying how deep into the stack we want to "peek"
     List<int> peek({int index = -1}) {
         if (index > 0) {
             throw new StackOverflowError();
@@ -48,10 +62,18 @@ class Stack {
 
     }
 
+    /// Remove the item at the top of the stack and return it as a byte buffer
     List<int> pop() {
         return _queue.removeLast();
     }
 
+    /// Removes items from the stack and optionally inserts new values
+    ///
+    /// `index` - starting index for items to be removed
+    ///
+    /// `howMany` - the number of items to be removed
+    ///
+    /// `values`  - an optional List of new items to add to the stack, or null if no items need insertion
     List<List<int>> splice(int index, int howMany, {List<int> values}) {
         List<List<int>> buffer = _queue.toList();
 
@@ -68,7 +90,6 @@ class Stack {
     }
 
     /// Replace item at 'index' with 'value'
-    /// FIXME: Validate this works as expected
     void replaceAt(int index, List<int> value) {
         List<List<int>> buffer = _queue.toList();
         buffer.removeAt(index);
@@ -77,6 +98,16 @@ class Stack {
     }
 }
 
+    /// *Bitcoin Script Interpreter*
+    ///
+    /// Bitcoin transactions contain scripts. Each input has a script called the
+    /// scriptSig, and each output has a script called the scriptPubkey. To validate
+    /// an input, the input's script is concatenated with the referenced output script,
+    /// and the result is executed. If at the end of execution the stack contains a
+    /// "true" value, then the transaction is valid.
+    ///
+    /// The primary way to use this class is via the verify function.
+    /// e.g., Interpreter().verify( ... );
 class Interpreter {
 
     static final MAX_SCRIPT_ELEMENT_SIZE = 520;
@@ -214,30 +245,153 @@ class Interpreter {
     /**/
 
 
+    /// The interpreter's internal stack
+    ///
+    /// Bitcoin Script is also known as a two-stack PDA (pushdown automata)
     Stack get stack => _stack;
 
+    /// The interpreter's alternate stack
+    ///
+    /// Bitcoin Script is also known as a two-stack PDA (pushdown automata)
     Stack get altStack => _altStack;
 
+    /// Global index/pointer into which Script Chunk is currently being evaluated.
+    ///
+    /// This is primarily used internally to track script execution.
     int get pc => _pc;
 
+    /// Index to keep track of position of OP_CODESEPARATOR
+    ///
+    /// This is primarily used internally
     int get pbegincodehash => _pbegincodehash;
 
+    /// The number of OpCodes in this script. Bitcoin currently has a limit of 200 opcodes per script.
     int get nOpCount => this._nOpCount;
 
+    /// Keep track of conditional branching.
+    ///
+    /// This is primarily used internally
     List get vfExec => _vfExec; //???
+
+    /// A human-readable string signifying the error (if any) that occured during script execution.
+    ///
     String get errstr => _errStr;
 
+    /// Flags are used to signal various expected behaviours to the Script Interpreter.
+    ///
+    ///
+    /// __Flags are taken from the bitcoind implementation__
+    ///
+    ///  ##S CRIPT_VERIFY_P2SH
+    ///  Evaluate P2SH subscripts (softfork safe, BIP16).
+    ///
+    /// ## SCRIPT_VERIFY_STRICTENC
+    /// Passing a non-strict-DER signature or one with undefined hashtype to a checksig operation causes script failure.
+    /// Passing a pubkey that is not (0x04 + 64 bytes) or (0x02 or 0x03 + 32 bytes) to checksig causes that pubkey to be
+    /// skipped (not softfork safe: this flag can widen the validity of OP_CHECKSIG OP_NOT).
+    ///
+    /// ## SCRIPT_VERIFY_DERSIG
+    /// Passing a non-strict-DER signature to a checksig operation causes script failure (softfork safe, BIP62 rule 1)
+    ///
+    /// ## SCRIPT_VERIFY_LOW_S
+    /// Pa non-strict-DER signature or one with S > order/2 to a checksig operation causes script failure
+    /// (softfork safe, BIP62 rule 5).
+    ///
+    /// ## SCRIPT_VERIFY_NULLDUMMY
+    /// verify dummy stack item consumed by CHECKMULTISIG is of zero-length (softfork safe, BIP62 rule 7).
+    ///
+    /// ## SCRIPT_VERIFY_SIGPUSHONLY
+    /// Using a non-push operator in the scriptSig causes script failure (softfork safe, BIP62 rule 2).
+    ///
+    /// ## SCRIPT_VERIFY_MINIMALDATA
+    /// Require minimal encodings for all push operations (OP_0... OP_16, OP_1NEGATE where possible, direct
+    /// pushes up to 75 bytes, OP_PUSHDATA up to 255 bytes, OP_PUSHDATA2 for anything larger). Evaluating
+    /// any other push causes the script to fail (BIP62 rule 3).
+    /// In addition, whenever a stack element is interpreted as a number, it must be of minimal length (BIP62 rule 4).
+    /// (softfork safe)
+    ///
+    /// ## SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS
+    /// Discourage use of NOPs reserved for upgrades (NOP1-10).
+    /// Provided so that nodes can avoid accepting or mining transactions
+    /// containing executed NOP's whose meaning may change after a soft-fork,
+    /// thus rendering the script invalid; with this flag set executing
+    /// discouraged NOPs fails the script. This verification flag will never be
+    /// a mandatory flag applied to scripts in a block. NOPs that are not
+    /// executed, e.g.  within an unexecuted IF ENDIF block, are *not* rejected.
+    ///
+    /// ## SCRIPT_VERIFY_CLEANSTACK
+    /// Require that only a single stack element remains after evaluation. This
+    /// changes the success criterion from "At least one stack element must
+    /// remain, and when interpreted as a boolean, it must be true" to "Exactly
+    /// one stack element must remain, and when interpreted as a boolean, it must
+    /// be true".
+    /// (softfork safe, BIP62 rule 6)
+    /// Note: CLEANSTACK should never be used without P2SH or WITNESS.
+    ///
+    /// ## SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY
+    /// Cstatic final LTV See BIP65 for details.
+    ///
+    /// ## SCRIPT_VERIFY_CHECKSEQUENCEVERIFY
+    /// support CHECKSEQUENCEVERIFY opcode
+    /// See BIP112 for details
+    ///
+    /// ## SCRIPT_VERIFY_MINIMALIF
+    /// Segwit script only: Require the argument of OP_IF/NOTIF to be exactly
+    /// 0x01 or empty vector
+    ///
+    /// ## SCRIPT_VERIFY_NULLFAIL
+    /// Signature(s) must be empty vector if an CHECK(MULTI)SIG operation failed
+    ///
+    /// ## SCRIPT_VERIFY_COMPRESSED_PUBKEYTYPE
+    /// Public keys in scripts must be compressed
+    ///
+    /// ## SCRIPT_ENABLE_SIGHASH_FORKID
+    /// Do we accept signature using SIGHASH_FORKID
+    ///
+    /// ## SCRIPT_ENABLE_REPLAY_PROTECTION
+    /// Do we accept activate replay protection using a different fork id.
+    ///
+    /// ## SCRIPT_ENABLE_MONOLITH_OPCODES
+    /// Enable new opcodes.
+    ///
+    /// ## SCRIPT_ENABLE_MAGNETIC_OPCODES
+    /// Are the Magnetic upgrade opcodes enabled?
+    ///
+    ///
+    /// __Below flags apply in the context of BIP 68__
+    ///
+    /// ## SEQUENCE_LOCKTIME_DISABLE_FLAG
+    ///  If this flag set, CTxIn::nSequence is NOT interpreted as a relative lock-time.
+    ///
+    /// ## SEQUENCE_LOCKTIME_TYPE_FLAG
+    /// If CTxIn::nSequence encodes a relative lock-time and this flag is set,
+    /// the relative lock-time has units of 512 seconds, otherwise it specifies
+    /// blocks with a granularity of 1.
+    ///
+    /// ## SEQUENCE_LOCKTIME_MASK
+    /// If CTxIn::nSequence encodes a relative lock-time, this mask is applied to
+    /// extract that lock-time from the sequence field.
     int get flags => _flags;
 
+    /// Returns the internal representation of the script
     SVScript get script => _script;
 
+    /// The default constructor. No setup is performed internally.
     Interpreter();
 
+    /// Construct a new Interpreter
+    ///
+    /// `script` - The script to execute
+    ///
+    /// `flags`  - Flags to govern script execution. See [flags]
     Interpreter.fromScript(SVScript script, int flags){
        this._script = script;
        this._flags = flags;
     }
 
+
+
+    /// Check the buffer is minimally encoded (see https://github.com/bitcoincashorg/spec/blob/master/may-2018-reenabled-opcodes.md#op_bin2num)
     bool _isMinimallyEncoded(buf, {nMaxNumSize = MAXIMUM_ELEMENT_SIZE}) {
         if (buf.length > nMaxNumSize) {
             return false;
@@ -264,6 +418,10 @@ class Interpreter {
         return true;
     }
 
+
+    /// Minimally encode the buffer content
+    ///
+    /// (see https://github.com/bitcoincashorg/spec/blob/master/may-2018-reenabled-opcodes.md#op_bin2num)
     List<int> minimallyEncode (List<int> buf) {
         if (buf.length == 0) {
             return buf;
@@ -307,6 +465,25 @@ class Interpreter {
         return List<int>();
     }
 
+    /// Verifies a Script by executing it and returns true if it is valid.
+    ///
+    /// This function needs to be provided with the scriptSig and the scriptPubkey
+    /// separately.
+    ///
+    /// `scriptSig` - the script's first part (corresponding to the tx input)
+    ///
+    /// `scriptPubkey` - the script's last part (corresponding to the tx output)
+    ///
+    /// `tx` - the Transaction containing the scriptSig in one input (used
+    ///        to check signature validity for some opcodes like OP_CHECKSIG)
+    ///
+    ///  `nin` - index of the transaction input containing the scriptSig verified.
+    ///
+    ///  `flags` - evaluation flags. See Interpreter.SCRIPT_* constants
+    ///
+    ///  `satoshis` - amount in satoshis of the input to be verified (when FORKID signhash is used)
+    ///
+    ///  __Translated from bitcoind's VerifyScript__
     bool verifyScript(SVScript scriptSig, SVScript scriptPubkey, {Transaction tx , int nin = 0, int flags = 0, BigInt satoshis}) {
         if (tx == null) {
             tx = new Transaction();
@@ -347,8 +524,8 @@ class Interpreter {
         }
 
         var stack = this._stack;
-        this.initialize();
-        this.set({
+        this._initialize();
+        this._set({
             "script": scriptPubkey,
             "stack": stack,
             "tx": tx,
@@ -392,8 +569,8 @@ class Interpreter {
             var redeemScript = SVScript.fromByteArray(Uint8List.fromList(redeemScriptSerialized));
             stackCopy.pop();
 
-            this.initialize();
-            this.set({
+            this._initialize();
+            this._set({
                 "script": redeemScript,
                 "stack": stackCopy,
                 "tx": tx,
@@ -439,9 +616,7 @@ class Interpreter {
         return true;
     }
 
-// Ported from moneyButton-bsv, which in turn...
-// Translated from bitcoind's CheckSignatureEncoding
-//
+    /// Translated from bitcoind's CheckSignatureEncoding
     checkSignatureEncoding(List<int> buf, int flags) {
         var sig;
         var errStr;
@@ -485,6 +660,11 @@ class Interpreter {
     }
 
 
+    /// Based on bitcoind's EvalScript function, with the inner loop moved to
+    /// Interpreter.prototype.step()
+    ///
+    /// bitcoind commit: b5d1b1092998bc95313856d535c632ea5a8f9104
+    ///
     bool evaluate() {
         // TODO: script size should be configurable. no magic numbers
         if (this._script
@@ -530,7 +710,7 @@ class Interpreter {
         this._altStack.removeAll();
     }
 
-    void initialize() {
+    void _initialize() {
         this._stack = new Stack.fromQueue(Queue<List<int>>());
         this._altStack = new Stack.fromQueue(Queue<List<int>>());
         this._pc = 0;
@@ -541,7 +721,7 @@ class Interpreter {
         this._flags = 0;
     }
 
-    void set(Map map) {
+    void _set(Map map) {
         this._stack = map["stack"];
         this._script = map["script"];
         this._tx = map["tx"];
@@ -572,16 +752,7 @@ class Interpreter {
         return false;
     }
 
-    ///
-    /// * Based on the inner loop of bitcoind's EvalScript function
-    /// * bitcoind commit: b5d1b1092998bc95313856d535c632ea5a8f9104
-    ///
     bool _step() {
-//  var self = this;
-
-//        stacktop(int i) {
-//            return this._stack.peek(); //FIXME: stacktop() is reduntant. Refactor !
-//        }
 
         bool isOpCodesDisabled(int opcode) {
             switch (opcode) {
@@ -622,7 +793,6 @@ class Interpreter {
 
         bool fRequireMinimal = (this.flags & Interpreter.SCRIPT_VERIFY_MINIMALDATA) != 0; //FIXME: This is somehow used in JS BigNumber class
 
-        // bool fExec = !count(vfExec.begin(), vfExec.end(), false);
         bool fExec = !this.vfExec.contains(false);
         var spliced, n, x1, x2, subscript;
         BigInt bn, bn1, bn2;
@@ -1820,6 +1990,18 @@ class Interpreter {
 
     }
 
+
+    /// Checks a locktime parameter with the transaction's locktime.
+    ///
+    /// There are two tipes of nLockTime: lock-by-blockheight and lock-by-blocktime,
+    /// distinguished by whether nLockTime < LOCKTIME_THRESHOLD = 500000000
+    ///
+    /// See the corresponding code on bitcoin core:
+    /// https://github.com/bitcoin/bitcoin/blob/ffd75adce01a78b3461b3ff05bcc2b530a9ce994/src/script/interpreter.cpp#L1129
+    ///
+    /// `nLockTime` - the locktime read from the script
+    ///
+    ///  Returns true if the locktime is less than or equal to the transaction's locktime
     bool checkLockTime(BigInt nLockTime) {
 
         // We want to compare apples to apples, so fail the script
@@ -1853,6 +2035,12 @@ class Interpreter {
         return true;
     }
 
+
+    /// Checks a sequence parameter with the transaction's sequence.
+    ///
+    /// `nSequence` - the sequence read from the script
+    ///
+    /// Returns true if the sequence is less than or equal to the transaction's sequence
     bool checkSequence(BigInt nSequence) {
 
         // Relative lock times are supported by comparing the passed in operand to
@@ -1901,6 +2089,7 @@ class Interpreter {
         return true;
     }
 
+    /// Translated from bitcoind's CheckPubKeyEncoding
     bool checkPubkeyEncoding(List<int> pubkey) {
         if ((this.flags & Interpreter.SCRIPT_VERIFY_STRICTENC) != 0 && !SVPublicKey.isValid(HEX.encode(pubkey))) {
             this._errStr = 'SCRIPT_ERR_PUBKEYTYPE';
