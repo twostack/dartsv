@@ -1,18 +1,6 @@
-/*
-The author thanks all the contributors to the `bsv` javascript library (and it's ancestor project(s)).
-These tests are ported over from `bsv` - https://github.com/moneybutton/bsv
- */
 
 import 'package:dartsv/dartsv.dart';
-import 'dart:math';
-import 'package:hex/hex.dart';
-import 'package:pointycastle/pointycastle.dart';
-import 'package:pointycastle/ecc/curves/secp256k1.dart';
-import 'package:pointycastle/src/utils.dart';
-import 'dart:convert';
-import 'address.dart';
 import 'package:test/test.dart';
-import 'dart:typed_data';
 
 void main() {
     // test vectors: https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki
