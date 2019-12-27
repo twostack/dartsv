@@ -168,7 +168,6 @@ class Address {
   }
 
 
-
   /// Returns a hash of the Public Key
   ///
   /// The sha256 digest of the public key is computed, and the result of that

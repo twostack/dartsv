@@ -190,54 +190,6 @@ int getBufferOffset(int count) {
 }
 
 
-/*
-BigInt encoding is taken from PointyCastle implementation and adapted to cater
-for negative numbers
- */
-
-/*
-
-    // Perhaps a Uint8Array
-    assert(typeof number.length === 'number');
-    if (number.length <= 0) {
-      this.words = [ 0 ];
-      this.length = 1;
-      return this;
-    }
-
-    this.length = Math.ceil(number.length / 3);
-    this.words = new Array(this.length);
-    for (var i = 0; i < this.length; i++) {
-      this.words[i] = 0;
-    }
-
-    var j, w;
-    var off = 0;
-    if (endian === 'be') {
-      for (i = number.length - 1, j = 0; i >= 0; i -= 3) {
-        w = number[i] | (number[i - 1] << 8) | (number[i - 2] << 16);
-        this.words[j] |= (w << off) & 0x3ffffff;
-        this.words[j + 1] = (w >>> (26 - off)) & 0x3ffffff;
-        off += 24;
-        if (off >= 26) {
-          off -= 26;
-          j++;
-        }
-      }
-    } else if (endian === 'le') {
-      for (i = 0, j = 0; i < number.length; i += 3) {
-        w = number[i] | (number[i + 1] << 8) | (number[i + 2] << 16);
-        this.words[j] |= (w << off) & 0x3ffffff;
-        this.words[j + 1] = (w >>> (26 - off)) & 0x3ffffff;
-        off += 24;
-        if (off >= 26) {
-          off -= 26;
-          j++;
-        }
-      }
-    }
-    return this.strip();
- */
 
 /// Decode a BigInt from bytes in big-endian encoding.
 BigInt decodeBigInt(List<int> bytes) {
@@ -249,12 +201,6 @@ BigInt decodeBigInt(List<int> bytes) {
 
     return result;
 
-
-//    BigInt result = new BigInt.from(0);
-//    for (int i = 0; i < bytes.length; i++) {
-//        result += new BigInt.from(bytes[bytes.length - i - 1]) << (8 * i);
-//    }
-//    return result;
 }
 
 var _byteMask = new BigInt.from(0xff);
@@ -268,13 +214,6 @@ Uint8List encodeBigInt(BigInt number) {
         result[size - i - 1] = (number & _byteMask).toInt();
         number = number >> 8;
     }
-
-    //if number is negative, then we prepend a byte with the high bit set
-//    if (number.isNegative){
-//        var tmpList = result.toList();
-//        tmpList.insert(0, 1 | 0x80);
-//        return Uint8List.fromList(tmpList);
-//    }
 
     return result;
 }
