@@ -3,10 +3,12 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dartsv/dartsv.dart';
+import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/privatekey.dart';
 import 'package:dartsv/src/script/P2PKHScriptPubkey.dart';
 import 'package:dartsv/src/script/P2PKHScriptSig.dart';
 import 'package:dartsv/src/script/interpreter.dart';
+import 'package:dartsv/src/script/opcodes.dart';
 import 'package:dartsv/src/script/scriptflags.dart';
 import 'package:dartsv/src/script/svscript.dart';
 import 'package:hex/hex.dart';

@@ -1,5 +1,3 @@
-
-
 ///
 ///
 /// Flags are used to signal various expected behaviours to the Script Interpreter.
@@ -96,7 +94,6 @@
 /// ## SEQUENCE_LOCKTIME_MASK
 /// If CTxIn::nSequence encodes a relative lock-time, this mask is applied to
 /// extract that lock-time from the sequence field.
-
 class ScriptFlags {
 
     /// bitcoind commit: b5d1b1092998bc95313856d535c632ea5a8f9104

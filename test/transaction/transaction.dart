@@ -4,7 +4,9 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dartsv/dartsv.dart';
+import 'package:dartsv/src/exceptions.dart';
 import 'package:dartsv/src/script/P2PKHScriptPubkey.dart';
+import 'package:dartsv/src/script/opcodes.dart';
 import 'package:dartsv/src/transaction/transaction_input.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
 import 'package:test/test.dart';

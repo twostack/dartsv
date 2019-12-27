@@ -3,7 +3,6 @@ import 'package:hex/hex.dart';
 import 'encoding/utils.dart';
 import 'dart:convert';
 import 'networks.dart';
-import 'publickey.dart';
 import 'exceptions.dart';
 
 //TODO: No support P2SH addresses at the moment. I'll add when I need it.
@@ -109,7 +108,7 @@ class Address {
       return toBase58();
   }
 
-  /// Returns the public key hash [ripemd160(sha256(public_key))] encoded as a  hexadecimal string
+  /// Returns the public key hash `ripemd160(sha256(public_key))` encoded as a  hexadecimal string
   String toHex(){
       return this._publicKeyHash;
   }
@@ -173,7 +172,7 @@ class Address {
   /// Returns a hash of the Public Key
   ///
   /// The sha256 digest of the public key is computed, and the result of that
-  /// computation is then passed to the [ripemd160()] digest function.
+  /// computation is then passed to the `ripemd160()` digest function.
   ///
   /// The returned value is HEX-encoded
   String get address => this._publicKeyHash;

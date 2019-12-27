@@ -3,9 +3,12 @@ import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
 import 'package:dartsv/dartsv.dart';
+import 'package:dartsv/src/encoding/utils.dart';
 import 'package:hex/hex.dart';
+import '../exceptions.dart';
+import 'opcodes.dart';
 import 'scriptflags.dart';
-import 'stack.dart';
+
 
 
 /// *Bitcoin Script Interpreter*

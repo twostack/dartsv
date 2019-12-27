@@ -4,6 +4,8 @@ import 'package:dartsv/dartsv.dart';
 import 'package:hex/hex.dart';
 import 'package:pointycastle/impl.dart';
 
+import 'encoding/utils.dart';
+
 /// ## Bitcoin Signed Messages
 ///
 /// The *Bitcoin Signed Message* "standard" takes a novel approach in relying on our ability

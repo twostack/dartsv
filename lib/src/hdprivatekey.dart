@@ -9,6 +9,7 @@ import 'crypto/childnumber.dart';
 import 'dart:typed_data';
 import 'package:pointycastle/pointycastle.dart';
 import 'encoding/utils.dart';
+import 'exceptions.dart';
 
 /// Provides support for Extended Private keys (__Hierarchical Deterministic__ keys)
 /// as described in the [BIP32 spec](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki).

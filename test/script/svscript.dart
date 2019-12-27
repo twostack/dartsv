@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/script/P2PKHScriptPubkey.dart';
+import 'package:dartsv/src/script/opcodes.dart';
 import 'package:test/test.dart';
 
 main() {

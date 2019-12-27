@@ -1,4 +1,5 @@
 import 'package:dartsv/dartsv.dart';
+import 'package:dartsv/src/exceptions.dart';
 import 'package:test/test.dart';
 import 'dart:convert';
 import 'dart:io';

@@ -1,10 +1,10 @@
 import 'package:dartsv/dartsv.dart';
-import 'dart:math';
 import 'package:hex/hex.dart';
 import 'package:pointycastle/pointycastle.dart';
 import 'package:pointycastle/ecc/curves/secp256k1.dart';
-import 'dart:convert';
-import 'package:asn1lib/asn1lib.dart';
+
+import 'encoding/utils.dart';
+import 'exceptions.dart';
 
 class SVPublicKey {
     //We only deal with secp256k1

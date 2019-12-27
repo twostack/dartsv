@@ -17,6 +17,8 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:hex/hex.dart';
 
+import 'exceptions.dart';
+
 
 class SVSignature {
     final ECDomainParameters _domainParams = new ECDomainParameters('secp256k1');

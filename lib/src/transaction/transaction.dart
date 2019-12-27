@@ -13,6 +13,8 @@ import 'package:sprintf/sprintf.dart';
 import 'dart:typed_data';
 import 'package:buffer/buffer.dart';
 
+import '../exceptions.dart';
+
 enum FeeMethod {
     USER_SPECIFIES,
     WALLET_CALCULATES

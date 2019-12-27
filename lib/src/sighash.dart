@@ -11,6 +11,9 @@ import 'package:sprintf/sprintf.dart';
 import 'package:hex/hex.dart';
 import 'dart:convert';
 
+import 'exceptions.dart';
+import 'script/opcodes.dart';
+
 class SighashType {
     static const SIGHASH_ALL = 0x00000001;
     static const SIGHASH_NONE = 0x00000002;

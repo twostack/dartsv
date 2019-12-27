@@ -1,5 +1,6 @@
 
 import 'package:dartsv/dartsv.dart';
+import 'package:dartsv/src/encoding/utils.dart';
 import 'package:hex/hex.dart';
 import 'package:pointycastle/pointycastle.dart';
 import 'package:test/test.dart';

@@ -7,6 +7,7 @@ import 'crypto/hdutils.dart';
 import 'crypto/childnumber.dart';
 import 'encoding/utils.dart';
 import 'dart:typed_data';
+import 'exceptions.dart';
 import 'privatekey.dart';
 import 'package:pointycastle/pointycastle.dart';
 

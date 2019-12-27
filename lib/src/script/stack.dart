@@ -3,7 +3,6 @@ import 'dart:collection';
 /// Utility class to represent the Script Interpreter Stack.
 ///
 /// This class is used internally by the Script Interpreter, and should not really be useful in everyday wallet development.
-///
 class InterpreterStack {
     Queue<List<int>> _queue = new Queue<List<int>>();
 
