@@ -89,7 +89,7 @@ class Address {
   /// Serialise this address object to a base58-encoded string
   ///
   /// Base58-encoded strings are the "standard" means of sharing bitoin addresses amongst
-  /// wallets. This is typically done either using the string of directly, or by using a
+  /// wallets. This is typically done either using the string directly, or by using a
   /// QR-encoded form of this string.
   ///
   /// When sharing a bitcoin address with an external party either as a QR-code or via

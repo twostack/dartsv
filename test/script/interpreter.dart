@@ -7,6 +7,7 @@ import 'package:dartsv/src/privatekey.dart';
 import 'package:dartsv/src/script/P2PKHScriptPubkey.dart';
 import 'package:dartsv/src/script/P2PKHScriptSig.dart';
 import 'package:dartsv/src/script/interpreter.dart';
+import 'package:dartsv/src/script/scriptflags.dart';
 import 'package:dartsv/src/script/svscript.dart';
 import 'package:hex/hex.dart';
 import 'package:test/test.dart';
@@ -15,64 +16,64 @@ void main() {
     getFlags(flagstr) {
         var flags = 0;
         if (flagstr.indexOf('NONE') != -1) {
-            flags = flags | Interpreter.SCRIPT_VERIFY_NONE;
+            flags = flags | ScriptFlags.SCRIPT_VERIFY_NONE;
         }
         if (flagstr.indexOf('P2SH') != -1) {
-            flags = flags | Interpreter.SCRIPT_VERIFY_P2SH;
+            flags = flags | ScriptFlags.SCRIPT_VERIFY_P2SH;
         }
         if (flagstr.indexOf('STRICTENC') != -1) {
-            flags = flags | Interpreter.SCRIPT_VERIFY_STRICTENC;
+            flags = flags | ScriptFlags.SCRIPT_VERIFY_STRICTENC;
         }
         if (flagstr.indexOf('DERSIG') != -1) {
-            flags = flags | Interpreter.SCRIPT_VERIFY_DERSIG;
+            flags = flags | ScriptFlags.SCRIPT_VERIFY_DERSIG;
         }
         if (flagstr.indexOf('LOW_S') != -1) {
-            flags = flags | Interpreter.SCRIPT_VERIFY_LOW_S;
+            flags = flags | ScriptFlags.SCRIPT_VERIFY_LOW_S;
         }
         if (flagstr.indexOf('NULLDUMMY') != -1) {
-            flags = flags | Interpreter.SCRIPT_VERIFY_NULLDUMMY;
+            flags = flags | ScriptFlags.SCRIPT_VERIFY_NULLDUMMY;
         }
         if (flagstr.indexOf('SIGPUSHONLY') != -1) {
-            flags = flags | Interpreter.SCRIPT_VERIFY_SIGPUSHONLY;
+            flags = flags | ScriptFlags.SCRIPT_VERIFY_SIGPUSHONLY;
         }
         if (flagstr.indexOf('MINIMALDATA') != -1) {
-            flags = flags | Interpreter.SCRIPT_VERIFY_MINIMALDATA;
+            flags = flags | ScriptFlags.SCRIPT_VERIFY_MINIMALDATA;
         }
         if (flagstr.indexOf('DISCOURAGE_UPGRADABLE_NOPS') != -1) {
-            flags = flags | Interpreter.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS;
+            flags = flags | ScriptFlags.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS;
         }
         if (flagstr.indexOf('CHECKLOCKTIMEVERIFY') != -1) {
-            flags = flags | Interpreter.SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY;
+            flags = flags | ScriptFlags.SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY;
         }
         if (flagstr.indexOf('CHECKSEQUENCEVERIFY') != -1) {
-            flags = flags | Interpreter.SCRIPT_VERIFY_CHECKSEQUENCEVERIFY;
+            flags = flags | ScriptFlags.SCRIPT_VERIFY_CHECKSEQUENCEVERIFY;
         }
         if (flagstr.indexOf('NULLFAIL') != -1) {
-            flags = flags | Interpreter.SCRIPT_VERIFY_NULLFAIL;
+            flags = flags | ScriptFlags.SCRIPT_VERIFY_NULLFAIL;
         }
 
         if (flagstr.indexOf('CLEANSTACK') != -1) {
-            flags = flags | Interpreter.SCRIPT_VERIFY_CLEANSTACK;
+            flags = flags | ScriptFlags.SCRIPT_VERIFY_CLEANSTACK;
         }
 
         if (flagstr.indexOf('FORKID') != -1) {
-            flags = flags | Interpreter.SCRIPT_ENABLE_SIGHASH_FORKID;
+            flags = flags | ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID;
         }
 
         if (flagstr.indexOf('REPLAY_PROTECTION') != -1) {
-            flags = flags | Interpreter.SCRIPT_ENABLE_REPLAY_PROTECTION;
+            flags = flags | ScriptFlags.SCRIPT_ENABLE_REPLAY_PROTECTION;
         }
 
         if (flagstr.indexOf('MONOLITH') != -1) {
-            flags = flags | Interpreter.SCRIPT_ENABLE_MONOLITH_OPCODES;
+            flags = flags | ScriptFlags.SCRIPT_ENABLE_MONOLITH_OPCODES;
         }
 
         if (flagstr.indexOf('MAGNETIC') != -1) {
-            flags = flags | Interpreter.SCRIPT_ENABLE_MAGNETIC_OPCODES;
+            flags = flags | ScriptFlags.SCRIPT_ENABLE_MAGNETIC_OPCODES;
         }
 
         if (flagstr.indexOf('MINIMALIF') != -1) {
-            flags = flags | Interpreter.SCRIPT_VERIFY_MINIMALIF;
+            flags = flags | ScriptFlags.SCRIPT_VERIFY_MINIMALIF;
         }
         return flags;
     }
@@ -154,7 +155,7 @@ void main() {
             var signature = (tx.inputs[0].script as P2PKHScriptSig).signature;
 
             var scriptSig = P2PKHScriptSig(signature, publicKey.toString());
-            var flags = Interpreter.SCRIPT_VERIFY_P2SH | Interpreter.SCRIPT_VERIFY_STRICTENC;
+            var flags = ScriptFlags.SCRIPT_VERIFY_P2SH | ScriptFlags.SCRIPT_VERIFY_STRICTENC;
             var interpreter = Interpreter();
 
             var verified = interpreter.verifyScript(scriptSig, scriptPubkey, tx: tx, nin: inputIndex, flags: flags, satoshis: utxo["satoshis"]);
@@ -179,7 +180,7 @@ void main() {
       var bool = BN.fromSM(buf, {
         endian: 'little'
       }).cmp(BN.Zero) !== 0
-      Interpreter.castToBool(buf).should.equal(bool)
+      ScriptFlags.castToBool(buf).should.equal(bool)
        */
         });
     });
@@ -190,7 +191,7 @@ void main() {
     };
 
     var evaluateScript = (List<int> arraySig, List<int> arrayPubKey, int op) {
-        var flags = Interpreter.SCRIPT_VERIFY_P2SH | Interpreter.SCRIPT_ENABLE_MAGNETIC_OPCODES | Interpreter.SCRIPT_ENABLE_MONOLITH_OPCODES;
+        var flags = ScriptFlags.SCRIPT_VERIFY_P2SH | ScriptFlags.SCRIPT_ENABLE_MAGNETIC_OPCODES | ScriptFlags.SCRIPT_ENABLE_MONOLITH_OPCODES;
         Interpreter interp = Interpreter.fromScript(SVScript().add(arraySig).add(arrayPubKey), flags);
         interp.script.add(op);
         interp.evaluate();

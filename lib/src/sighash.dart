@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:buffer/buffer.dart';
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
+import 'package:dartsv/src/script/scriptflags.dart';
 
 //import 'package:dartsv/src/script/P2PKHScriptSig.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
@@ -18,16 +19,6 @@ class SighashType {
     static const SIGHASH_ANYONECANPAY = 0x00000080;
 }
 
-class ScriptFlags {
-
-    static const SCRIPT_ENABLE_SIGHASH_FORKID = (1 << 16);
-
-    // Do we accept activate replay protection using a different fork id.
-    //
-    static const SCRIPT_ENABLE_REPLAY_PROTECTION = (1 << 17);
-
-
-}
 
 class Sighash {
     String _rawHex;
@@ -58,7 +49,7 @@ class Sighash {
             sighashType = (newForkValue << 8) | (sighashType & 0xff);
         }
 
-        if ((sighashType & SighashType.SIGHASH_FORKID != 0) && (flags & Interpreter.SCRIPT_ENABLE_SIGHASH_FORKID != 0)) {
+        if ((sighashType & SighashType.SIGHASH_FORKID != 0) && (flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID != 0)) {
             return HEX.encode(this.sigHashForForkid(txnCopy, sighashType, inputNumber, subscriptCopy, satoshis));
         }
 

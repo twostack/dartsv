@@ -1,114 +1,28 @@
-        import 'dart:collection';
-import 'dart:core';
-import 'dart:core' as prefix0;
+import 'dart:collection';
 import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
 import 'package:dartsv/dartsv.dart';
-import 'package:dartsv/src/script/P2PKHScriptSig.dart';
 import 'package:hex/hex.dart';
+import 'scriptflags.dart';
+import 'stack.dart';
 
 
-/// Utility class to represent the Script Interpreter Stack.
+/// *Bitcoin Script Interpreter*
 ///
-/// This class is used internally by the Script Interpreter, and should not really be useful in everyday wallet development.
-class Stack {
-    Queue<List<int>> _queue = new Queue<List<int>>();
-
-    Stack();
-
-
-    /// Construct a stack instance from a Dart Queue
-    ///
-    /// Dart does not have a native representation for a Stack. This implementation
-    /// wraps a Queue datastructure with the needed operations.
-    /// Each element in the stack is represented as a byte buffer in the Queue.
-    Stack.fromQueue(Queue<List<int>> queue){
-        this._queue = Queue.from(queue);
-    }
-
-    /// push an element onto the stack
-    void push(List<int> item) {
-        _queue.addLast(List.from(item));
-    }
-
-    /// get the height of the stack
-    int get length => _queue.length;
-
-    /// remove all items from the stack
-    void removeAll() {
-        this._queue.clear();
-    }
-
-    /// convenience method to create a copy of the stack
-    Stack slice() {
-        return Stack.fromQueue(_queue);
-    }
-
-    /// Return the item at the specified index on the stack without modifying the stack
-    ///
-    /// `index` - a negative number specifying how deep into the stack we want to "peek"
-    List<int> peek({int index = -1}) {
-        if (index > 0) {
-            throw new StackOverflowError();
-        }
-
-        if (index > _queue.length - 1) {
-            throw new Exception("Can't peek past the first element");
-        }
-        var retval = _queue.elementAt(_queue.length + index); //FIXME: Validate this !
-        retval.runtimeType;
-        return retval;
-
-    }
-
-    /// Remove the item at the top of the stack and return it as a byte buffer
-    List<int> pop() {
-        return _queue.removeLast();
-    }
-
-    /// Removes items from the stack and optionally inserts new values
-    ///
-    /// `index` - starting index for items to be removed
-    ///
-    /// `howMany` - the number of items to be removed
-    ///
-    /// `values`  - an optional List of new items to add to the stack, or null if no items need insertion
-    List<List<int>> splice(int index, int howMany, {List<int> values}) {
-        List<List<int>> buffer = _queue.toList();
-
-        List<List<int>> removedItems = buffer.getRange(index, index+howMany).toList();
-        buffer.removeRange(index, index+howMany);
-
-        if (values != null) {
-            buffer.insert(index, values);
-        }
-        this._queue = Queue.from(buffer);
-
-        return removedItems;
-
-    }
-
-    /// Replace item at 'index' with 'value'
-    void replaceAt(int index, List<int> value) {
-        List<List<int>> buffer = _queue.toList();
-        buffer.removeAt(index);
-        buffer.insert(index, value);
-        _queue = Queue.from(buffer);
-    }
-}
-
-    /// *Bitcoin Script Interpreter*
-    ///
-    /// Bitcoin transactions contain scripts. Each input has a script called the
-    /// scriptSig, and each output has a script called the scriptPubkey. To validate
-    /// an input, the input's script is concatenated with the referenced output script,
-    /// and the result is executed. If at the end of execution the stack contains a
-    /// "true" value, then the transaction is valid.
-    ///
-    /// The primary way to use this class is via the verify function.
-    /// e.g., Interpreter().verify( ... );
+/// Bitcoin transactions contain scripts. Each input has a script called the
+/// scriptSig, and each output has a script called the scriptPubkey. To validate
+/// an input, the input's script is concatenated with the referenced output script,
+/// and the result is executed. If at the end of execution the stack contains a
+/// "true" value, then the transaction is valid.
+///
+/// The primary way to use this class is via the [verifyScript()] function.
+///
 class Interpreter {
+
+
+    static List<int> TRUE = <int>[1];
+    static List<int> FALSE = <int>[];
 
     static final MAX_SCRIPT_ELEMENT_SIZE = 520;
     static const MAXIMUM_ELEMENT_SIZE = 4;
@@ -116,119 +30,9 @@ class Interpreter {
     static final LOCKTIME_THRESHOLD = 500000000;
     static final LOCKTIME_THRESHOLD_BN = BigInt.from(LOCKTIME_THRESHOLD);
 
-// flags taken from bitcoind
-// bitcoind commit: b5d1b1092998bc95313856d535c632ea5a8f9104
-    static final SCRIPT_VERIFY_NONE = 0;
 
-// Evaluate P2SH subscripts (softfork safe, BIP16).
-    static final SCRIPT_VERIFY_P2SH = (1 << 0);
-
-
-    static List<int> TRUE = <int>[1];
-    static List<int> FALSE = <int>[];
-
-// Passing a non-strict-DER signature or one with undefined hashtype to a checksig operation causes script failure.
-// Passing a pubkey that is not (0x04 + 64 bytes) or (0x02 or 0x03 + 32 bytes) to checksig causes that pubkey to be
-// skipped (not softfork safe: this flag can widen the validity of OP_CHECKSIG OP_NOT).
-    static final SCRIPT_VERIFY_STRICTENC = (1 << 1);
-
-// Passing a non-strict-DER signature to a checksig operation causes script failure (softfork safe, BIP62 rule 1)
-    static final SCRIPT_VERIFY_DERSIG = (1 << 2);
-
-// Pa non-strict-DER signature or one with S > order/2 to a checksig operation causes script failure
-// (softfork safe, BIP62 rule 5).
-    static final SCRIPT_VERIFY_LOW_S = (1 << 3);
-
-// verify dummy stack item consumed by CHECKMULTISIG is of zero-length (softfork safe, BIP62 rule 7).
-    static final SCRIPT_VERIFY_NULLDUMMY = (1 << 4);
-
-// Using a non-push operator in the scriptSig causes script failure (softfork safe, BIP62 rule 2).
-    static final SCRIPT_VERIFY_SIGPUSHONLY = (1 << 5);
-
-// Require minimal encodings for all push operations (OP_0... OP_16, OP_1NEGATE where possible, direct
-// pushes up to 75 bytes, OP_PUSHDATA up to 255 bytes, OP_PUSHDATA2 for anything larger). Evaluating
-// any other push causes the script to fail (BIP62 rule 3).
-// In addition, whenever a stack element is interpreted as a number, it must be of minimal length (BIP62 rule 4).
-// (softfork safe)
-    static final SCRIPT_VERIFY_MINIMALDATA = (1 << 6);
-
-// Discourage use of NOPs reserved for upgrades (NOP1-10)
-//
-// Provided so that nodes can avoid accepting or mining transactions
-// containing executed NOP's whose meaning may change after a soft-fork,
-// thus rendering the script invalid; with this flag set executing
-// discouraged NOPs fails the script. This verification flag will never be
-// a mandatory flag applied to scripts in a block. NOPs that are not
-// executed, e.g.  within an unexecuted IF ENDIF block, are *not* rejected.
-    static final SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS = (1 << 7);
-
-// Require that only a single stack element remains after evaluation. This
-// changes the success criterion from "At least one stack element must
-// remain, and when interpreted as a boolean, it must be true" to "Exactly
-// one stack element must remain, and when interpreted as a boolean, it must
-// be true".
-// (softfork safe, BIP62 rule 6)
-// Note: CLEANSTACK should never be used without P2SH or WITNESS.
-    static final SCRIPT_VERIFY_CLEANSTACK = (1 << 8);
-
-// Cstatic final LTV See BIP65 for details.
-    static final SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY = (1 << 9);
-
-// support CHECKSEQUENCEVERIFY opcode
-//
-// See BIP112 for details
-    static final SCRIPT_VERIFY_CHECKSEQUENCEVERIFY = (1 << 10);
-
-// Segwit script only: Require the argument of OP_IF/NOTIF to be exactly
-// 0x01 or empty vector
-//
-    static final SCRIPT_VERIFY_MINIMALIF = (1 << 13);
-
-// Signature(s) must be empty vector if an CHECK(MULTI)SIG operation failed
-//
-    static final SCRIPT_VERIFY_NULLFAIL = (1 << 14);
-
-// Public keys in scripts must be compressed
-    static final SCRIPT_VERIFY_COMPRESSED_PUBKEYTYPE = (1 << 15);
-
-// Do we accept signature using SIGHASH_FORKID
-//
-    static final SCRIPT_ENABLE_SIGHASH_FORKID = (1 << 16);
-
-// Do we accept activate replay protection using a different fork id.
-//
-    static final SCRIPT_ENABLE_REPLAY_PROTECTION = (1 << 17);
-
-// Enable new opcodes.
-//
-    static final SCRIPT_ENABLE_MONOLITH_OPCODES = (1 << 18);
-
-// Are the Magnetic upgrade opcodes enabled?
-//
-    static final SCRIPT_ENABLE_MAGNETIC_OPCODES = (1 << 19);
-
-/* Below flags apply in the context of BIP 68 */
-    /**
-     * If this flag set, CTxIn::nSequence is NOT interpreted as a relative
-     * lock-time.
-     */
-    static final SEQUENCE_LOCKTIME_DISABLE_FLAG = (1 << 31);
-
-    /**
-     * If CTxIn::nSequence encodes a relative lock-time and this flag is set,
-     * the relative lock-time has units of 512 seconds, otherwise it specifies
-     * blocks with a granularity of 1.
-     */
-    static final SEQUENCE_LOCKTIME_TYPE_FLAG = (1 << 22);
-
-    /**
-     * If CTxIn::nSequence encodes a relative lock-time, this mask is applied to
-     * extract that lock-time from the sequence field.
-     */
-    static final SEQUENCE_LOCKTIME_MASK = 0x0000ffff;
-
-    Stack _stack = new Stack();
-    Stack _altStack = new Stack();
+    InterpreterStack _stack = new InterpreterStack();
+    InterpreterStack _altStack = new InterpreterStack();
     int _pc = 0;
     int _pbegincodehash = 0;
     int _nOpCount = 0;
@@ -248,12 +52,12 @@ class Interpreter {
     /// The interpreter's internal stack
     ///
     /// Bitcoin Script is also known as a two-stack PDA (pushdown automata)
-    Stack get stack => _stack;
+    InterpreterStack get stack => _stack;
 
     /// The interpreter's alternate stack
     ///
     /// Bitcoin Script is also known as a two-stack PDA (pushdown automata)
-    Stack get altStack => _altStack;
+    InterpreterStack get altStack => _altStack;
 
     /// Global index/pointer into which Script Chunk is currently being evaluated.
     ///
@@ -277,100 +81,7 @@ class Interpreter {
     ///
     String get errstr => _errStr;
 
-    /// Flags are used to signal various expected behaviours to the Script Interpreter.
-    ///
-    ///
-    /// __Flags are taken from the bitcoind implementation__
-    ///
-    ///  ##S CRIPT_VERIFY_P2SH
-    ///  Evaluate P2SH subscripts (softfork safe, BIP16).
-    ///
-    /// ## SCRIPT_VERIFY_STRICTENC
-    /// Passing a non-strict-DER signature or one with undefined hashtype to a checksig operation causes script failure.
-    /// Passing a pubkey that is not (0x04 + 64 bytes) or (0x02 or 0x03 + 32 bytes) to checksig causes that pubkey to be
-    /// skipped (not softfork safe: this flag can widen the validity of OP_CHECKSIG OP_NOT).
-    ///
-    /// ## SCRIPT_VERIFY_DERSIG
-    /// Passing a non-strict-DER signature to a checksig operation causes script failure (softfork safe, BIP62 rule 1)
-    ///
-    /// ## SCRIPT_VERIFY_LOW_S
-    /// Pa non-strict-DER signature or one with S > order/2 to a checksig operation causes script failure
-    /// (softfork safe, BIP62 rule 5).
-    ///
-    /// ## SCRIPT_VERIFY_NULLDUMMY
-    /// verify dummy stack item consumed by CHECKMULTISIG is of zero-length (softfork safe, BIP62 rule 7).
-    ///
-    /// ## SCRIPT_VERIFY_SIGPUSHONLY
-    /// Using a non-push operator in the scriptSig causes script failure (softfork safe, BIP62 rule 2).
-    ///
-    /// ## SCRIPT_VERIFY_MINIMALDATA
-    /// Require minimal encodings for all push operations (OP_0... OP_16, OP_1NEGATE where possible, direct
-    /// pushes up to 75 bytes, OP_PUSHDATA up to 255 bytes, OP_PUSHDATA2 for anything larger). Evaluating
-    /// any other push causes the script to fail (BIP62 rule 3).
-    /// In addition, whenever a stack element is interpreted as a number, it must be of minimal length (BIP62 rule 4).
-    /// (softfork safe)
-    ///
-    /// ## SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS
-    /// Discourage use of NOPs reserved for upgrades (NOP1-10).
-    /// Provided so that nodes can avoid accepting or mining transactions
-    /// containing executed NOP's whose meaning may change after a soft-fork,
-    /// thus rendering the script invalid; with this flag set executing
-    /// discouraged NOPs fails the script. This verification flag will never be
-    /// a mandatory flag applied to scripts in a block. NOPs that are not
-    /// executed, e.g.  within an unexecuted IF ENDIF block, are *not* rejected.
-    ///
-    /// ## SCRIPT_VERIFY_CLEANSTACK
-    /// Require that only a single stack element remains after evaluation. This
-    /// changes the success criterion from "At least one stack element must
-    /// remain, and when interpreted as a boolean, it must be true" to "Exactly
-    /// one stack element must remain, and when interpreted as a boolean, it must
-    /// be true".
-    /// (softfork safe, BIP62 rule 6)
-    /// Note: CLEANSTACK should never be used without P2SH or WITNESS.
-    ///
-    /// ## SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY
-    /// Cstatic final LTV See BIP65 for details.
-    ///
-    /// ## SCRIPT_VERIFY_CHECKSEQUENCEVERIFY
-    /// support CHECKSEQUENCEVERIFY opcode
-    /// See BIP112 for details
-    ///
-    /// ## SCRIPT_VERIFY_MINIMALIF
-    /// Segwit script only: Require the argument of OP_IF/NOTIF to be exactly
-    /// 0x01 or empty vector
-    ///
-    /// ## SCRIPT_VERIFY_NULLFAIL
-    /// Signature(s) must be empty vector if an CHECK(MULTI)SIG operation failed
-    ///
-    /// ## SCRIPT_VERIFY_COMPRESSED_PUBKEYTYPE
-    /// Public keys in scripts must be compressed
-    ///
-    /// ## SCRIPT_ENABLE_SIGHASH_FORKID
-    /// Do we accept signature using SIGHASH_FORKID
-    ///
-    /// ## SCRIPT_ENABLE_REPLAY_PROTECTION
-    /// Do we accept activate replay protection using a different fork id.
-    ///
-    /// ## SCRIPT_ENABLE_MONOLITH_OPCODES
-    /// Enable new opcodes.
-    ///
-    /// ## SCRIPT_ENABLE_MAGNETIC_OPCODES
-    /// Are the Magnetic upgrade opcodes enabled?
-    ///
-    ///
-    /// __Below flags apply in the context of BIP 68__
-    ///
-    /// ## SEQUENCE_LOCKTIME_DISABLE_FLAG
-    ///  If this flag set, CTxIn::nSequence is NOT interpreted as a relative lock-time.
-    ///
-    /// ## SEQUENCE_LOCKTIME_TYPE_FLAG
-    /// If CTxIn::nSequence encodes a relative lock-time and this flag is set,
-    /// the relative lock-time has units of 512 seconds, otherwise it specifies
-    /// blocks with a granularity of 1.
-    ///
-    /// ## SEQUENCE_LOCKTIME_MASK
-    /// If CTxIn::nSequence encodes a relative lock-time, this mask is applied to
-    /// extract that lock-time from the sequence field.
+    /// Returns a bitmask of the currently enabled flags for the Interpreter.
     int get flags => _flags;
 
     /// Returns the internal representation of the script
@@ -385,10 +96,9 @@ class Interpreter {
     ///
     /// `flags`  - Flags to govern script execution. See [flags]
     Interpreter.fromScript(SVScript script, int flags){
-       this._script = script;
-       this._flags = flags;
+        this._script = script;
+        this._flags = flags;
     }
-
 
 
     /// Check the buffer is minimally encoded (see https://github.com/bitcoincashorg/spec/blob/master/may-2018-reenabled-opcodes.md#op_bin2num)
@@ -422,7 +132,7 @@ class Interpreter {
     /// Minimally encode the buffer content
     ///
     /// (see https://github.com/bitcoincashorg/spec/blob/master/may-2018-reenabled-opcodes.md#op_bin2num)
-    List<int> minimallyEncode (List<int> buf) {
+    List<int> minimallyEncode(List<int> buf) {
         if (buf.length == 0) {
             return buf;
         }
@@ -484,15 +194,15 @@ class Interpreter {
     ///  `satoshis` - amount in satoshis of the input to be verified (when FORKID signhash is used)
     ///
     ///  __Translated from bitcoind's VerifyScript__
-    bool verifyScript(SVScript scriptSig, SVScript scriptPubkey, {Transaction tx , int nin = 0, int flags = 0, BigInt satoshis}) {
+    bool verifyScript(SVScript scriptSig, SVScript scriptPubkey, {Transaction tx, int nin = 0, int flags = 0, BigInt satoshis}) {
         if (tx == null) {
             tx = new Transaction();
         }
 
 
         // If FORKID is enabled, we also ensure strict encoding.
-        if (flags & Interpreter.SCRIPT_ENABLE_SIGHASH_FORKID != 0) {
-            flags |= Interpreter.SCRIPT_VERIFY_STRICTENC;
+        if (flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID != 0) {
+            flags |= ScriptFlags.SCRIPT_VERIFY_STRICTENC;
 
             // If FORKID is enabled, we need the input amount.
             if (satoshis == null) {
@@ -507,9 +217,9 @@ class Interpreter {
         this._flags = flags;
         this._satoshis = satoshis;
 
-        Stack stackCopy;
+        InterpreterStack stackCopy;
 
-        if ((flags & Interpreter.SCRIPT_VERIFY_SIGPUSHONLY) != 0 && !scriptSig.isPushOnly()) {
+        if ((flags & ScriptFlags.SCRIPT_VERIFY_SIGPUSHONLY) != 0 && !scriptSig.isPushOnly()) {
             this._errStr = 'SCRIPT_ERR_SIG_PUSHONLY';
             return false;
         };
@@ -519,7 +229,7 @@ class Interpreter {
             return false;
         }
 
-        if (flags & Interpreter.SCRIPT_VERIFY_P2SH != 0) {
+        if (flags & ScriptFlags.SCRIPT_VERIFY_P2SH != 0) {
             stackCopy = this._stack.slice();
         }
 
@@ -551,7 +261,7 @@ class Interpreter {
         }
 
         // Additional validation for spend-to-script-hash transactions:
-        if ((flags & Interpreter.SCRIPT_VERIFY_P2SH != 0) && scriptPubkey.isScriptHashOut()) {
+        if ((flags & ScriptFlags.SCRIPT_VERIFY_P2SH != 0) && scriptPubkey.isScriptHashOut()) {
             // scriptSig must be literals-only or validation fails
             if (!scriptSig.isPushOnly()) {
                 this._errStr = 'SCRIPT_ERR_SIG_PUSHONLY';
@@ -599,11 +309,11 @@ class Interpreter {
         // as the non-P2SH evaluation of a P2SH script will obviously not result in
         // a clean stack (the P2SH inputs remain). The same holds for witness
         // evaluation.
-        if ((flags & Interpreter.SCRIPT_VERIFY_CLEANSTACK) != 0) {
+        if ((flags & ScriptFlags.SCRIPT_VERIFY_CLEANSTACK) != 0) {
             // Disallow CLEANSTACK without P2SH, as otherwise a switch
             // CLEANSTACK->P2SH+CLEANSTACK would be possible, which is not a
             // softfork (and P2SH should be one).
-            if ((flags & Interpreter.SCRIPT_VERIFY_P2SH) == 0) {
+            if ((flags & ScriptFlags.SCRIPT_VERIFY_P2SH) == 0) {
                 throw new InterpreterException('internal error - CLEANSTACK without P2SH');
             }
 
@@ -627,29 +337,30 @@ class Interpreter {
             return true;
         }
 
-        if ((flags & (Interpreter.SCRIPT_VERIFY_DERSIG | Interpreter.SCRIPT_VERIFY_LOW_S | Interpreter.SCRIPT_VERIFY_STRICTENC)) != 0 && !SVSignature.isTxDER(HEX.encode(buf))) {
+        if ((flags & (ScriptFlags.SCRIPT_VERIFY_DERSIG | ScriptFlags.SCRIPT_VERIFY_LOW_S | ScriptFlags.SCRIPT_VERIFY_STRICTENC)) != 0 &&
+            !SVSignature.isTxDER(HEX.encode(buf))) {
             errStr = 'SCRIPT_ERR_SIG_DER_INVALID_FORMAT';
             return false;
-        } else if ((flags & Interpreter.SCRIPT_VERIFY_LOW_S) != 0) {
+        } else if ((flags & ScriptFlags.SCRIPT_VERIFY_LOW_S) != 0) {
             sig = SVSignature.fromTxFormat(HEX.encode(buf));
             if (!sig.hasLowS()) {
                 errStr = 'SCRIPT_ERR_SIG_DER_HIGH_S';
                 return false;
             }
-        } else if ((flags & Interpreter.SCRIPT_VERIFY_STRICTENC) != 0) {
+        } else if ((flags & ScriptFlags.SCRIPT_VERIFY_STRICTENC) != 0) {
             sig = SVSignature.fromTxFormat(HEX.encode(buf));
             if (!sig.hasDefinedHashtype()) {
                 errStr = 'SCRIPT_ERR_SIG_HASHTYPE';
                 return false;
             }
 
-            if (!(flags & Interpreter.SCRIPT_ENABLE_SIGHASH_FORKID != 0) &&
+            if (!(flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID != 0) &&
                 (sig.nhashtype & SighashType.SIGHASH_FORKID != 0)) {
                 errStr = 'SCRIPT_ERR_ILLEGAL_FORKID';
                 return false;
             }
 
-            if ((flags & Interpreter.SCRIPT_ENABLE_SIGHASH_FORKID != 0) &&
+            if ((flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID != 0) &&
                 !(sig.nhashtype & SighashType.SIGHASH_FORKID != 0)) {
                 errStr = 'SCRIPT_ERR_MUST_USE_FORKID';
                 return false;
@@ -711,8 +422,8 @@ class Interpreter {
     }
 
     void _initialize() {
-        this._stack = new Stack.fromQueue(Queue<List<int>>());
-        this._altStack = new Stack.fromQueue(Queue<List<int>>());
+        this._stack = new InterpreterStack.fromQueue(Queue<List<int>>());
+        this._altStack = new InterpreterStack.fromQueue(Queue<List<int>>());
         this._pc = 0;
         this._pbegincodehash = 0;
         this._nOpCount = 0;
@@ -732,7 +443,7 @@ class Interpreter {
 
 
     castBigIntToBool(BigInt value) {
-        if (value == BigInt.zero){
+        if (value == BigInt.zero) {
             return false;
         }
 
@@ -753,7 +464,6 @@ class Interpreter {
     }
 
     bool _step() {
-
         bool isOpCodesDisabled(int opcode) {
             switch (opcode) {
                 case OpCodes.OP_2MUL:
@@ -766,7 +476,7 @@ class Interpreter {
                 case OpCodes.OP_LSHIFT:
                 case OpCodes.OP_RSHIFT:
                 // OpCodess that have been reenabled.
-                    if ((this._flags & Interpreter.SCRIPT_ENABLE_MAGNETIC_OPCODES) == 0) {
+                    if ((this._flags & ScriptFlags.SCRIPT_ENABLE_MAGNETIC_OPCODES) == 0) {
                         return true;
                     }
                     break;
@@ -780,7 +490,7 @@ class Interpreter {
                 case OpCodes.OP_BIN2NUM:
                 case OpCodes.OP_NUM2BIN:
                 // OpCodes that have been reenabled.
-                    if ((this._flags & Interpreter.SCRIPT_ENABLE_MONOLITH_OPCODES) == 0) {
+                    if ((this._flags & ScriptFlags.SCRIPT_ENABLE_MONOLITH_OPCODES) == 0) {
                         return true;
                     }
                     break;
@@ -791,7 +501,7 @@ class Interpreter {
             return false;
         }
 
-        bool fRequireMinimal = (this.flags & Interpreter.SCRIPT_VERIFY_MINIMALDATA) != 0; //FIXME: This is somehow used in JS BigNumber class
+        bool fRequireMinimal = (this.flags & ScriptFlags.SCRIPT_VERIFY_MINIMALDATA) != 0; //FIXME: This is somehow used in JS BigNumber class
 
         bool fExec = !this.vfExec.contains(false);
         var spliced, n, x1, x2, subscript;
@@ -832,7 +542,7 @@ class Interpreter {
             }
             if (chunk.len != chunk.buf.length) {
                 throw new InterpreterException("Length of push value not equal to length of data (${chunk.len},${chunk.buf.length})");
-            }else if (chunk.buf.isEmpty) {
+            } else if (chunk.buf.isEmpty) {
                 this._stack.push(<int>[]);
             } else {
                 this._stack.push(chunk.buf);
@@ -874,9 +584,9 @@ class Interpreter {
 
 //                case OpCodes.OP_NOP2: //same numeric as CHECKLOCKTIMEVERIFY. Core buggery.
                 case OpCodes.OP_CHECKLOCKTIMEVERIFY:
-                    if (!(this.flags & Interpreter.SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY != 0)) {
+                    if (!(this.flags & ScriptFlags.SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY != 0)) {
                         // not enabled; treat as a NOP2
-                        if (this.flags & Interpreter.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS != 0) {
+                        if (this.flags & ScriptFlags.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS != 0) {
                             this._errStr = 'SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS';
                             return false;
                         }
@@ -921,9 +631,9 @@ class Interpreter {
 
 //      case OpCodes.OP_NOP3:
                 case OpCodes.OP_CHECKSEQUENCEVERIFY:
-                    if (!(this.flags & Interpreter.SCRIPT_VERIFY_CHECKSEQUENCEVERIFY != 0)) {
+                    if (!(this.flags & ScriptFlags.SCRIPT_VERIFY_CHECKSEQUENCEVERIFY != 0)) {
                         // not enabled; treat as a NOP3
-                        if (this.flags & Interpreter.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS != 0) {
+                        if (this.flags & ScriptFlags.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS != 0) {
                             this._errStr = 'SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS';
                             return false;
                         }
@@ -952,7 +662,7 @@ class Interpreter {
                     // To provide for future soft-fork extensibility, if the
                     // operand has the disabled lock-time flag set,
                     // CHECKSEQUENCEVERIFY behaves as a NOP.
-                    if ((nSequence & BigInt.from(SEQUENCE_LOCKTIME_DISABLE_FLAG)) != BigInt.zero) {
+                    if ((nSequence & BigInt.from(ScriptFlags.SEQUENCE_LOCKTIME_DISABLE_FLAG)) != BigInt.zero) {
                         break;
                     }
 
@@ -971,7 +681,7 @@ class Interpreter {
                 case OpCodes.OP_NOP8:
                 case OpCodes.OP_NOP9:
                 case OpCodes.OP_NOP10:
-                    if (this.flags & Interpreter.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS != 0) {
+                    if (this.flags & ScriptFlags.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS != 0) {
                         this._errStr = 'SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS';
                         return false;
                     }
@@ -989,7 +699,7 @@ class Interpreter {
                         }
                         buf = this._stack.peek();
 
-                        if (this.flags & Interpreter.SCRIPT_VERIFY_MINIMALIF != 0) {
+                        if (this.flags & ScriptFlags.SCRIPT_VERIFY_MINIMALIF != 0) {
                             if (buf.length > 1) {
                                 this._errStr = 'SCRIPT_ERR_MINIMALIF';
                                 return false;
@@ -1152,7 +862,7 @@ class Interpreter {
                 // -- stacksize
                     buf = toScriptNumBuffer(BigInt.from(this._stack.length));
 //                    buf = HEX.decode(BigInt.from(this._stack.length).toRadixString(16));
-                    if (this._stack.length == 0){
+                    if (this._stack.length == 0) {
                         buf = []; //don't push array with zero value, push empty string instead
                     }
 
@@ -1313,8 +1023,8 @@ class Interpreter {
                     this._stack.pop();
                     break;
 
-                    //FIXME: Using a List<int> for the stack seems to be problematic under certain circumstances
-                    //       Consider refactoring to Uint8List()
+            //FIXME: Using a List<int> for the stack seems to be problematic under certain circumstances
+            //       Consider refactoring to Uint8List()
                 case OpCodes.OP_INVERT:
                 // (x -- out)
                     if (this._stack.length < 1) {
@@ -1367,15 +1077,14 @@ class Interpreter {
                         }
 
 
-                        var padding = shifted.toRadixString(16).padLeft(buf1.length*2, '0');
+                        var padding = shifted.toRadixString(16).padLeft(buf1.length * 2, '0');
 
                         if (n > 0) {
                             var shiftedList = HEX.decode(padding);
-                            this._stack.push( shiftedList.sublist(shiftedList.length - buf1.length));
-                        }else{
-                            this._stack.push( HEX.decode(shifted.toRadixString(16)));  //if no shift occured then don't drop bits
+                            this._stack.push(shiftedList.sublist(shiftedList.length - buf1.length));
+                        } else {
+                            this._stack.push(HEX.decode(shifted.toRadixString(16))); //if no shift occured then don't drop bits
                         }
-
                     }
                     break;
 
@@ -1438,9 +1147,9 @@ class Interpreter {
                         case OpCodes.OP_NOT:
                             if (bn == BigInt.zero) {
                                 bn = BigInt.one;
-                            }else if (bn == BigInt.one) {
+                            } else if (bn == BigInt.one) {
                                 bn = BigInt.zero;
-                            }else {
+                            } else {
                                 bn = BigInt.zero;
                             }
 
@@ -1448,7 +1157,7 @@ class Interpreter {
                         case OpCodes.OP_0NOTEQUAL:
                             if (bn == BigInt.zero) {
                                 bn = BigInt.zero;
-                            }else {
+                            } else {
                                 bn = BigInt.one;
                             }
                             break;
@@ -1484,11 +1193,11 @@ class Interpreter {
                     bn1 = fromScriptNumBuffer(Uint8List.fromList(stack.peek(index: -2)), fRequireMinimal);
                     bn2 = fromScriptNumBuffer(Uint8List.fromList(stack.peek()), fRequireMinimal);
 
-                    if (bn1 == null){
+                    if (bn1 == null) {
                         bn1 = BigInt.zero;
                     }
 
-                    if (bn2 == null){
+                    if (bn2 == null) {
                         bn2 = BigInt.zero;
                     }
 
@@ -1525,16 +1234,15 @@ class Interpreter {
                             //FIXME: Is this re-enabled OP_CODE supposed to work in this fucked-up way !?
                             bn = bn1.abs() % bn2.abs(); //seriously ? I have to convert to abs() to get correct result if bn1 < 0. WTF Bitcoin ?
 
-                            if (bn1.isNegative){
+                            if (bn1.isNegative) {
                                 bn = -bn; //flip sign to conform to weird bitcoin mod behaviour. WTF!?
                             }
                             break;
 
                         case OpCodes.OP_BOOLAND:
-
-                            if((bn1.compareTo(BigInt.zero) != 0) && (bn2.compareTo(BigInt.zero) != 0)){
+                            if ((bn1.compareTo(BigInt.zero) != 0) && (bn2.compareTo(BigInt.zero) != 0)) {
                                 bn = BigInt.one;
-                            }else{
+                            } else {
                                 bn = BigInt.zero;
                             }
 
@@ -1673,18 +1381,22 @@ class Interpreter {
 
                     try {
                         pubkey = SVPublicKey.fromHex(HEX.encode(bufPubkey), strict: false);
-                        sig = SVSignature.fromTxFormat(HEX.encode(bufSig)); //FIXME: Why can't I construct a SVSignature that properly verifies from TxFormat ???
+                        sig =
+                            SVSignature.fromTxFormat(HEX.encode(bufSig)); //FIXME: Why can't I construct a SVSignature that properly verifies from TxFormat ???
                         sig.publicKey = pubkey;
 
                         String hash = Sighash().hash(this._tx, sig.nhashtype, this._nin, subscript, this._satoshis, flags: this._flags);
-                        var reversedHash = HEX.encode(HEX.decode(hash).reversed.toList());
+                        var reversedHash = HEX.encode(HEX
+                            .decode(hash)
+                            .reversed
+                            .toList());
                         fSuccess = sig.verify(reversedHash, HEX.encode(bufSig));
                     } catch (e) {
                         // invalid sig or pubkey
                         fSuccess = false;
                     }
 
-                    if (!fSuccess && (this.flags & Interpreter.SCRIPT_VERIFY_NULLFAIL != 0) && bufSig.isNotEmpty) {
+                    if (!fSuccess && (this.flags & ScriptFlags.SCRIPT_VERIFY_NULLFAIL != 0) && bufSig.isNotEmpty) {
                         this._errStr = 'SCRIPT_ERR_NULLFAIL';
                         return false;
                     }
@@ -1778,11 +1490,15 @@ class Interpreter {
                         var fOk;
                         try {
                             pubkey = SVPublicKey.fromHex(HEX.encode(bufPubkey), strict: false);
-                            sig = SVSignature.fromTxFormat(HEX.encode(bufSig)); //FIXME: Why can't I construct a SVSignature that properly verifies from TxFormat ???
+                            sig = SVSignature.fromTxFormat(
+                                HEX.encode(bufSig)); //FIXME: Why can't I construct a SVSignature that properly verifies from TxFormat ???
                             sig.publicKey = pubkey;
 //                            fOk = this._tx.verifySignature(sig, pubkey, this._nin, subscript, this._satoshis, this.flags);
                             String hash = Sighash().hash(this._tx, sig.nhashtype, this._nin, subscript, this._satoshis);
-                            var reversedHash = HEX.encode(HEX.decode(hash).reversed.toList());
+                            var reversedHash = HEX.encode(HEX
+                                .decode(hash)
+                                .reversed
+                                .toList());
                             fOk = sig.verify(reversedHash, HEX.encode(bufSig));
                         } catch (e) {
                             // invalid sig or pubkey
@@ -1805,7 +1521,7 @@ class Interpreter {
 
                     // Clean up stack of actual arguments
                     while (i-- > 1) {
-                        if (!fSuccess && (this.flags & Interpreter.SCRIPT_VERIFY_NULLFAIL != 0) && (ikey2 <= 0) && stack
+                        if (!fSuccess && (this.flags & ScriptFlags.SCRIPT_VERIFY_NULLFAIL != 0) && (ikey2 <= 0) && stack
                             .peek()
                             .isNotEmpty) {
                             this._errStr = 'SCRIPT_ERR_NULLFAIL';
@@ -1829,7 +1545,7 @@ class Interpreter {
                         this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-                    if ((this.flags & Interpreter.SCRIPT_VERIFY_NULLDUMMY != 0) && stack
+                    if ((this.flags & ScriptFlags.SCRIPT_VERIFY_NULLDUMMY != 0) && stack
                         .peek()
                         .isNotEmpty) {
                         this._errStr = 'SCRIPT_ERR_SIG_NULLDUMMY';
@@ -1920,7 +1636,7 @@ class Interpreter {
 
                     // Try to see if we can fit that number in the number of
                     // byte requested.
-                    if ( rawnum.length > size) {
+                    if (rawnum.length > size) {
                         // We definitively cannot.
                         this._errStr = 'SCRIPT_ERR_IMPOSSIBLE_ENCODING';
                         return false;
@@ -1935,8 +1651,8 @@ class Interpreter {
 
                     var signbit = 0x00;
                     if (rawnum.isNotEmpty) {
-                      signbit = rawnum[rawnum.length - 1] & 0x80;
-                      rawnum[rawnum.length - 1] &= 0x7f;
+                        signbit = rawnum[rawnum.length - 1] & 0x80;
+                        rawnum[rawnum.length - 1] &= 0x7f;
                     }
 
                     var num = List<int>(size);
@@ -1947,7 +1663,7 @@ class Interpreter {
 
                     var l = rawnum.length - 1;
                     while (l++ < size - 2) {
-                      num[l] = 0x00;
+                        num[l] = 0x00;
                     }
 
                     num[l] = signbit;
@@ -1957,10 +1673,10 @@ class Interpreter {
                     break;
 
                 case OpCodes.OP_BIN2NUM:
-        // (in -- out)
+                // (in -- out)
                     if (this._stack.length < 1) {
-                      this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                      return false;
+                        this._errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
+                        return false;
                     }
 
                     buf1 = this._stack.peek();
@@ -1970,8 +1686,8 @@ class Interpreter {
 
                     // The resulting number must be a valid number.
                     if (!this._isMinimallyEncoded(buf2)) {
-                      this._errStr = 'SCRIPT_ERR_INVALID_NUMBER_RANGE';
-                      return false;
+                        this._errStr = 'SCRIPT_ERR_INVALID_NUMBER_RANGE';
+                        return false;
                     }
 
                     break;
@@ -2003,12 +1719,11 @@ class Interpreter {
     ///
     ///  Returns true if the locktime is less than or equal to the transaction's locktime
     bool checkLockTime(BigInt nLockTime) {
-
         // We want to compare apples to apples, so fail the script
         // unless the type of nLockTime being tested is the same as
         // the nLockTime in the transaction.
         if (!((this._tx.nLockTime < Interpreter.LOCKTIME_THRESHOLD && nLockTime < (Interpreter.LOCKTIME_THRESHOLD_BN)) ||
-                (this._tx.nLockTime >= Interpreter.LOCKTIME_THRESHOLD && nLockTime >= (Interpreter.LOCKTIME_THRESHOLD_BN)))) {
+            (this._tx.nLockTime >= Interpreter.LOCKTIME_THRESHOLD && nLockTime >= (Interpreter.LOCKTIME_THRESHOLD_BN)))) {
             return false;
         }
 
@@ -2042,7 +1757,6 @@ class Interpreter {
     ///
     /// Returns true if the sequence is less than or equal to the transaction's sequence
     bool checkSequence(BigInt nSequence) {
-
         // Relative lock times are supported by comparing the passed in operand to
         // the sequence number of the input.
         var txToSequence = this._tx.inputs[this._nin].sequenceNumber;
@@ -2057,13 +1771,13 @@ class Interpreter {
         // constrained. Testing that the transaction's sequence number do not have
         // this bit set prevents using this property to get around a
         // CHECKSEQUENCEVERIFY check.
-        if (txToSequence & Interpreter.SEQUENCE_LOCKTIME_DISABLE_FLAG != 0) {
+        if (txToSequence & ScriptFlags.SEQUENCE_LOCKTIME_DISABLE_FLAG != 0) {
             return false;
         }
 
         // Mask off any bits that do not have consensus-enforced meaning before
         // doing the integer comparisons
-        var nLockTimeMask = Interpreter.SEQUENCE_LOCKTIME_TYPE_FLAG | Interpreter.SEQUENCE_LOCKTIME_MASK;
+        var nLockTimeMask = ScriptFlags.SEQUENCE_LOCKTIME_TYPE_FLAG | ScriptFlags.SEQUENCE_LOCKTIME_MASK;
         var txToSequenceMasked = BigInt.from(txToSequence & nLockTimeMask);
         var nSequenceMasked = nSequence & BigInt.from(nLockTimeMask);
 
@@ -2074,7 +1788,7 @@ class Interpreter {
         // We want to compare apples to apples, so fail the script unless the type
         // of nSequenceMasked being tested is the same as the nSequenceMasked in the
         // transaction.
-        var SEQUENCE_LOCKTIME_TYPE_FLAG_BN = BigInt.from(Interpreter.SEQUENCE_LOCKTIME_TYPE_FLAG);
+        var SEQUENCE_LOCKTIME_TYPE_FLAG_BN = BigInt.from(ScriptFlags.SEQUENCE_LOCKTIME_TYPE_FLAG);
 
         if (!((txToSequenceMasked < SEQUENCE_LOCKTIME_TYPE_FLAG_BN && nSequenceMasked < SEQUENCE_LOCKTIME_TYPE_FLAG_BN) ||
             (txToSequenceMasked >= SEQUENCE_LOCKTIME_TYPE_FLAG_BN && nSequenceMasked >= SEQUENCE_LOCKTIME_TYPE_FLAG_BN))) {
@@ -2091,13 +1805,12 @@ class Interpreter {
 
     /// Translated from bitcoind's CheckPubKeyEncoding
     bool checkPubkeyEncoding(List<int> pubkey) {
-        if ((this.flags & Interpreter.SCRIPT_VERIFY_STRICTENC) != 0 && !SVPublicKey.isValid(HEX.encode(pubkey))) {
+        if ((this.flags & ScriptFlags.SCRIPT_VERIFY_STRICTENC) != 0 && !SVPublicKey.isValid(HEX.encode(pubkey))) {
             this._errStr = 'SCRIPT_ERR_PUBKEYTYPE';
             return false;
         }
         return true;
     }
-
 
 
 }

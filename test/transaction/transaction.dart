@@ -189,19 +189,19 @@ main() {
             var from1 = {
                 "txId": '0000000000000000000000000000000000000000000000000000000000000000',
                 "outputIndex": 0,
-                "scriptPubKey": P2PKHScriptPubkey(fromAddress).script,
+                "scriptPubKey": P2PKHScriptPubkey(fromAddress).toString(),
                 "satoshis": BigInt.from(100000)
             };
             var from2 = {
                 "txId": '0000000000000000000000000000000000000000000000000000000000000001',
                 "outputIndex": 0,
-                "scriptPubKey": P2PKHScriptPubkey(fromAddress).script,
+                "scriptPubKey": P2PKHScriptPubkey(fromAddress).toString(),
                 "satoshis": BigInt.from(100000)
             };
             var from3 = {
                 "txId": '0000000000000000000000000000000000000000000000000000000000000001',
                 "outputIndex": 1,
-                "scriptPubKey": P2PKHScriptPubkey(fromAddress).script,
+                "scriptPubKey": P2PKHScriptPubkey(fromAddress).toString(),
                 "satoshis": BigInt.from(100000)
             };
             var tx = new Transaction()

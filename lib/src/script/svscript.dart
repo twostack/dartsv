@@ -1,41 +1,55 @@
-import 'dart:collection';
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:typed_data';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:hex/hex.dart';
-import 'package:sprintf/sprintf.dart';
 import 'dart:math';
-
-import 'package:dartsv/src/encoding/base58check.dart';
-
-import '../address.dart';
 import '../exceptions.dart';
 import 'opcodes.dart';
 import 'package:buffer/buffer.dart';
 
+/// Utility class to represent a parsed "token" in the encoded script.
 class ScriptChunk {
 
     List<int> _buf;
     int _len;
     int _opcodenum;
 
+    ///Construct a new ScriptChunk
+    ///
+    /// [_buf] - Buffer containing data in case of OP_PUSHDATA
+    ///
+    /// [_len] - length of _buf
+    ///
+    /// [_opcodenum] - Bitcoin script OpCode. See [OpCodes].
+    ///
     ScriptChunk(this._buf, this._len, this._opcodenum);
 
+    /// Returns this script chunk's numeric opcode
+    ///
     int get opcodenum => _opcodenum;
 
+    /// Sets this script chunk's numeric opcode
+    ///
     set opcodenum(int value) {
         _opcodenum = value;
     }
 
+    /// Returns the length of the buffer in case of PUSHDATAx instruction. Zero otherwise.
+    ///
     int get len => _len;
 
+    /// Sets the length of data contained in PUSHDATAx instruction. Zero otherwise.
+    ///
     set len(int value) {
         _len = value;
     }
 
+    /// Returns the byte array containing the data from a PUSHDATAx instruction.
+    ///
     List<int> get buf => _buf;
 
+    /// Sets the byte array of representing PUSHDATAx instruction.
+    ///
     set buf(List<int> value) {
         _buf = value;
     }
@@ -54,7 +68,11 @@ mixin ScriptBuilder {
 }
 
 
-//FIXME: Move internal script representation to be consistently that of List<ScriptChunk>
+/// Bitcoin has a built-in scripting language. This class allows one to easily move
+/// between human-readable instructions and internal hexadecimal representations of bitcoin script.
+///
+/// See : https://en.bitcoin.it/wiki/Script
+///
 class SVScript with ScriptBuilder {
 
     String _script = "";
@@ -63,65 +81,57 @@ class SVScript with ScriptBuilder {
 
     Uint8List _byteArray = Uint8List(0);
 
-    //FIXME: I'm not convinced this does what I think it does. Recheck !
+    /// Constructs a new Script instance by parsing the human-readable form of Script OP_CODES.
+    ///
+    /// E.g.
+    /// ```
+    /// var script = SVScript.fromString('OP_0 OP_PUSHDATA4 3 0x010203 OP_0');
+    /// ```
     SVScript.fromString(String script){
         this._processChunks(script);
         _convertChunksToByteArray();
     }
 
+    /// Constructs a new Script instance by parsing a hexadecimal form of Script.
+    ///
+    /// E.g.
+    /// ```
+    /// var script = SVScript.fromHex('76a914f4c03610e60ad15100929cc23da2f3a799af172588ac');
+    /// ```
+    ///
     SVScript.fromHex(String script){
-//        this._script = script;
-//        parse(script);
-
         _processBuffer(HEX.decode(script));
     }
 
 
-    _convertChunksToByteArray() {
-//        String chunkString = this._chunks.fold("", (prev, elem) => prev + _chunkToString(elem, type: 'asm'));
-//        this._byteArray = Uint8List.fromList(HEX.decode(chunkString.replaceAll(' ', '')));
-
-        var bw = new ByteDataWriter();
-
-        for (var i = 0; i < this._chunks.length; i++) {
-            var chunk = this._chunks[i];
-            var opcodenum = chunk.opcodenum;
-            bw.writeUint8(chunk.opcodenum);
-            if (chunk.buf.isNotEmpty) {
-                if (opcodenum < OpCodes.OP_PUSHDATA1) {
-                    bw.write(chunk.buf);
-                } else if (opcodenum == OpCodes.OP_PUSHDATA1) {
-                    bw.writeUint8(chunk.len);
-                    bw.write(chunk.buf);
-                } else if (opcodenum == OpCodes.OP_PUSHDATA2) {
-                    bw.writeUint16(chunk.len, Endian.little);
-                    bw.write(chunk.buf);
-                } else if (opcodenum == OpCodes.OP_PUSHDATA4) {
-                    bw.writeUint32(chunk.len, Endian.little);
-                    bw.write(chunk.buf);
-                }
-            }
-        }
-
-        this._byteArray = bw.toBytes();
-    }
-
+    /// Constructs a new Script instance from a list of [ScriptChunk]s.
     SVScript.fromChunks(List<ScriptChunk> chunks) {
         this._chunks = chunks;
         _convertChunksToByteArray();
     }
 
+    /// Constructs a new Script instance by parsing a byte buffer representing a script.
+    ///
+    /// *NOTE:* The buffer is a bytearray representation of the script's hexadecimal string form.
     SVScript.fromByteArray(Uint8List buffer) {
-
         _processBuffer(buffer);
-//        this._byteArray = buffer; //FIXME: should be redundant... let's see
     }
 
+    /// Constructs a new Script instance by parsing a byte buffer representing a script.
+    ///
+    /// *NOTE:* Same constructor as [fromByteArray]. Different name.
+    SVScript.fromBuffer(Uint8List buffer) {
+        _processBuffer(buffer);
+    }
+
+    /// Default constructor. Processing in this constructor is used by subclasses to bootstrap their internals.
     SVScript() {
         this._processChunks(buildScript());
         _convertChunksToByteArray();
     }
 
+    /// This constructor is *only* used by the Script Interpreter test vectors at the moment.
+    /// Bitcoind test vectors are rather special snowflakes so we made a special constructor just for them.
     SVScript.fromBitcoindString(String str) {
         var bw = ByteDataWriter();
         var tokens = str.split(' ');
@@ -168,9 +178,37 @@ class SVScript with ScriptBuilder {
         _processBuffer(bw.toBytes());
     }
 
-    SVScript.fromBuffer(Uint8List buffer) {
-        _processBuffer(buffer);
+
+
+    _convertChunksToByteArray() {
+//        String chunkString = this._chunks.fold("", (prev, elem) => prev + _chunkToString(elem, type: 'asm'));
+//        this._byteArray = Uint8List.fromList(HEX.decode(chunkString.replaceAll(' ', '')));
+
+        var bw = new ByteDataWriter();
+
+        for (var i = 0; i < this._chunks.length; i++) {
+            var chunk = this._chunks[i];
+            var opcodenum = chunk.opcodenum;
+            bw.writeUint8(chunk.opcodenum);
+            if (chunk.buf.isNotEmpty) {
+                if (opcodenum < OpCodes.OP_PUSHDATA1) {
+                    bw.write(chunk.buf);
+                } else if (opcodenum == OpCodes.OP_PUSHDATA1) {
+                    bw.writeUint8(chunk.len);
+                    bw.write(chunk.buf);
+                } else if (opcodenum == OpCodes.OP_PUSHDATA2) {
+                    bw.writeUint16(chunk.len, Endian.little);
+                    bw.write(chunk.buf);
+                } else if (opcodenum == OpCodes.OP_PUSHDATA4) {
+                    bw.writeUint32(chunk.len, Endian.little);
+                    bw.write(chunk.buf);
+                }
+            }
+        }
+
+        this._byteArray = bw.toBytes();
     }
+
 
     _processBuffer(Uint8List buffer) {
         ByteDataReader byteDataReader = ByteDataReader();
@@ -275,11 +313,8 @@ class SVScript with ScriptBuilder {
         }
     }
 
-    Uint8List get buffer {
-        _convertChunksToByteArray();
-        return Uint8List.fromList(this._byteArray);
-    }
 
+    /// Render this script in it's human-readable form
     String toString() {
         if (_chunks.isNotEmpty) {
             return _chunks.fold("", (String prev, ScriptChunk chunk) => prev + _chunkToString(chunk)).trim();
@@ -288,53 +323,12 @@ class SVScript with ScriptBuilder {
         return this._script;
     }
 
-    String get script {
-        return _script;
-    }
-
-    void parse(String script) {
-        if (script == null || script.isEmpty) return;
-
-        var tokenList = script.split(" "); //split on spaces
-
-        //encode tokens, leaving non-token elements intact
-        var encodedList = tokenList.map((token) {
-            var encodedToken = token;
-            if (OpCodes.opcodeMap[token.trim()] == null && OpCodes.opcodeMap["OP_${token.trim()}"] == null) { //if the token is not in the opCodeMap, it's data
-
-                if (token.indexOf("0x") >= 0 || tokenList.length == 1) { //it's either a 0x-prefixed bit of data, or a hex string
-                    encodedToken = token.replaceAll("0x", ""); //strip hex coding identifier if any
-                } else {
-                    try { //try to parse value as int
-
-                        var tokenVal = int.parse(encodedToken); //FIXME: Dear lord have mercy
-
-                        if (tokenVal >= 1 && tokenVal <= 75) { //if true => this is number-of-following-bytes-to-push
-                            encodedToken = tokenVal.toRadixString(16);
-                        }
-                    } catch (ex) {}
-                }
-            } else {
-                if (token.trim().startsWith("OP_")) {
-                    encodedToken = OpCodes.opcodeMap[token.trim()].toRadixString(16);
-                } else {
-                    encodedToken = OpCodes.opcodeMap["OP_${token.trim()}"].toRadixString(16);
-                }
-            }
-            return encodedToken;
-        });
-
-        //remove spaces. conc
-        String hex = encodedList.fold("", (prev, elem) => prev + elem);
-
-        this._byteArray = HEX.decode(hex);
-    }
-
-    //serialize the script to HEX
+    /// Renders this script in it's hexadecimal form as a String
     String toHex() {
         return HEX.encode(this._byteArray);
     }
 
+    /// Returns *true* if this script only performs PUSHDATA operations
     bool isPushOnly() {
         return _chunks.fold(true, (prev, chunk) {
             return prev && (chunk.opcodenum <= OpCodes.OP_16 ||
@@ -344,6 +338,7 @@ class SVScript with ScriptBuilder {
         });
     }
 
+    /// Returns *true* if this script matches the Pay-To-Public-Key-Hash template
     bool isScriptHashOut() {
         var buf = this.buffer;
         return (buf.length == 23 &&
@@ -352,16 +347,24 @@ class SVScript with ScriptBuilder {
         buf[buf.length - 1] == OpCodes.OP_EQUAL);
     }
 
+    /// Return this script in it's hexadecimal form as a bytearray
+    Uint8List get buffer {
+        _convertChunksToByteArray();
+        return Uint8List.fromList(this._byteArray);
+    }
+
+    /// Returns this script's internal representation as a list of [ScriptChunk]s
     List<ScriptChunk> get chunks => _chunks;
 
+    /// Checks to see if the PUSHDATA instruction is using the *smallest* pushdata opcode it can.
+    ///
+    /// [i] - Index of ScriptChunk. This should be a pushdata instruction.
+    ///
+    /// Returns true if the *smallest* pushdata opcode was used.
     bool checkMinimalPush(int i) {
         var chunk = this._chunks[i];
         var buf = chunk.buf;
         var opcodenum = chunk.opcodenum;
-
-//        if (buf.isEmpty) { //FIXME: NOTE - there is a weird encoded behaviour in the JS library where buf can be null or "falsy"
-//            return true;
-//        }
 
         if (buf.length == 0) {
             // Could have used OP_0.
@@ -386,6 +389,13 @@ class SVScript with ScriptBuilder {
     }
 
 
+    /// Removes [ScriptChunk]s from the script and optionally inserts new [ScriptChunk]s.
+    ///
+    /// `index` - starting index for items to be removed.
+    ///
+    /// `howMany` - the number of items to be removed.
+    ///
+    /// `values`  - an optional List of new items to insert; null if no items need insertion
     List<ScriptChunk> splice(int index, int howMany, {List<ScriptChunk> values}) {
         List<ScriptChunk> buffer = List.from(this._chunks);
 
@@ -402,6 +412,7 @@ class SVScript with ScriptBuilder {
     }
 
 
+    /// Strips all OP_CODESEPARATOR instructions from the script.
     SVScript removeCodeseparators() {
         var chunks = List<ScriptChunk>();
         for (var i = 0; i < this._chunks.length; i++) {
@@ -414,7 +425,7 @@ class SVScript with ScriptBuilder {
         return this;
     }
 
-    //FIXME: Implement !
+    /// Searches for a subscript within the current script and deletes it.
     SVScript findAndDelete(SVScript tmpScript) {
 
         var buf = List<int>.from(tmpScript.buffer);
@@ -427,6 +438,28 @@ class SVScript with ScriptBuilder {
                 this.splice(i, 1);
             }
         }
+        return this;
+    }
+
+
+    ///Appends an item to the Script. Used by the Interpreter. Should *not* be useful for everyday wallet development.
+    ///
+    /// Implementation of [_addByType] looks as follows:
+    ///
+    /// ```
+    /// if (obj is String) {
+    ///     this._addOpcode(obj, prepend);
+    /// } else if (obj is num) {
+    ///     this._addOpcode(obj, prepend);
+    /// } else if (obj is List<int>) {
+    ///     this._addBuffer(obj, prepend);
+    /// }else {
+    ///     throw new ScriptException('Invalid script chunk');
+    /// }
+    /// ```
+    ///
+    SVScript add(obj) {
+        this._addByType(obj, false);
         return this;
     }
 
@@ -482,10 +515,6 @@ class SVScript with ScriptBuilder {
     }
 
 
-    SVScript add(obj) {
-        this._addByType(obj, false);
-        return this;
-    }
 
     _addByType(obj, prepend) {
         if (obj is String) {
@@ -543,6 +572,7 @@ class SVScript with ScriptBuilder {
         this._insertAtPosition(chunk, prepend);
     }
 
+    /// Currently used by subclasses. A more elegant way is needed to build specialised Script subclasses.
     @override
     String buildScript() {
         return "";

@@ -103,8 +103,16 @@ class SVSignature {
         this._dsaSigner.init(false, PublicKeyParameter(pubKey));
     }
 
-    /// Indirect method of initializing from PublicKey for verify ONLY
-    /// buffer : Signature in Compact Signature form
+    /// Construct the Signature and recover the public key.
+    /// With the public key recovered we can use this signature for *verification only*
+    ///
+    /// This paper (secion 4.1.6) describes an algorithm for recovering the public key from an ECDSA signature:
+    /// (http://www.secg.org/sec1-v2.pdf)
+    ///
+    /// `buffer` - Signature in Compact Signature form
+    ///
+    /// `signMessage` - Message signed with the signature in [buffer]
+    ///
     SVSignature.fromCompact(List<int> buffer, List<int> signedMessage){
 
         var compressed = true;

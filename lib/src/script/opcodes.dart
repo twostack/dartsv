@@ -1,3 +1,14 @@
+
+/// OpCodes are used as the instruction set of the Bitcoin Script programming language.
+///
+/// This is a utility class that allows easy lookup of stringified OpCodes
+/// and also provides clear type-naming of the integer values representing the various opcodes.
+///
+/// For a less-than-complete reference of the Bitcoin OpCodes : https://en.bitcoin.it/wiki/Script
+///
+/// Please note that Bitcoin Cash and Subsequently Bitcoin SV have reintroduced older deprecated OpCodes
+/// and in the case of Bitcoin Cash one new OpCode (OP_CHECKDATASIG).
+///
 class OpCodes {
 
   //thanks for the OpCode Map MoneyButton/bsv ;)
