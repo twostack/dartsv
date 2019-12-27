@@ -198,7 +198,11 @@ class Address {
   /// Addresses are not part of the consensus rules of bitcoin. However with the introduction
   /// of "standard transaction types" wallets have fallen in line with providing
   /// address types that distinguish the types of transactions the coins are meant
-  /// to be associated with
+  /// to be associated with.
+  ///
+  /// *NOTE:* Bitcoin SV will be doing away with the notion of "standard" transaction types during "Genesis" protocol restoration in February 2020.
+  /// As such, wallet developers should note that the coupling between address-type and transaction-type will become increasingly meaningless
+  /// as "non-standard" transaction types start appearing on the Bitcoin SV blockchain.
   ///
   /// See documentation for [Transaction]
   AddressType get addressType => this._addressType;
