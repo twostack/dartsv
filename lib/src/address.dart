@@ -1,3 +1,5 @@
+import 'package:dartsv/dartsv.dart';
+
 import 'encoding/base58check.dart' as bs58check;
 import 'package:hex/hex.dart';
 import 'encoding/utils.dart';
@@ -54,6 +56,16 @@ class Address {
       _createFromHex(hexPubKey, networkType);
   }
 
+  /// Constructs a new Address object from the public key
+  ///
+  /// [pubKey] - The public key
+  ///
+  /// [networkType] is used to distinguish between MAINNET and TESTNET.
+  ///
+  /// Also see [NetworkType]
+  Address.fromPublicKey(SVPublicKey pubKey, NetworkType networkType){
+      _createFromHex(pubKey.toHex(), networkType);
+  }
 
   /// Constructs a new Address object from a compressed public key value
   ///

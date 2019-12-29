@@ -14,20 +14,68 @@ import 'dart:convert';
 import 'exceptions.dart';
 import 'script/opcodes.dart';
 
+/// [Transaction] signature flags that determine which portions of a [Transaction] the signature in the [TransactionInput] applies to.
+///
+/// ## Please read
+/// [SighashType.SIGHASH_ALL]
+///
+/// [SighashType.SIGHASH_NONE]
+///
+/// [SighashType.SIGHASH_SINGLE]
+///
+/// [SighashType.SIGHASH_ANYONECANPAY]
+///
+/// [SighashType.SIGHASH_FORKID]
+///
 class SighashType {
+    /// The signature in the [TransactionInput] applies to all the [TransactionInput]s *and all* the [TransactionOutput]s
     static const SIGHASH_ALL = 0x00000001;
+
+    /// The signature in the [TransactionInput] applies *only* to *all* the [TransactionInput]s
     static const SIGHASH_NONE = 0x00000002;
+
+    /// The signature in the [TransactionInput] applies to *all* the
+    /// [TransactionInput]s and *only* the corresponding [TransactionOutput] with the *same index* as
+    /// the [TransactionInput] containing the signature.
     static const SIGHASH_SINGLE = 0x00000003;
+
+    /// A flag to provide replay-protection after the Bitcoin-Cash hard-fork.
+    /// A bitwise-OR e.g. `SIGHASH_FORKID | SIGHASH_ALL`
+    /// is required to spend outputs on the BCH and BSV networks
+    /// subsequent to the Bitcoin-Cash fork in 2017.
     static const SIGHASH_FORKID = 0x00000040;
+
+
+    /// This flag is used in combination with any of the *ALL*, *NONE* or *SINGLE* flags.
+    ///
+    /// `SIGHASH_ALL | SIGHASH_ANYONECANPAY` - Signature applies to *all* [TransactionOutput]s,
+    /// but *only* to the [TransactionInput] that the signature is part of.
+    ///
+    /// `SIGHASH_NONE | SIGHASH_ANYONECANPAY` - Signature applies to *only* the [TransactionInput] that
+    /// the signature is part of, and to *none* of the [TransactionOutput]s
+    ///
+    /// `SIGHASH_SINGLE | SIGHASH_ANYONECANPAY` - Signature applies to *only* the [TransactionInput that
+    /// the signature is part *AND ONLY* the one corresponding [TransactionOutput] (same index).
     static const SIGHASH_ANYONECANPAY = 0x00000080;
 }
 
 
+/// Implements the Signature Hash algorithm.
+///
+/// Depending on the Sighash flags specified in [SighashType], this class will remove the parts of the transaction
+/// that should not be covered by the signature and calculates the hash value to be signed.
+///
+/// Basically what we do is :
+///
+/// 1) Strip all the parts of the [Transaction] that should not be covered by the signature
+/// 2) Serialize the "stripped" [Transaction]
+/// 3) Calculate the double-sha256 of the serialized [Transaction]
+///
 class Sighash {
     String _rawHex;
 
-    static const SIGHASH_SINGLE_BUG = '0000000000000000000000000000000000000000000000000000000000000001';
-    static const BITS_64_ON = 'ffffffffffffffff';
+    static const _SIGHASH_SINGLE_BUG = '0000000000000000000000000000000000000000000000000000000000000001';
+    static const _BITS_64_ON = 'ffffffffffffffff';
 
     static const _DEFAULT_SIGN_FLAGS = ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID;
 
@@ -37,6 +85,18 @@ class Sighash {
 
     Sighash();
 
+    /// Calculates the hash value according to the Sighash flags specified in [sighashType]
+    ///
+    /// [txn] - The transaction to calculate the signature has for
+    ///
+    /// [sighashType] - The bitwise combination of [SighashType] flags
+    ///
+    /// [inputNumber] - The input index in [txn] that the hash applies to
+    ///
+    /// [subscript] - The actual portion of [SVScript] in the [TransactionInput] that will be covered by the signature
+    ///
+    /// [flags] - The bitwise combination of [ScriptFlags] related to Sighash. Applies to BSV and BCH only,
+    ///           and refers to `SCRIPT_ENABLE_SIGHASH_FORKID` and `SCRIPT_ENABLE_REPLAY_PROTECTION`
     String hash(Transaction txn, int sighashType, int inputNumber, SVScript subscript, BigInt satoshis, {flags = _DEFAULT_SIGN_FLAGS }) {
 
         var txnCopy = Transaction.fromHex(txn.serialize(performChecks: false)); //make a copy
@@ -53,7 +113,7 @@ class Sighash {
         }
 
         if ((sighashType & SighashType.SIGHASH_FORKID != 0) && (flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID != 0)) {
-            return HEX.encode(this.sigHashForForkid(txnCopy, sighashType, inputNumber, subscriptCopy, satoshis));
+            return HEX.encode(this._sigHashForForkid(txnCopy, sighashType, inputNumber, subscriptCopy, satoshis));
         }
 
 //        if ((sighashType & SighashType.SIGHASH_FORKID == SighashType.SIGHASH_FORKID) &&
@@ -103,7 +163,7 @@ class Sighash {
             // The SIGHASH_SINGLE bug.
             // https://bitcointalk.org/index.php?topic=260595.0
             if (inputNumber >= txnCopy.outputs.length) {
-                return SIGHASH_SINGLE_BUG;
+                return _SIGHASH_SINGLE_BUG;
             }
 
             var txout = new TransactionOutput();
@@ -120,7 +180,7 @@ class Sighash {
             for (var ndx = 0; ndx < inputNumber + 1; ndx++) {
                 var tx = new TransactionOutput();
                 tx.script = SVScript.fromString(""); //FIXME: What happens if there are no outputs !?
-                tx.satoshis = BigInt.parse(BITS_64_ON, radix: 16);
+                tx.satoshis = BigInt.parse(_BITS_64_ON, radix: 16);
                 txnCopy.outputs.add(tx);
             }
 
@@ -162,13 +222,14 @@ class Sighash {
 //        return tx;
 //    }
 
+    /// Returns the hexadecimal String of the signature hash
     @override
     String toString() {
         return HEX.encode(getHash());
     }
 
 
-    List<int> sigHashForForkid(Transaction txn, int sighashType, int inputNumber, SVScript subscript, BigInt satoshis, {flags = _DEFAULT_SIGN_FLAGS }) {
+    List<int> _sigHashForForkid(Transaction txn, int sighashType, int inputNumber, SVScript subscript, BigInt satoshis, {flags = _DEFAULT_SIGN_FLAGS }) {
 
         if (satoshis == null){
             throw BadParameterException("For ForkId=0 signatures, satoshis or complete input must be provided");

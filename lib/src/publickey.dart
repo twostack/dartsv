@@ -6,16 +6,33 @@ import 'package:pointycastle/ecc/curves/secp256k1.dart';
 import 'encoding/utils.dart';
 import 'exceptions.dart';
 
+/// Manages an ECDSA public key.
+///
+/// Bitcoin uses ECDSA for it's public/private key cryptography.
+/// Specifically it uses the `secp256k1` elliptic curve.
+///
+/// This class wraps cryptographic operations related to ECDSA from the
+/// [PointyCastle](https://pub.dev/packages/pointycastle) library/package.
+///
+/// You can read a good primer on Elliptic Curve Cryptography at [This Cloudflare blog post](https://blog.cloudflare.com/a-relatively-easy-to-understand-primer-on-elliptic-curve-cryptography/)
+///
+///
 class SVPublicKey {
     //We only deal with secp256k1
     final _domainParams = new ECDomainParameters('secp256k1');
-    var curve = new ECCurve_secp256k1();
+    var _curve = new ECCurve_secp256k1();
 
     ECPoint _point;
 
     ECPublicKey _publicKey;
 
 
+    /// Creates a new public key from it's corresponding ECDSA private key.
+    ///
+    /// NOTE: public key *Q* is computed as `Q = d * G` where *d* is the private key
+    /// and *G* is the elliptic curve Generator.
+    ///
+    /// [privkey] - The private key who's *d*-value we will use.
     SVPublicKey.fromPrivateKey(SVPrivateKey privkey) {
         var decodedPrivKey = encodeBigInt(privkey.privateKey);
         var hexPrivKey = HEX.encode(decodedPrivKey);
@@ -34,14 +51,32 @@ class SVPublicKey {
         this._publicKey = ECPublicKey((this._point), _domainParams);
     }
 
-
-    SVPublicKey.fromX(String xValue, bool oddYValue, {bool strict = false}) {
+    /// Creates a public key instance from the ECDSA public key's `x-coordinate`
+    ///
+    /// ECDSA has some cool properties. Because we are dealing with an elliptic curve in a plane,
+    /// the public key *Q* has (x,y) cartesian coordinates.
+    /// It is possible to reconstruct the full public key from only it's `x-coordinate`
+    /// *IFF* one knows whether the Y-Value is *odd* or *even*.
+    ///
+    /// [xValue] - The Big Integer value of the `x-coordinate` in hexadecimal format
+    ///
+    /// [oddYValue] - *true* if the corresponding `y-coordinate` is even, *false* otherwise
+    SVPublicKey.fromX(String xValue, bool oddYValue) {
         this._point = _getPointFromX(xValue, oddYValue);
         this._publicKey = ECPublicKey((this._point), _domainParams);
     }
 
 
-    SVPublicKey.fromXY(BigInt x, BigInt y, {bool compressed = true, bool strict = false}) {
+    /// Creates a new public key from it's known *(x,y)* coordinates.
+    ///
+    /// [x] - X coordinate of the public key
+    ///
+    /// [y] - Y coordinate of the public key
+    ///
+    /// [compressed] = Specifies whether we will render this point in it's
+    /// compressed form by default with [toString()]. See [getEncoded()] to
+    /// learn more about compressed public keys.
+    SVPublicKey.fromXY(BigInt x, BigInt y, {bool compressed = true}) {
         //create a compressed point by default
         var point = _domainParams.curve.createPoint(x, y, compressed);
 
@@ -52,6 +87,11 @@ class SVPublicKey {
         this._publicKey = ECPublicKey(this._point, _domainParams);
     }
 
+    /// Reconstructs a public key from a DER-encoding.
+    ///
+    /// [buffer] - Byte array containing public key in DER format.
+    ///
+    /// [strict] - If *true* then we enforce strict DER encoding rules. Defaults to *true*.
     SVPublicKey.fromDER(List<int> buffer, {bool strict = true}){
 
         if (buffer.isEmpty) {
@@ -72,6 +112,11 @@ class SVPublicKey {
     }
 
 
+    /// Reconstruct a public key from the hexadecimal format of it's DER-encoding.
+    ///
+    /// [pubkey] - The DER-encoded public key as a hexadecimal string
+    ///
+    /// [strict] - If *true* then we enforce strict DER encoding rules. Defaults to *true*.
     SVPublicKey.fromHex(String pubkey, {bool strict = true}) {
 
         if (pubkey.trim() == '') {
@@ -91,6 +136,73 @@ class SVPublicKey {
 
         this._publicKey = ECPublicKey(this._point, _domainParams);
     }
+
+
+    /// Validates that the DER-encoded hexadecimal string contains a valid
+    /// public key.
+    ///
+    /// [pubkey] - The DER-encoded public key as a hexadecimal string
+    ///
+    /// Returns *true* if the public key is valid, *false* otherwise.
+    static bool isValid(String pubkey) {
+        SVPublicKey publicKey;
+        try {
+            publicKey = SVPublicKey.fromHex(pubkey);
+        } catch (err) {
+            return false;
+        }
+
+        return true;
+    }
+
+
+    /// Returns the *naked* public key value as either an (x,y) coordinate
+    /// or in a compact format using elliptic-curve point-compression.
+    ///
+    /// With EC point compression it is possible to reduce by half the
+    /// space occupied by a point, by taking advantage of a EC-curve property.
+    /// Specifically it is possible to recover the `y-coordinate` *IFF* the
+    /// `x-coordinate` is known *AND* we know whether the `y-coordinate` is
+    /// *odd* or *even*.
+    ///
+    /// [compressed] - If *true* the "naked" public key value is returned in
+    /// compact format where the first byte is either "odd" or "even" followed
+    /// by the `x-coordinate`. If *false*, the full *(x,y)* coordinate pair will
+    /// be returned.
+    ///
+    /// NOTE: The first byte will contain either an odd number or an even number,
+    /// but this number is *NOT* a boolean flag.
+    String getEncoded(bool compressed) {
+        return HEX.encode(this._point.getEncoded(compressed));
+    }
+
+
+    /// Returns the "naked" public key value. Point compression is determined by
+    /// the default parameter in the constructor. If you want to enforce a specific preference
+    /// for the encoding, you can use the [getEncoded()] function instead.
+    String toString() {
+        if (this._point == null)
+            return "";
+
+        return HEX.encode(this._point.getEncoded(this._point.isCompressed));
+    }
+
+
+    /// Convenience method that constructs an [Address] instance from this
+    /// public key.
+    Address toAddress(NetworkType nat) {
+        //generate compressed addresses by default
+        List<int> buffer = this._point.getEncoded(this._point.isCompressed);
+
+        if (this._point.isCompressed) {
+            return Address.fromCompressedPubKey(buffer, nat);
+        } else {
+            return Address.fromHex(HEX.encode(buffer), nat);
+        }
+    }
+
+    /// Alias for the [toString()] method.
+    String toHex() => this.toString();
 
 
     ECPoint _transformDER(List<int> buf, bool strict) {
@@ -122,28 +234,6 @@ class SVPublicKey {
         return point;
     }
 
-    _parseHexString(String pubkey) {
-
-        ECPoint point = _decodePoint(pubkey);
-
-        //see if we can create this point from it's x/y coordinates
-
-
-        if (point.isInfinity)
-            throw new InvalidPointException("That public key generates point at infinity");
-
-        if (point.y.toBigInteger() == BigInt.zero)
-            throw new InvalidPointException("Invalid Y value for this public key");
-
-        _checkIfOnCurve(point);
-
-
-        this._point = point;
-
-        this._publicKey = ECPublicKey(this._point, _domainParams);
-    }
-
-
     ECPoint _getPointFromX(String xValue, bool oddYValue) {
         var prefixByte;
         if (oddYValue)
@@ -158,17 +248,6 @@ class SVPublicKey {
         addressBytes.setRange(1, addressBytes.length, encoded);
 
         return _decodePoint(HEX.encode(addressBytes));
-    }
-
-    static bool isValid(String pubkey) {
-        SVPublicKey publicKey;
-        try {
-            publicKey = SVPublicKey.fromHex(pubkey);
-        } catch (err) {
-            return false;
-        }
-
-        return true;
     }
 
 
@@ -220,47 +299,18 @@ class SVPublicKey {
         return (point.x.toBigInteger() == BigInt.zero) && (point.y.toBigInteger() == BigInt.zero);
     }
 
-    String getEncoded(bool compressed) {
-        return HEX.encode(this._point.getEncoded(compressed));
-    }
-
-
-    String toString() {
-        if (this._point == null)
-            return "";
-
-        return HEX.encode(this._point.getEncoded(this._point.isCompressed));
-    }
-
+    /// Returns the (x,y) coordinates of this public key as an [ECPoint].
+    /// The author dislikes leaking the wrapped PointyCastle implementation, but is too
+    /// lazy to write his own Point implementation.
     ECPoint get point {
         return this._point;
     }
 
+    /// Returns *true* if this public key will render using EC point compression by
+    /// default when one calls the [toString()] or [toHex()] methods.
+    /// Returns *false* otherwise.
     bool get isCompressed {
         return this._point.isCompressed;
     }
-
-    Address toAddress(NetworkType nat) {
-        //generate compressed addresses by default
-        List<int> buffer = this._point.getEncoded(this._point.isCompressed);
-
-        if (this._point.isCompressed) {
-            return Address.fromCompressedPubKey(buffer, nat);
-        } else {
-            return Address.fromHex(HEX.encode(buffer), nat);
-        }
-    }
-
-
-//shelving for now. Might be usefull to have in future
-//  get X {
-//      var pubx = encodeBigInt(this._point.x.toBigInteger());
-//      return HEX.encode(pubx);
-//  }
-//
-//  get Y {
-//      var puby = encodeBigInt(this._point.y.toBigInteger());
-//      return HEX.encode(puby);
-//  }
 
 }
