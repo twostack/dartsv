@@ -26,7 +26,7 @@ enum FeeMethod {
 }
 
 /// When serializing the transaction to hexadecimal it is possible
-/// to selectively disable some checks. See [serialize()]
+/// to selectively disable some checks. See [Transaction.serialize()]
 enum TransactionOption {
     ///  Disables all checks
     DISABLE_ALL,
@@ -49,7 +49,7 @@ enum TransactionOption {
 /// interact with the Bitcoin network.
 ///
 /// A [Transaction] will have one or more [TransactionInput]s that it is spending from
-/// and one or more [TransactionOutputs] which represent either the sending of coins
+/// and one or more [TransactionOutput]s which represent either the sending of coins
 /// to a recipient or the creation of "data"-only output.
 ///
 ///
@@ -90,29 +90,28 @@ class Transaction {
     var DEFAULT_NLOCKTIME = 0;
     var MAX_BLOCK_SIZE = 1000000;
 
-// Minimum amount for an output for it not to be considered a dust output
+   /// Minimum amount for an output for it not to be considered a dust output
     static final DUST_AMOUNT = BigInt.from(546);
 
-// Margin of error to allow fees in the vecinity of the expected value but doesn't allow a big difference
+    /// Margin of error to allow fees in the vecinity of the expected value but doesn't allow a big difference
     static final FEE_SECURITY_MARGIN = BigInt.from(150);
 
-// max amount of satoshis in circulation
+    /// max amount of satoshis in circulation
     static final MAX_MONEY = BigInt.from(21000000 * 1e8);
 
-// nlocktime limit to be considered block height rather than a timestamp
+    /// nlocktime limit to be considered block height rather than a timestamp
     static final NLOCKTIME_BLOCKHEIGHT_LIMIT = 5e8;
-
 
     static final DEFAULT_SEQNUMBER = 0xFFFFFFFF;
     static final DEFAULT_LOCKTIME_SEQNUMBER = DEFAULT_SEQNUMBER - 1;
 
-// Max value for an unsigned 32 bit value
+    /// Max value for an unsigned 32 bit value
     static final NLOCKTIME_MAX_VALUE = 4294967295;
 
-// Value used for fee estimation (satoshis per kilobyte)
+    /// Value used for fee estimation (satoshis per kilobyte)
     static const FEE_PER_KB = 1000;
 
-// Safe upper bound for change address script size in bytes
+    /// Safe upper bound for change address script size in bytes
     static final CHANGE_OUTPUT_MAX_SIZE = 20 + 4 + 34 + 4;
     static final MAXIMUM_EXTRA_SIZE = 4 + 9 + 9 + 4;
     static final SCRIPT_MAX_SIZE = 149;
@@ -466,7 +465,7 @@ class Transaction {
     /// Set the locktime flag on the transaction to prevent it becoming
     /// spendable before specified block height
     ///
-    /// [blockheight] - The block height before which transaction will not be spendable.
+    /// [blockHeight] - The block height before which transaction will not be spendable.
     Transaction lockUntilBlockHeight(int blockHeight) {
         if (blockHeight > NLOCKTIME_BLOCKHEIGHT_LIMIT)
             throw new LockTimeException("Block height must be less than 500000000");
@@ -594,7 +593,7 @@ class Transaction {
 
     bool isCoinbase() {
         //if we have a Transaction with one input, and a prevTransactionId of zeroooos, it's a coinbase.
-        return (this._txnInputs.length == 1 && this._txnInputs[0].output.prevTxId.replaceAll("0", "").trim() == "");
+        return (this._txnInputs.length == 1 && this._txnInputs[0].output.transactionId.replaceAll("0", "").trim() == "");
     }
 
 

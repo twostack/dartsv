@@ -170,7 +170,7 @@ class Sighash {
             txout.script = txnCopy.outputs[inputNumber].script; //FIXME: What happens if there are not outputs !?
             txout.satoshis = txnCopy.outputs[inputNumber].satoshis;
             txout.outputIndex = txnCopy.outputs[inputNumber].outputIndex;
-            txout.prevTxId = txnCopy.outputs[inputNumber].prevTxId;
+            txout.transactionId = txnCopy.outputs[inputNumber].transactionId;
 
             //resize outputs to current size of inputIndex + 1
 
