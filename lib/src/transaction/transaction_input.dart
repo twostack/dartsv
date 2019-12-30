@@ -5,7 +5,6 @@ import 'package:dartsv/src/script/P2PKHScriptSig.dart';
 import 'package:dartsv/src/script/svscript.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
 import 'package:hex/hex.dart';
-import 'package:sprintf/sprintf.dart';
 import 'package:buffer/buffer.dart';
 
 
@@ -58,50 +57,24 @@ class TransactionInput {
     }
 
     Iterable<int> serialize() {
-//        List<int> buffer = List<int>();
         ByteDataWriter writer = ByteDataWriter();
 
 
         writer.write(HEX.decode(this.prevTxnId).reversed.toList(), copy: true);
 
-        //txid - 32 Bytes
-//        buffer.addAll(HEX
-//            .decode(this.prevTxnId)
-//            .reversed
-//            .toList());
-
         writer.writeUint32(this.output.outputIndex, Endian.little);
-        //vout - 4 bytes index
-//        var vout = sprintf("%08x", [this.outputIndex]);
-//        buffer.addAll(HEX
-//            .decode(vout)
-//            .reversed
-//            .toList());
-
-        //scriptSig Size - varInt
         var scriptHex = HEX.decode(this.script.toHex());
-//        var varIntVal = calcVarInt(scriptHex.length);
-//        buffer.addAll(varIntVal);
 
         writer.write(varIntWriter(scriptHex.length).toList(), copy: true);
         writer.write(scriptHex, copy: true);
 
-        //scriptSig
-//        buffer.addAll(scriptHex);
-
         writer.writeUint32(this.sequenceNumber, Endian.little);
 
-        //sequence number = Oxffffffff - 4 bytes
-//        var seq = sprintf("%08x", [this.sequenceNumber]);
-//        buffer.addAll(HEX
-//            .decode(seq)
-//            .reversed
-//            .toList());
-
-//        return buffer;
         return writer.toBytes().toList();
     }
 
+    //This method only makes sense when working with P2PKH.
+    //The world on BSV is much larger than that.
     bool isFullySigned() {
         return this._isPubkeyHashInput;
     }
