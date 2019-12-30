@@ -116,7 +116,7 @@ class Message {
 
         ///FIXME: So much hoop-jumping ! I already have a Signature instance, why am I passing another signature into it's "verify" method !!???
         ///
-        return signature.verify(HEX.encode(hash), HEX.encode(signature.toDER()));
+        return signature.verify(HEX.encode(hash));
     }
 
 

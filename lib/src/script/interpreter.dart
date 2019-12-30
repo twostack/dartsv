@@ -1384,16 +1384,9 @@ class Interpreter {
 
                     try {
                         pubkey = SVPublicKey.fromHex(HEX.encode(bufPubkey), strict: false);
-                        sig =
-                            SVSignature.fromTxFormat(HEX.encode(bufSig)); //FIXME: Why can't I construct a SVSignature that properly verifies from TxFormat ???
-                        sig.publicKey = pubkey;
+                        sig = SVSignature.fromTxFormat(HEX.encode(bufSig)); //FIXME: Why can't I construct a SVSignature that properly verifies from TxFormat ???
 
-                        String hash = Sighash().hash(this._tx, sig.nhashtype, this._nin, subscript, this._satoshis, flags: this._flags);
-                        var reversedHash = HEX.encode(HEX
-                            .decode(hash)
-                            .reversed
-                            .toList());
-                        fSuccess = sig.verify(reversedHash, HEX.encode(bufSig));
+                        fSuccess = this._tx.verifySignature(sig, pubkey, this._nin, subscript, this._satoshis, this._flags);
                     } catch (e) {
                         // invalid sig or pubkey
                         fSuccess = false;
@@ -1493,16 +1486,9 @@ class Interpreter {
                         var fOk;
                         try {
                             pubkey = SVPublicKey.fromHex(HEX.encode(bufPubkey), strict: false);
-                            sig = SVSignature.fromTxFormat(
-                                HEX.encode(bufSig)); //FIXME: Why can't I construct a SVSignature that properly verifies from TxFormat ???
-                            sig.publicKey = pubkey;
-//                            fOk = this._tx.verifySignature(sig, pubkey, this._nin, subscript, this._satoshis, this.flags);
-                            String hash = Sighash().hash(this._tx, sig.nhashtype, this._nin, subscript, this._satoshis);
-                            var reversedHash = HEX.encode(HEX
-                                .decode(hash)
-                                .reversed
-                                .toList());
-                            fOk = sig.verify(reversedHash, HEX.encode(bufSig));
+                            sig = SVSignature.fromTxFormat(HEX.encode(bufSig));
+
+                            fOk = this._tx.verifySignature(sig, pubkey, this._nin, subscript, this._satoshis, this._flags);
                         } catch (e) {
                             // invalid sig or pubkey
                             fOk = false;

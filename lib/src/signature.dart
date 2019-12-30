@@ -7,45 +7,47 @@ import 'package:pointycastle/api.dart';
 import 'package:pointycastle/digests/sha256.dart';
 import 'package:pointycastle/export.dart';
 import "package:pointycastle/src/utils.dart" as utils;
-import 'package:pointycastle/digests/ripemd160.dart';
 import 'package:pointycastle/macs/hmac.dart';
 import 'package:pointycastle/signers/ecdsa_signer.dart';
 import 'package:pointycastle/pointycastle.dart';
-import 'package:pointycastle/random/fortuna_random.dart';
 import 'package:asn1lib/asn1lib.dart';
-import 'dart:convert';
 import 'dart:math';
 import 'package:hex/hex.dart';
 
 import 'exceptions.dart';
 
-
+/// Sign bitcoin transactions and verify signatures.
+///
+///
 class SVSignature {
     final ECDomainParameters _domainParams = new ECDomainParameters('secp256k1');
     static final SHA256Digest _sha256Digest = SHA256Digest();
     final ECDSASigner _dsaSigner = new ECDSASigner(null, HMac(_sha256Digest, 64));
-//    final _secureRandom = new FortunaRandom();
 
     ECSignature _signature;
     BigInt _r;
     BigInt _s;
     String _rHex;
     String _sHex;
+    int _nhashtype = 0;
+    int _i;
+    bool _compressed = false;
+
     SVPrivateKey _privateKey;
     SVPublicKey _publicKey;
 
-    int _nhashtype = 0;// = SighashType.SIGHASH_ALL | SighashType.SIGHASH_FORKID; //default to SIGHASH_ALL | SIGHASH_FORKID
-
-    int _i;
-
-    bool _compressed = false;
-
-    SVSignature();
-
+    /// Construct a new instance from the R and S components of an ECDSA signature.
+    ///
+    /// [r] - The r component of the signature
+    ///
+    /// [s] - The s component of the signature
     SVSignature.fromECParams(this._r, this._s) {
         this._signature = ECSignature(r, s);
     }
 
+    /// Constructs a signature for it's bitcoin-transaction-encoded form.
+    ///
+    /// [buffer] - A hexadecimal string containing the signature from a bitcoin transaction.
     SVSignature.fromTxFormat(String buffer) {
         var decoded = HEX.decode(buffer);
         var nhashtype = decoded[decoded.length - 1];
@@ -55,41 +57,20 @@ class SVSignature {
 
         this._parseDER(HEX.encode(derbuf));
 
-//        _secureRandom.seed(KeyParameter(_seed()));
     }
 
 
-    //fIXME: Initializing from DER won't let you sign / verify
-    SVSignature.fromDER(String derBuffer, {sigtype = false}) {
+    /// Constructs a signature from it's DER-encoded form
+    ///
+    /// [derBuffer] - Hex-encoded DER string containing the signature
+    SVSignature.fromDER(String derBuffer) {
         this._parseDER(derBuffer);
-//        _secureRandom.seed(KeyParameter(_seed()));
     }
 
-    void _parseDER(derBuffer) {
-        try {
-            var parser = new ASN1Parser(HEX.decode(derBuffer));
 
-            ASN1Sequence seq = parser.nextObject() as ASN1Sequence;
-
-            ASN1Integer rVal = seq.elements[0] as ASN1Integer;
-            ASN1Integer sVal = seq.elements[1] as ASN1Integer;
-
-            this._rHex = HEX.encode(rVal.valueBytes());
-            this._sHex = HEX.encode(sVal.valueBytes());
-
-            this._r = BigInt.parse(this._rHex, radix: 16);
-            this._s = BigInt.parse(this._sHex, radix: 16);
-
-            this._signature = ECSignature(r, s);
-        } catch (e) {
-            throw SignatureException(e.cause);
-        }
-    }
-
-    /// Initialize from PrivateKey to sign
+    /// Construct a signature instance from a PrivateKey for signing purposes.
     SVSignature.fromPrivateKey(SVPrivateKey privateKey) {
         ECPrivateKey privKey = new ECPrivateKey(privateKey.privateKey, this._domainParams);
-//        _secureRandom.seed(KeyParameter(_seed()));
 
         this._privateKey = privateKey;
         this._compressed = privateKey.isCompressed;
@@ -97,11 +78,10 @@ class SVSignature {
         this._dsaSigner.init(true, PrivateKeyParameter(privKey));
     }
 
-    /// Initialize from PublicKey to verify ONLY
+    /// Constructs a signature instance from PublicKey for verification *ONLY*.
     SVSignature.fromPublicKey(SVPublicKey publicKey){
         ECPublicKey pubKey = new ECPublicKey(publicKey.point, this._domainParams);
         this._publicKey = publicKey;
-//        _secureRandom.seed(KeyParameter(_seed()));
         this._dsaSigner.init(false, PublicKeyParameter(pubKey));
     }
 
@@ -111,9 +91,9 @@ class SVSignature {
     /// This paper (secion 4.1.6) describes an algorithm for recovering the public key from an ECDSA signature:
     /// (http://www.secg.org/sec1-v2.pdf)
     ///
-    /// `buffer` - Signature in Compact Signature form
+    /// [buffer] - Signature in Compact Signature form
     ///
-    /// `signMessage` - Message signed with the signature in [buffer]
+    /// [signMessage] - Message signed with the signature in [buffer]
     ///
     SVSignature.fromCompact(List<int> buffer, List<int> signedMessage){
 
@@ -144,11 +124,17 @@ class SVSignature {
         this._r = utils.decodeBigInt(b2);
         this._s = utils.decodeBigInt(b3);
 
+        this._signature = ECSignature(this._r, this._s);
+
         this._publicKey = this.recoverPublicKey(i, signedMessage);
         this._dsaSigner.init(false, PublicKeyParameter(new ECPublicKey(this._publicKey.point, _domainParams)));
     }
 
 
+    /// Renders the signature in *compact* form.
+    ///
+    /// Returns a buffer containing the ECDSA signature in compact format allowing for
+    /// public key recovery.
     List<int> toCompact() {
 
         if (![0,1,2,3].contains(this._i)) {
@@ -167,16 +153,7 @@ class SVSignature {
     }
 
 
-    Uint8List _seed() {
-        var random = Random.secure();
-        var seed = List<int>.generate(32, (_) => random.nextInt(256));
-        return Uint8List.fromList(seed);
-    }
-
-    //FIXME: Signature object should be constructed from DER string.
-    //       Passing DER sig as a parameter to this class is lame AF.
-    bool verify(String message, String derSignature) {
-        this._parseDER(derSignature);
+    bool verify(String message) {
 
         if (this._signature == null)
             throw new SignatureException('Signature is not initialized');
@@ -418,17 +395,6 @@ class SVSignature {
         return true;
     }
 
-
-    void _toLowS() {
-        if (this._s == null) return;
-
-        // enforce low s
-        // see BIP 62, "low S values in signatures"
-        if (this._s > BigInt.parse('7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0', radix: 16)) {
-            this._s = this._domainParams.n - this._s;
-        }
-    }
-
     //Compares to bitcoind's IsLowDERSignature
     //See also ECDSA signature algorithm which enforces this.
     //See also BIP 62, "low S values in signatures"
@@ -440,6 +406,44 @@ class SVSignature {
         }
         return
             true;
+    }
+
+    void _toLowS() {
+        if (this._s == null) return;
+
+        // enforce low s
+        // see BIP 62, "low S values in signatures"
+        if (this._s > BigInt.parse('7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0', radix: 16)) {
+            this._s = this._domainParams.n - this._s;
+        }
+    }
+
+
+    void _parseDER(derBuffer) {
+        try {
+            var parser = new ASN1Parser(HEX.decode(derBuffer));
+
+            ASN1Sequence seq = parser.nextObject() as ASN1Sequence;
+
+            ASN1Integer rVal = seq.elements[0] as ASN1Integer;
+            ASN1Integer sVal = seq.elements[1] as ASN1Integer;
+
+            this._rHex = HEX.encode(rVal.valueBytes());
+            this._sHex = HEX.encode(sVal.valueBytes());
+
+            this._r = BigInt.parse(this._rHex, radix: 16);
+            this._s = BigInt.parse(this._sHex, radix: 16);
+
+            this._signature = ECSignature(r, s);
+        } catch (e) {
+            throw SignatureException(e.cause);
+        }
+    }
+
+    Uint8List _seed() {
+        var random = Random.secure();
+        var seed = List<int>.generate(32, (_) => random.nextInt(256));
+        return Uint8List.fromList(seed);
     }
 
     BigInt get s => _s;

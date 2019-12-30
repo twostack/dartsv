@@ -687,6 +687,46 @@ main() {
 
  */
 
+/*
+
+    describe('isFullySigned', function () {
+      it('works for normal p2pkh', function () {
+        var transaction = new Transaction()
+          .from(simpleUtxoWith100000Satoshis)
+          .to([{
+            address: toAddress,
+            satoshis: 50000
+          }])
+          .change(changeAddress)
+          .sign(privateKey)
+        transaction.isFullySigned().should.equal(true)
+      })
+      it('fails when Inputs are not subclassed and isFullySigned is called', function () {
+        var tx = new Transaction(tx1hex)
+        expect(function () {
+          return tx.isFullySigned()
+        }).to.throw(errors.Transaction.UnableToVerifySignature)
+      })
+      it('fails when Inputs are not subclassed and verifySignature is called', function () {
+        var tx = new Transaction(tx1hex)
+        expect(function () {
+          return tx.isValidSignature({
+            inputIndex: 0
+          })
+        }).to.throw(errors.Transaction.UnableToVerifySignature)
+      })
+      it('passes result of input.isValidSignature', function () {
+        var tx = new Transaction(tx1hex)
+        tx.from(simpleUtxoWith1BSV)
+        tx.inputs[0].isValidSignature = sinon.stub().returns(true)
+        var sig = {
+          inputIndex: 0
+        }
+        tx.isValidSignature(sig).should.equal(true)
+      })
+    })
+  })
+ */
   group('inputAmount + outputAmount', () {
     test('returns correct values for simple transaction', () {
       var transaction = new Transaction()

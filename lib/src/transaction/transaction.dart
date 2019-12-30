@@ -9,6 +9,11 @@ import 'package:dartsv/src/signature.dart';
 import 'package:dartsv/src/transaction/transaction_input.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
 import 'package:hex/hex.dart';
+import 'package:pointycastle/api.dart';
+import 'package:pointycastle/digests/sha256.dart';
+import 'package:pointycastle/ecc/api.dart';
+import 'package:pointycastle/macs/hmac.dart';
+import 'package:pointycastle/signers/ecdsa_signer.dart';
 import 'package:sprintf/sprintf.dart';
 import 'dart:typed_data';
 import 'package:buffer/buffer.dart';
@@ -44,6 +49,11 @@ class Transaction {
     List<TransactionOutput> _txnOutputs = List();
     Address _changeAddress = null;
     Set<TransactionOption> _transactionOptions = Set<TransactionOption>();
+
+
+    static final SHA256Digest _sha256Digest = SHA256Digest();
+    ECDSASigner _dsaSigner = new ECDSASigner(null, HMac(_sha256Digest, 64));
+    ECDomainParameters _domainParams = new ECDomainParameters('secp256k1');
 
     BigInt _fee = null;
     bool _changeScriptFlag = false;
@@ -561,6 +571,19 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
         return unspent - getFee();
     }
 
+    bool verifySignature(SVSignature sig, SVPublicKey pubKey, int inputNumber, SVScript subscript, BigInt satoshis, int flags){
+        String hash = Sighash().hash(this, sig.nhashtype, inputNumber, subscript, satoshis, flags: flags);
+
+        var reversedHash = HEX.encode(HEX.decode(hash).reversed.toList());
+
+        ECPublicKey publicKey = new ECPublicKey(pubKey.point, _domainParams);
+
+        _dsaSigner.init(false, PublicKeyParameter(publicKey));
+
+        Uint8List decodedMessage = Uint8List.fromList(HEX.decode(reversedHash).toList());
+        return _dsaSigner.verifySignature(decodedMessage,ECSignature(sig.r, sig.s));
+    }
+
 
     Transaction signWith(SVPrivateKey privateKey, {sighashType: 0}) {
         SVSignature sig = SVSignature.fromPrivateKey(privateKey);
@@ -589,14 +612,15 @@ Varies	tx_out	txOut	Transaction outputs. See description of txOut below.
             var txSignature = sig.toTxFormat(); //signed hash with SighashType appended
 
             //sanity check to assert that we can verify the generated signature using our public key
-            var signature = sig.toDER();
+//            var signature = sig.toDER();
             var signerPubkey = privateKey.publicKey.toString();
-            SVSignature verifier = SVSignature.fromPublicKey(SVPublicKey.fromHex(signerPubkey));
-            bool check = verifier.verify(reversedHash, HEX.encode(signature));
+//            SVSignature verifier = SVSignature.fromPublicKey(SVPublicKey.fromHex(signerPubkey));
+//            SVSignature verifier = SVSignature.fromPublicKey(SVPublicKey.fromHex(signerPubkey));
+//            bool check = verifier.verify(reversedHash, HEX.encode(signature));
 
             //if this test fails then something went horribly wrong
-            if (check == false)
-                throw SignatureException("Generated Signature failed to verify");
+//            if (check == false)
+//                throw SignatureException("Generated Signature failed to verify");
 
             var networkType = privateKey.networkType;
             //update the input script's scriptSig

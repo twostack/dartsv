@@ -179,7 +179,9 @@ main() {
 //    });
 
     test('should reject invalid sighash types and accept valid ones', () {
-      var sig = SVSignature();
+        var r = BigInt.parse('63173831029936981022572627018246571655303050627048489594159321588908385378810');
+        var sig = SVSignature.fromECParams(r, BigInt.parse("7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A1", radix: 16));
+
       expect(sig.hasDefinedHashtype(), isFalse);
       var testCases = [
         [null, false],
