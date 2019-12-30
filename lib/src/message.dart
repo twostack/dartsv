@@ -55,9 +55,10 @@ class Message {
     /// `privateKey` - The private key to use in signing the message
     ///
     String sign(SVPrivateKey privateKey) {
-        var signature = SVSignature.fromPrivateKey(privateKey);
+        SVSignature signature = SVSignature.fromPrivateKey(privateKey);
         this._privateKey = privateKey;
-        signature = signature.signWithCalcI(HEX.encode(this.magicHash()));
+//        signature.signWithCalcI(HEX.encode(this.magicHash()));
+        signature.sign(HEX.encode(this.magicHash()), forCompact : true);
 
         List<int> compactSig = signature.toCompact();
 
