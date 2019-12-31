@@ -117,24 +117,24 @@ class BlockHeader {
     ///
     /// [map] - The structured object containing the block data
     BlockHeader.fromJSONMap(LinkedHashMap<String, dynamic> map) {
-        this._version = map["version"];
-        this._prevHash = HEX
+        _version = map["version"];
+        _prevHash = HEX
             .decode(map["prevHash"])
             .reversed
             .toList();
-        this._merkleRoot = HEX
+        _merkleRoot = HEX
             .decode(map["merkleRoot"])
             .reversed
             .toList();
-        this._time = map["time"];
-        this._bits = map["bits"];
-        this._nonce = map["nonce"];
+        _time = map["time"];
+        _bits = map["bits"];
+        _nonce = map["nonce"];
     }
 
 
     /// Renders/Serializes the block header to a hexadecimal string
     String toHex() {
-        return HEX.encode(this.buffer);
+        return HEX.encode(buffer);
     }
 
     /// Renders/Serializes the block header to a JSON string
@@ -147,20 +147,20 @@ class BlockHeader {
     /// See [BlockHeader.fromJSONMap()]
     Map<String, dynamic> toObject() {
         return {
-            "hash": HEX.encode(this.hash),
-            "version": this._version,
-            "prevHash": HEX.encode(this._prevHash.reversed.toList()),
-            "merkleRoot": HEX.encode(this._merkleRoot.reversed.toList()),
-            "time": this._time,
-            "bits": this._bits,
-            "nonce": this._nonce
+            "hash": HEX.encode(hash),
+            "version": _version,
+            "prevHash": HEX.encode(_prevHash.reversed.toList()),
+            "merkleRoot": HEX.encode(_merkleRoot.reversed.toList()),
+            "time": _time,
+            "bits": _bits,
+            "nonce": _nonce
         };
     }
 
     /// Returns *true* if the timestamp is smaller than the [BlockHeader.MAX_TIME_OFFSET], *false* otherwise.
     bool hasValidTimestamp() {
         var currentTime = (new DateTime.now().millisecondsSinceEpoch / 1000).round();
-        if (this.time > currentTime + BlockHeader.MAX_TIME_OFFSET) {
+        if (time > currentTime + BlockHeader.MAX_TIME_OFFSET) {
             return false;
         }
         return true;
@@ -168,8 +168,8 @@ class BlockHeader {
 
     /// Returns *true* if the sha256 hash of the block header matches the difficulty target, *false* otherwise.
     bool hasValidProofOfWork() {
-        var pow = BigInt.parse(this.id, radix: 16);
-        var target = this.getTargetDifficulty();
+        var pow = BigInt.parse(id, radix: 16);
+        var target = getTargetDifficulty();
 
         if (pow.compareTo(target) > 0) {
             return false;
@@ -184,7 +184,7 @@ class BlockHeader {
     /// Returns the difficulty target
     BigInt getTargetDifficulty({int targetBits = null}) {
         if (targetBits == null) {
-            targetBits = this._bits;
+            targetBits = _bits;
         }
 
         BigInt target = BigInt.from(targetBits & 0xffffff);
@@ -198,8 +198,8 @@ class BlockHeader {
     /// Returns the difficulty target of this block header
     double getDifficulty() {
 
-        int nShift = (this._bits >> 24) & 0xff;
-        double dDiff = 0x0000ffff / (this._bits & 0x00ffffff);
+        int nShift = (_bits >> 24) & 0xff;
+        double dDiff = 0x0000ffff / (_bits & 0x00ffffff);
 
         while (nShift < 29) {
             dDiff *= 256.0;
@@ -230,21 +230,21 @@ class BlockHeader {
             byteDataReader.read(8); //skip first eight bytes
         }
 
-        this._version = byteDataReader.readInt32(Endian.little);
-        this._prevHash = byteDataReader.read(32);
-        this._merkleRoot = byteDataReader.read(32);
-        this._time = byteDataReader.readUint32(Endian.little);
-        this._bits = byteDataReader.readUint32(Endian.little);
-        this._nonce = byteDataReader.readUint32(Endian.little);
+        _version = byteDataReader.readInt32(Endian.little);
+        _prevHash = byteDataReader.read(32);
+        _merkleRoot = byteDataReader.read(32);
+        _time = byteDataReader.readUint32(Endian.little);
+        _bits = byteDataReader.readUint32(Endian.little);
+        _nonce = byteDataReader.readUint32(Endian.little);
     }
 
 
     /// The block header's *id* is the same as it's [hash] property
-    String get id => HEX.encode(this.hash);
+    String get id => HEX.encode(hash);
 
     /// The double-sha256 of the serialized block header
     List<int> get hash {
-        return _calculateHash(this.buffer);
+        return _calculateHash(buffer);
     }
 
     /// Returns the block header's nonce value
@@ -252,7 +252,7 @@ class BlockHeader {
 
     /// Sets this block header's nonce value
     set nonce(int newNonce) {
-        this._nonce = newNonce;
+        _nonce = newNonce;
     }
 
     /// Returns the block header's target difficulty
@@ -263,7 +263,7 @@ class BlockHeader {
 
     /// Sets the block header's timestamp.
     set time(int newTime) {
-        this._time = newTime;
+        _time = newTime;
     }
 
     /// Returns the block header
@@ -279,12 +279,12 @@ class BlockHeader {
     List<int> get buffer {
         ByteDataWriter writer = ByteDataWriter();
 
-        writer.writeInt32(this._version, Endian.little); //  = byteDataReader.readInt32(Endian.little);
-        writer.write(this._prevHash); // = byteDataReader.read(32);
-        writer.write(this._merkleRoot); // = byteDataReader.read(32);
-        writer.writeUint32(this._time, Endian.little); // = byteDataReader.readUint32(Endian.little);
-        writer.writeUint32(this._bits, Endian.little); // = byteDataReader.readUint32(Endian.little);
-        writer.writeUint32(this._nonce, Endian.little); // = byteDataReader.readUint32(Endian.little);
+        writer.writeInt32(_version, Endian.little); //  = byteDataReader.readInt32(Endian.little);
+        writer.write(_prevHash); // = byteDataReader.read(32);
+        writer.write(_merkleRoot); // = byteDataReader.read(32);
+        writer.writeUint32(_time, Endian.little); // = byteDataReader.readUint32(Endian.little);
+        writer.writeUint32(_bits, Endian.little); // = byteDataReader.readUint32(Endian.little);
+        writer.writeUint32(_nonce, Endian.little); // = byteDataReader.readUint32(Endian.little);
 
         return writer.toBytes().toList();
     }

@@ -150,33 +150,32 @@ main() {
         expect(SVSignature.isTxDER(sighex), isFalse);
     });
 
-//    test('canonical signatures for bitcoind ', () async {
-//            await File("${Directory.current.path}/test/data/bitcoind/sig_canonical.json")
-//                .readAsString()
-//                .then((contents) => jsonDecode(contents))
-//                .then((jsonData) {
-//                List.from(jsonData).forEach((sig) {
-//                    var flags = Interpreter.SCRIPT_VERIFY_DERSIG | Interpreter.SCRIPT_VERIFY_STRICTENC;
-//                    var result = Interpreter.checkSignatureEncoding(sig, flags);
-//                    expect(result, isTrue);
-//                });
-//            });
-//    });
+    test('canonical signatures for bitcoind ', () async {
+            await File("${Directory.current.path}/test/data/bitcoind/sig_canonical.json")
+                .readAsString()
+                .then((contents) => jsonDecode(contents))
+                .then((jsonData) {
+                List.from(jsonData).forEach((sig) {
+                    var flags = ScriptFlags.SCRIPT_VERIFY_DERSIG | ScriptFlags.SCRIPT_VERIFY_STRICTENC;
+                    var result = Interpreter().checkSignatureEncoding(HEX.decode(sig), flags);
+                    expect(result, isTrue);
+                });
+            });
+    });
 
 
-    //FIXME: Non-Canonical sigs don't all validate.
-//    test('non-canonical signatures for bitcoind ', () async {
-//        await File("${Directory.current.path}/test/data/bitcoind/sig_noncanonical.json")
-//            .readAsString()
-//            .then((contents) => jsonDecode(contents))
-//            .then((jsonData) {
-//            List.from(jsonData).forEach((vector) {
-//                var flags = Interpreter.SCRIPT_VERIFY_DERSIG | Interpreter.SCRIPT_VERIFY_STRICTENC;
-//                var result = Interpreter.checkSignatureEncoding(vector[1], flags);
-//                expect(result, isFalse);
-//            });
-//        });
-//    });
+    test('non-canonical signatures for bitcoind ', () async {
+        await File("${Directory.current.path}/test/data/bitcoind/sig_noncanonical.json")
+            .readAsString()
+            .then((contents) => jsonDecode(contents))
+            .then((jsonData) {
+            List.from(jsonData).forEach((vector) {
+                var flags = ScriptFlags.SCRIPT_VERIFY_DERSIG | ScriptFlags.SCRIPT_VERIFY_STRICTENC;
+                var result = Interpreter().checkSignatureEncoding(HEX.decode(vector[1]), flags);
+                expect(result, isFalse);
+            });
+        });
+    });
 
     test('should reject invalid sighash types and accept valid ones', () {
         var r = BigInt.parse('63173831029936981022572627018246571655303050627048489594159321588908385378810');

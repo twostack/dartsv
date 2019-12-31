@@ -6,12 +6,11 @@ import 'package:dartsv/src/publickey.dart';
 import 'package:pointycastle/api.dart';
 import 'package:pointycastle/digests/sha256.dart';
 import 'package:pointycastle/export.dart';
-import "package:pointycastle/src/utils.dart" as utils;
+import 'package:pointycastle/src/utils.dart' as utils;
 import 'package:pointycastle/macs/hmac.dart';
 import 'package:pointycastle/signers/ecdsa_signer.dart';
 import 'package:pointycastle/pointycastle.dart';
 import 'package:asn1lib/asn1lib.dart';
-import 'dart:math';
 import 'package:hex/hex.dart';
 
 import 'exceptions.dart';
@@ -20,9 +19,9 @@ import 'exceptions.dart';
 ///
 ///
 class SVSignature {
-    final ECDomainParameters _domainParams = new ECDomainParameters('secp256k1');
+    final ECDomainParameters _domainParams =  ECDomainParameters('secp256k1');
     static final SHA256Digest _sha256Digest = SHA256Digest();
-    final ECDSASigner _dsaSigner = new ECDSASigner(null, HMac(_sha256Digest, 64));
+    final ECDSASigner _dsaSigner =  ECDSASigner(null, HMac(_sha256Digest, 64));
 
     ECSignature _signature;
     BigInt _r;
@@ -36,13 +35,13 @@ class SVSignature {
     SVPrivateKey _privateKey;
     SVPublicKey _publicKey;
 
-    /// Construct a new instance from the R and S components of an ECDSA signature.
+    /// Construct a  instance from the R and S components of an ECDSA signature.
     ///
     /// [r] - The r component of the signature
     ///
     /// [s] - The s component of the signature
     SVSignature.fromECParams(this._r, this._s) {
-        this._signature = ECSignature(r, s);
+        _signature = ECSignature(_r, _s);
     }
 
     /// Constructs a signature for it's bitcoin-transaction-encoded form.
@@ -53,9 +52,9 @@ class SVSignature {
         var nhashtype = decoded[decoded.length - 1];
 
         var derbuf = decoded.sublist(0, decoded.length - 1);
-        this._nhashtype = nhashtype; //this is OK. SighashType is already represented as HEX. No decoding needed
+        _nhashtype = nhashtype; //this is OK. SighashType is already represented as HEX. No decoding needed
 
-        this._parseDER(HEX.encode(derbuf));
+        _parseDER(HEX.encode(derbuf));
 
     }
 
@@ -64,25 +63,25 @@ class SVSignature {
     ///
     /// [derBuffer] - Hex-encoded DER string containing the signature
     SVSignature.fromDER(String derBuffer) {
-        this._parseDER(derBuffer);
+        _parseDER(derBuffer);
     }
 
 
     /// Construct a signature instance from a PrivateKey for signing purposes.
     SVSignature.fromPrivateKey(SVPrivateKey privateKey) {
-        ECPrivateKey privKey = new ECPrivateKey(privateKey.privateKey, this._domainParams);
+        ECPrivateKey privKey =  ECPrivateKey(privateKey.privateKey, _domainParams);
 
-        this._privateKey = privateKey;
-        this._compressed = privateKey.isCompressed;
+        _privateKey = privateKey;
+        _compressed = privateKey.isCompressed;
 
-        this._dsaSigner.init(true, PrivateKeyParameter(privKey));
+        _dsaSigner.init(true, PrivateKeyParameter(privKey));
     }
 
     /// Constructs a signature instance from PublicKey for verification *ONLY*.
     SVSignature.fromPublicKey(SVPublicKey publicKey){
-        ECPublicKey pubKey = new ECPublicKey(publicKey.point, this._domainParams);
-        this._publicKey = publicKey;
-        this._dsaSigner.init(false, PublicKeyParameter(pubKey));
+        ECPublicKey pubKey =  ECPublicKey(publicKey.point, _domainParams);
+        _publicKey = publicKey;
+        _dsaSigner.init(false, PublicKeyParameter(pubKey));
     }
 
     /// Construct the Signature and recover the public key.
@@ -108,30 +107,30 @@ class SVSignature {
         var b3 = buffer.sublist(33, 65);
 
         if (![0 ,1 , 2, 3].contains(i)){
-            throw new SignatureException('i must be 0, 1, 2, or 3');
+            throw  SignatureException('i must be 0, 1, 2, or 3');
         }
 
         if (b2.length != 32){
-            throw new SignatureException('r must be 32 bytes');
+            throw  SignatureException('r must be 32 bytes');
         }
 
         if (b3.length != 32){
-            throw new SignatureException('s must be 32 bytes');
+            throw  SignatureException('s must be 32 bytes');
         }
 
-        this._compressed = compressed;
-        this._i = i;
-        this._r = utils.decodeBigInt(b2);
-        this._s = utils.decodeBigInt(b3);
+        _compressed = compressed;
+        _i = i;
+        _r = utils.decodeBigInt(b2);
+        _s = utils.decodeBigInt(b3);
 
 
-        this._rHex = this._r.toRadixString(16);
-        this._sHex = this._s.toRadixString(16);
+        _rHex = _r.toRadixString(16);
+        _sHex = _s.toRadixString(16);
 
-        this._signature = ECSignature(this._r, this._s);
+        _signature = ECSignature(_r, _s);
 
-        this._publicKey = this._recoverPublicKey(i, signedMessage);
-        this._dsaSigner.init(false, PublicKeyParameter(new ECPublicKey(this._publicKey.point, _domainParams)));
+        _publicKey = _recoverPublicKey(i, signedMessage);
+        _dsaSigner.init(false, PublicKeyParameter( ECPublicKey(_publicKey.point, _domainParams)));
     }
 
 
@@ -141,18 +140,18 @@ class SVSignature {
     /// public key recovery. See the [fromCompact()] constructor
     List<int> toCompact() {
 
-        if (![0,1,2,3].contains(this._i)) {
-            throw new SignatureException('i must be equal to 0, 1, 2, or 3');
+        if (![0,1,2,3].contains(_i)) {
+            throw  SignatureException('i must be equal to 0, 1, 2, or 3');
         }
 
-        var val = this._i + 27 + 4;
-        if (!this._compressed) {
+        var val = _i + 27 + 4;
+        if (!_compressed) {
             val = val - 4;
         }
 
         var b1 = [val];
-        var b2 = utils.encodeBigInt(this._r);
-        var b3 = utils.encodeBigInt(this._s);
+        var b2 = utils.encodeBigInt(_r);
+        var b3 = utils.encodeBigInt(_s);
         return b1 + b2 + b3;
     }
 
@@ -162,12 +161,13 @@ class SVSignature {
     /// [message] - The message to verify as a hexadecimal string
     bool verify(String message) {
 
-        if (this._signature == null)
-            throw new SignatureException('Signature is not initialized');
+        if (_signature == null) {
+            throw SignatureException('Signature is not initialized');
+        }
 
-        Uint8List decodedMessage = Uint8List.fromList(HEX.decode(message).toList());
+        var decodedMessage = Uint8List.fromList(HEX.decode(message).toList());
 
-        return this._dsaSigner.verifySignature(decodedMessage, this._signature);
+        return _dsaSigner.verifySignature(decodedMessage, _signature);
     }
 
 
@@ -180,36 +180,37 @@ class SVSignature {
     /// [forCompact] - If *true* then we perform additional calculation of first byte needed to render the signature in compact format with [toCompact()]
     String sign(String message, {bool forCompact = false}){
 
-        if (this._privateKey == null){
-            throw SignatureException("Missing private key. Initialise this signature instance using fromPrivateKey()");
+        if (_privateKey == null){
+            throw SignatureException('Missing private key. Initialise this signature instance using fromPrivateKey()');
         }
 
         //sign it
         List<int> decodedMessage = Uint8List.fromList(HEX.decode(message).toList());
 
-        this._signature = this._dsaSigner.generateSignature(decodedMessage);
-        this._r = _signature.r;
-        this._s = _signature.s;
-        this._rHex = this._r.toRadixString(16);
-        this._sHex = this._s.toRadixString(16);
+        _signature = _dsaSigner.generateSignature(decodedMessage);
+        _r = _signature.r;
+        _s = _signature.s;
+        _rHex = _r.toRadixString(16);
+        _sHex = _s.toRadixString(16);
 
-        this._toLowS();
+        _toLowS();
 
         //calculate _i_
         if (forCompact) {
             _calculateI(decodedMessage);
         }
 
-        return this.toString();
+        return toString();
     }
 
 
     @override
     String toString() {
-        if (this._signature == null)
-            return "";
+        if (_signature == null) {
+            return '';
+        }
 
-        return HEX.encode(this.toDER());
+        return HEX.encode(toDER());
     }
 
 
@@ -217,10 +218,10 @@ class SVSignature {
     String toTxFormat() {
         //return HEX encoded transaction Format
 
-        var der = this.toDER().toList();
+        var der = toDER().toList();
 
         var buf = Uint8List(1).toList();
-        buf[0] = this._nhashtype;
+        buf[0] = _nhashtype;
 
         der.addAll(buf);
 
@@ -229,16 +230,16 @@ class SVSignature {
 
     /// Renders the signature as a DER-encoded byte buffer
     List<int> toDER() {
-        ASN1Sequence seq = new ASN1Sequence();
-        seq.add(ASN1Integer(this._r));
-        seq.add(ASN1Integer(this._s));
+        var seq =  ASN1Sequence();
+        seq.add(ASN1Integer(_r));
+        seq.add(ASN1Integer(_s));
 
         return seq.encodedBytes;
     }
 
     /// [ported from moneybutton/bsv]
     /// This function is translated from bitcoind's IsDERSignature and is used in
-    /// the script interpreter.  This "DER" format actually includes an extra byte,
+    /// the script interpreter.  This 'DER' format actually includes an extra byte,
     /// the nhashtype, at the end. It is really the tx format, not DER format.
     ///
     /// ```
@@ -329,8 +330,9 @@ class SVSignature {
     ///
     bool hasDefinedHashtype() {
 
-        if (!(this._nhashtype != null  && _nhashtype.isFinite && _nhashtype.floor() == _nhashtype && _nhashtype > 0))
+        if (!(_nhashtype != null  && _nhashtype.isFinite && _nhashtype.floor() == _nhashtype && _nhashtype > 0)) {
             return false;
+        }
 
         // accept with or without Signature.SIGHASH_ANYONECANPAY by ignoring the bit
         try {
@@ -344,49 +346,49 @@ class SVSignature {
         return true;
     }
 
-    ///Comparable to bitcoind's IsLowDERSignature. Returns true if the signature has a "low" S-value.
+    ///Comparable to bitcoind's IsLowDERSignature. Returns true if the signature has a 'low' S-value.
     ///
-    ///See also ECDSA signature algorithm which enforces this.
-    ///See also BIP 62, "low S values in signatures"
+    ///See also ECDSA signature algorithm which enforces
+    ///See also BIP 62, 'low S values in signatures'
     bool hasLowS() {
-        var hex = "7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0";
+        var hex = '7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0';
 
-        if (this._s < (BigInt.from(1)) || this._s > (BigInt.parse(hex, radix: 16))) {
+        if (_s < (BigInt.from(1)) || _s > (BigInt.parse(hex, radix: 16))) {
             return false;
         }
-        return
-            true;
+
+        return true;
     }
 
 
-    // side-effects on this._i
+    // side-effects on _i
     void _calculateI(List<int> decodedMessage){
 
-        SVPublicKey pubKey = this._privateKey.publicKey;
+        var pubKey = _privateKey.publicKey;
         for (var i = 0; i < 4; i++) {
-            this._i = i;
+            _i = i;
             SVPublicKey Qprime;
             try {
-                Qprime = this._recoverPublicKey(i, decodedMessage);
+                Qprime = _recoverPublicKey(i, decodedMessage);
             } catch (e) {
                 continue;
             }
 
             if (Qprime.point == pubKey.point) {
-                this._compressed = Qprime.isCompressed;
+                _compressed = Qprime.isCompressed;
                 return;
             }
         }
 
-        this._i = -1;
-        throw new SignatureException('Unable to find valid recovery factor');
+        _i = -1;
+        throw  SignatureException('Unable to find valid recovery factor');
     }
 
 
     SVPublicKey _recoverPublicKey(int i, List<int> hashBuffer){
 
         if(![0, 1, 2, 3].contains(i) ){
-            throw new SignatureException('i must be equal to 0, 1, 2, or 3');
+            throw  SignatureException('i must be equal to 0, 1, 2, or 3');
         }
 
         var e = utils.decodeBigInt(hashBuffer);
@@ -409,7 +411,7 @@ class SVSignature {
         ECPoint nR = R * n;
 
         if (!nR.isInfinity) {
-            throw new SignatureException('nR is not a valid curve point');
+            throw  SignatureException('nR is not a valid curve point');
         }
 
         // Compute -e from e
@@ -422,51 +424,44 @@ class SVSignature {
         // var Q = R.multiplyTwo(s, G, eNeg).mul(rInv);
         var Q = (R * s + G * eNeg) * rInv;
 
-        ECPublicKey pubkey = ECPublicKey(Q, _domainParams);
-
-        return SVPublicKey.fromXY(Q.x.toBigInteger(), Q.y.toBigInteger(), compressed: this._compressed);
+        return SVPublicKey.fromXY(Q.x.toBigInteger(), Q.y.toBigInteger(), compressed: _compressed);
     }
 
 
 
 
     void _toLowS() {
-        if (this._s == null) return;
+        if (_s == null) return;
 
         // enforce low s
-        // see BIP 62, "low S values in signatures"
-        if (this._s > BigInt.parse('7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0', radix: 16)) {
-            this._s = this._domainParams.n - this._s;
+        // see BIP 62, 'low S values in signatures'
+        if (_s > BigInt.parse('7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0', radix: 16)) {
+            _s = _domainParams.n - _s;
         }
     }
 
 
     void _parseDER(derBuffer) {
         try {
-            var parser = new ASN1Parser(HEX.decode(derBuffer));
+            var parser =  ASN1Parser(HEX.decode(derBuffer));
 
-            ASN1Sequence seq = parser.nextObject() as ASN1Sequence;
+            var seq = parser.nextObject() as ASN1Sequence;
 
-            ASN1Integer rVal = seq.elements[0] as ASN1Integer;
-            ASN1Integer sVal = seq.elements[1] as ASN1Integer;
+            var rVal = seq.elements[0] as ASN1Integer;
+            var sVal = seq.elements[1] as ASN1Integer;
 
-            this._rHex = HEX.encode(rVal.valueBytes());
-            this._sHex = HEX.encode(sVal.valueBytes());
+            _rHex = HEX.encode(rVal.valueBytes());
+            _sHex = HEX.encode(sVal.valueBytes());
 
-            this._r = BigInt.parse(this._rHex, radix: 16);
-            this._s = BigInt.parse(this._sHex, radix: 16);
+            _r = BigInt.parse(_rHex, radix: 16);
+            _s = BigInt.parse(_sHex, radix: 16);
 
-            this._signature = ECSignature(r, s);
+            _signature = ECSignature(r, s);
         } catch (e) {
             throw SignatureException(e.cause);
         }
     }
 
-    Uint8List _seed() {
-        var random = Random.secure();
-        var seed = List<int>.generate(32, (_) => random.nextInt(256));
-        return Uint8List.fromList(seed);
-    }
 
     /// Returns the signature's *S* value
     BigInt get s => _s;
@@ -480,11 +475,11 @@ class SVSignature {
 //    int get i => _i;
 
     /// Returns the [SighashType] value that was detected with [fromTxFormat()] constructor
-    get nhashtype => _nhashtype;
+    int get nhashtype => _nhashtype;
 
     /// Force a specific [SighashType] value that will be returned with [toTxFormat()]
     set nhashtype(value) {
-        this._nhashtype = value;
+        _nhashtype = value;
     }
 
     /// Returns the signature's *S* value as a hexadecimal string

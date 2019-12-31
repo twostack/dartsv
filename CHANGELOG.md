@@ -1,3 +1,13 @@
+## 0.2.4-RC1
+- Additional test coverage for Signatures
+- Minor code refactor to improve code readability in line with linter suggestions
+
+## 0.2.3-RC1
+- Minor code refactor to improve code readability in line with linter suggestions
+
+## 0.2.1-RC1
+- Minor code refactor to improve code readability in line with linter suggestions
+
 ## 0.2.0-RC1
 - Completed the API documentation
 - Small API changes and cleanup

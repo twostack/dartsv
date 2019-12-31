@@ -7,14 +7,14 @@ import '../exceptions.dart';
 import 'opcodes.dart';
 import 'package:buffer/buffer.dart';
 
-/// Utility class to represent a parsed "token" in the encoded script.
+/// Utility class to represent a parsed 'token' in the encoded script.
 class ScriptChunk {
 
     List<int> _buf;
     int _len;
     int _opcodenum;
 
-    ///Construct a new ScriptChunk
+    ///Construct a  ScriptChunk
     ///
     /// [_buf] - Buffer containing data in case of OP_PUSHDATA
     ///
@@ -75,24 +75,24 @@ mixin ScriptBuilder {
 ///
 class SVScript with ScriptBuilder {
 
-    String _script = "";
+    final String _script = '';
 
     List<ScriptChunk> _chunks = [];
 
     Uint8List _byteArray = Uint8List(0);
 
-    /// Constructs a new Script instance by parsing the human-readable form of Script OP_CODES.
+    /// Constructs a  Script instance by parsing the human-readable form of Script OP_CODES.
     ///
     /// E.g.
     /// ```
     /// var script = SVScript.fromString('OP_0 OP_PUSHDATA4 3 0x010203 OP_0');
     /// ```
     SVScript.fromString(String script){
-        this._processChunks(script);
+        _processChunks(script);
         _convertChunksToByteArray();
     }
 
-    /// Constructs a new Script instance by parsing a hexadecimal form of Script.
+    /// Constructs a  Script instance by parsing a hexadecimal form of Script.
     ///
     /// E.g.
     /// ```
@@ -104,20 +104,20 @@ class SVScript with ScriptBuilder {
     }
 
 
-    /// Constructs a new Script instance from a list of [ScriptChunk]s.
+    /// Constructs a  Script instance from a list of [ScriptChunk]s.
     SVScript.fromChunks(List<ScriptChunk> chunks) {
-        this._chunks = chunks;
+        _chunks = chunks;
         _convertChunksToByteArray();
     }
 
-    /// Constructs a new Script instance by parsing a byte buffer representing a script.
+    /// Constructs a  Script instance by parsing a byte buffer representing a script.
     ///
     /// *NOTE:* The buffer is a bytearray representation of the script's hexadecimal string form.
     SVScript.fromByteArray(Uint8List buffer) {
         _processBuffer(buffer);
     }
 
-    /// Constructs a new Script instance by parsing a byte buffer representing a script.
+    /// Constructs a  Script instance by parsing a byte buffer representing a script.
     ///
     /// *NOTE:* Same constructor as [fromByteArray]. Different name.
     SVScript.fromBuffer(Uint8List buffer) {
@@ -126,7 +126,7 @@ class SVScript with ScriptBuilder {
 
     /// Default constructor. Processing in this constructor is used by subclasses to bootstrap their internals.
     SVScript() {
-        this._processChunks(buildScript());
+        _processChunks(buildScript());
         _convertChunksToByteArray();
     }
 
@@ -144,7 +144,7 @@ class SVScript with ScriptBuilder {
             var opstr;
             int opcodenum;
             var tbuf;
-            if (token.startsWith("0x")) {
+            if (token.startsWith('0x')) {
                 var hex = token.substring(2).replaceAll(',', '');
                 bw.write(HEX.decode(hex));
             } else if (token[0] == '\'') {
@@ -162,7 +162,7 @@ class SVScript with ScriptBuilder {
                 opcodenum = OpCodes.opcodeMap[opstr];
                 bw.writeUint8(opcodenum);
             } else if (BigInt.tryParse(token) != null) {
-//                var script = Script().add(new BN(token).toScriptNumBuffer())
+//                var script = Script().add( BN(token).toScriptNumBuffer())
 //                tbuf = script.toBuffer()
 //                bw.write(tbuf)
 
@@ -171,7 +171,7 @@ class SVScript with ScriptBuilder {
                 tbuf = script.buffer;
                 bw.write(tbuf);
             } else {
-                throw new ScriptException('Could not determine type of script value');
+                throw  ScriptException('Could not determine type of script value');
             }
         }
 
@@ -181,13 +181,13 @@ class SVScript with ScriptBuilder {
 
 
     _convertChunksToByteArray() {
-//        String chunkString = this._chunks.fold("", (prev, elem) => prev + _chunkToString(elem, type: 'asm'));
-//        this._byteArray = Uint8List.fromList(HEX.decode(chunkString.replaceAll(' ', '')));
+//        String chunkString = _chunks.fold('', (prev, elem) => prev + _chunkToString(elem, type: 'asm'));
+//        _byteArray = Uint8List.fromList(HEX.decode(chunkString.replaceAll(' ', '')));
 
-        var bw = new ByteDataWriter();
+        var bw =  ByteDataWriter();
 
-        for (var i = 0; i < this._chunks.length; i++) {
-            var chunk = this._chunks[i];
+        for (var i = 0; i < _chunks.length; i++) {
+            var chunk = _chunks[i];
             var opcodenum = chunk.opcodenum;
             bw.writeUint8(chunk.opcodenum);
             if (chunk.buf.isNotEmpty) {
@@ -206,7 +206,7 @@ class SVScript with ScriptBuilder {
             }
         }
 
-        this._byteArray = bw.toBytes();
+        _byteArray = bw.toBytes();
     }
 
 
@@ -262,7 +262,7 @@ class SVScript with ScriptBuilder {
                 }
             } catch (e) {
 
-                throw new ScriptException(HEX.encode(buffer));
+                throw  ScriptException(HEX.encode(buffer));
             }
         };
 
@@ -276,7 +276,7 @@ class SVScript with ScriptBuilder {
             return;
         }
 
-        var tokenList = script.split(" "); //split on spaces
+        var tokenList = script.split(' '); //split on spaces
         tokenList.removeWhere((token) =>
         token
             .trim()
@@ -296,13 +296,13 @@ class SVScript with ScriptBuilder {
                     _chunks.add(ScriptChunk(HEX.decode(tokenList[index + 1].substring(2)), opcodenum, opcodenum));
                     index = index + 2; //step by two
                 } else {
-                    throw new ScriptException('Invalid script: ' + script);
+                    throw  ScriptException('Invalid script: ' + script);
                 }
             } else if (opcodenum == OpCodes.OP_PUSHDATA1 ||
                 opcodenum == OpCodes.OP_PUSHDATA2 ||
                 opcodenum == OpCodes.OP_PUSHDATA4) {
                 if (tokenList[index + 2].substring(0, 2) != '0x') {
-                    throw new ScriptException('Pushdata data must start with 0x');
+                    throw  ScriptException('Pushdata data must start with 0x');
                 }
                 _chunks.add(ScriptChunk(HEX.decode(tokenList[index + 2].substring(2)), int.parse(tokenList[index + 1], radix: 16), opcodenum));
                 index = index + 3; //step by three
@@ -317,15 +317,15 @@ class SVScript with ScriptBuilder {
     /// Render this script in it's human-readable form
     String toString() {
         if (_chunks.isNotEmpty) {
-            return _chunks.fold("", (String prev, ScriptChunk chunk) => prev + _chunkToString(chunk)).trim();
+            return _chunks.fold('', (String prev, ScriptChunk chunk) => prev + _chunkToString(chunk)).trim();
         }
 
-        return this._script;
+        return _script;
     }
 
     /// Renders this script in it's hexadecimal form as a String
     String toHex() {
-        return HEX.encode(this._byteArray);
+        return HEX.encode(_byteArray);
     }
 
     /// Returns *true* if this script only performs PUSHDATA operations
@@ -340,7 +340,7 @@ class SVScript with ScriptBuilder {
 
     /// Returns *true* if this script matches the Pay-To-Public-Key-Hash template
     bool isScriptHashOut() {
-        var buf = this.buffer;
+        var buf = buffer;
         return (buf.length == 23 &&
         buf[0] == OpCodes.OP_HASH160 &&
         buf[1] == 0x14 &&
@@ -350,7 +350,7 @@ class SVScript with ScriptBuilder {
     /// Return this script in it's hexadecimal form as a bytearray
     Uint8List get buffer {
         _convertChunksToByteArray();
-        return Uint8List.fromList(this._byteArray);
+        return Uint8List.fromList(_byteArray);
     }
 
     /// Returns this script's internal representation as a list of [ScriptChunk]s
@@ -362,7 +362,7 @@ class SVScript with ScriptBuilder {
     ///
     /// Returns true if the *smallest* pushdata opcode was used.
     bool checkMinimalPush(int i) {
-        var chunk = this._chunks[i];
+        var chunk = _chunks[i];
         var buf = chunk.buf;
         var opcodenum = chunk.opcodenum;
 
@@ -389,15 +389,15 @@ class SVScript with ScriptBuilder {
     }
 
 
-    /// Removes [ScriptChunk]s from the script and optionally inserts new [ScriptChunk]s.
+    /// Removes [ScriptChunk]s from the script and optionally inserts  [ScriptChunk]s.
     ///
     /// `index` - starting index for items to be removed.
     ///
     /// `howMany` - the number of items to be removed.
     ///
-    /// `values`  - an optional List of new items to insert; null if no items need insertion
+    /// `values`  - an optional List of  items to insert; null if no items need insertion
     List<ScriptChunk> splice(int index, int howMany, {List<ScriptChunk> values}) {
-        List<ScriptChunk> buffer = List.from(this._chunks);
+        List<ScriptChunk> buffer = List.from(_chunks);
 
         List<ScriptChunk> removedItems = buffer.getRange(index, index+howMany).toList();
         buffer.removeRange(index, index+howMany);
@@ -405,7 +405,7 @@ class SVScript with ScriptBuilder {
         if (values != null) {
             buffer.insertAll(index, values);
         }
-        this._chunks = List.from(buffer);
+        _chunks = List.from(buffer);
 
         return removedItems;
 
@@ -415,12 +415,12 @@ class SVScript with ScriptBuilder {
     /// Strips all OP_CODESEPARATOR instructions from the script.
     SVScript removeCodeseparators() {
         var chunks = List<ScriptChunk>();
-        for (var i = 0; i < this._chunks.length; i++) {
-            if (this._chunks[i].opcodenum != OpCodes.OP_CODESEPARATOR) {
-                chunks.add(this._chunks[i]);
+        for (var i = 0; i < _chunks.length; i++) {
+            if (_chunks[i].opcodenum != OpCodes.OP_CODESEPARATOR) {
+                chunks.add(_chunks[i]);
             }
         }
-        this._chunks = chunks;
+        _chunks = chunks;
         _convertChunksToByteArray();
         return this;
     }
@@ -430,12 +430,12 @@ class SVScript with ScriptBuilder {
 
         var buf = List<int>.from(tmpScript.buffer);
         var hex = HEX.encode(buf);
-        for (var i = 0; i < this.chunks.length; i++) {
-            var script2 = SVScript.fromChunks([this.chunks[i]]);
+        for (var i = 0; i < _chunks.length; i++) {
+            var script2 = SVScript.fromChunks([_chunks[i]]);
             var buf2 = script2.buffer;
             var hex2 = HEX.encode(buf2);
             if (hex == hex2) {
-                this.splice(i, 1);
+                splice(i, 1);
             }
         }
         return this;
@@ -448,18 +448,18 @@ class SVScript with ScriptBuilder {
     ///
     /// ```
     /// if (obj is String) {
-    ///     this._addOpcode(obj, prepend);
+    ///     _addOpcode(obj, prepend);
     /// } else if (obj is num) {
-    ///     this._addOpcode(obj, prepend);
+    ///     _addOpcode(obj, prepend);
     /// } else if (obj is List<int>) {
-    ///     this._addBuffer(obj, prepend);
+    ///     _addBuffer(obj, prepend);
     /// }else {
-    ///     throw new ScriptException('Invalid script chunk');
+    ///     throw  ScriptException('Invalid script chunk');
     /// }
     /// ```
     ///
     SVScript add(obj) {
-        this._addByType(obj, false);
+        _addByType(obj, false);
         return this;
     }
 
@@ -516,25 +516,25 @@ class SVScript with ScriptBuilder {
 
 
 
-    _addByType(obj, prepend) {
+    void _addByType(obj, prepend) {
         if (obj is String) {
-            this._addOpcode(obj, prepend);
+            _addOpcode(obj, prepend);
         } else if (obj is num) {
-            this._addOpcode(obj, prepend);
+            _addOpcode(obj, prepend);
         } else if (obj is List<int>) {
-            this._addBuffer(obj, prepend);
+            _addBuffer(obj, prepend);
         }
         /*else if (obj instanceof Script) {
-            this.chunks = this.chunks.concat(obj.chunks)
+            chunks = chunks.concat(obj.chunks)
         } else if (typeof obj === 'object') {
-            this._insertAtPosition(obj, prepend)
+            _insertAtPosition(obj, prepend)
         }*/ else {
-            throw new ScriptException('Invalid script chunk');
+            throw  ScriptException('Invalid script chunk');
         }
     }
 
 
-    _addBuffer(List<int> buf, prepend) {
+    void _addBuffer(List<int> buf, prepend) {
         var opcodenum;
         var len = buf.length;
         if (len >= 0 && len < OpCodes.OP_PUSHDATA1) {
@@ -546,21 +546,21 @@ class SVScript with ScriptBuilder {
         } else if (len < pow(2, 32)) {
             opcodenum = OpCodes.OP_PUSHDATA4;
         } else {
-            throw new ScriptException('You can\'t push that much data');
+            throw  ScriptException('You can\'t push that much data');
         }
 
-        this._insertAtPosition(ScriptChunk(buf, len, opcodenum), prepend);
+        _insertAtPosition(ScriptChunk(buf, len, opcodenum), prepend);
     }
 
-    _insertAtPosition(ScriptChunk chunk, bool prepend) {
+    void _insertAtPosition(ScriptChunk chunk, bool prepend) {
         if (prepend) {
-            this._chunks.insert(0, chunk);
+            _chunks.insert(0, chunk);
         } else {
-            this._chunks.add(chunk);
+            _chunks.add(chunk);
         }
     }
 
-    _addOpcode(opcode, prepend) {
+    void _addOpcode(opcode, prepend) {
         int op;
         if (opcode is num) {
             op = opcode;
@@ -569,13 +569,13 @@ class SVScript with ScriptBuilder {
         }
 
         ScriptChunk chunk = ScriptChunk([], 0, op);
-        this._insertAtPosition(chunk, prepend);
+        _insertAtPosition(chunk, prepend);
     }
 
     /// Currently used by subclasses. A more elegant way is needed to build specialised Script subclasses.
     @override
     String buildScript() {
-        return "";
+        return '';
     }
 }
 

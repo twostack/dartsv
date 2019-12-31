@@ -14,6 +14,15 @@ import 'package:dartsv/src/script/svscript.dart';
 import 'package:hex/hex.dart';
 import 'package:test/test.dart';
 
+/*
+FIXME: ALL The tx_valid.json test vectors pass. All the signatures validate.
+For some reason this one refuses to validate:
+
+[[["e16abbe80bf30c080f63830c8dbf669deaef08957446e95940227d8c5e6db612", 0, "1 0x21 0x03905380c7013e36e6e19d305311c1b81fce6581f5ee1c86ef0627c68c9362fc9f 0x00 2 CHECKMULTISIG"]],
+"010000000112b66d5e8c7d224059e946749508efea9d66bf8d0c83630f080cf30be8bb6ae100000000490047304402206ffe3f14caf38ad5c1544428e99da76ffa5455675ec8d9780fac215ca17953520220779502985e194d84baa36b9bd40a0dbd981163fa191eb884ae83fc5bd1c86b1101ffffffff010100000000000000232103905380c7013e36e6e19d305311c1b81fce6581f5ee1c86ef0627c68c9362fc9fac00000000", "P2SH"],
+
+ */
+
 void main() {
     getFlags(flagstr) {
         var flags = 0;

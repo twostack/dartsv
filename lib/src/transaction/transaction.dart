@@ -71,8 +71,8 @@ enum TransactionOption {
 class Transaction {
     int _version = 1;
     int _nLockTime = 0;
-    final List<TransactionInput> _txnInputs = List();
-    final List<TransactionOutput> _txnOutputs = List();
+    final List<TransactionInput> _txnInputs = [];
+    final List<TransactionOutput> _txnOutputs = [];
     Address _changeAddress;
     final Set<TransactionOption> _transactionOptions = Set<TransactionOption>();
 
@@ -422,8 +422,9 @@ class Transaction {
     ///
     /// [future] - The date in future before which transaction will not be spendable.
     Transaction lockUntilDate(DateTime future) {
-        if (future.millisecondsSinceEpoch < NLOCKTIME_BLOCKHEIGHT_LIMIT)
-            throw  LockTimeException('Block time is set too early');
+        if (future.millisecondsSinceEpoch < NLOCKTIME_BLOCKHEIGHT_LIMIT) {
+            throw LockTimeException('Block time is set too early');
+        }
 
         for (var input in _txnInputs) {
             if (input.sequenceNumber == DEFAULT_SEQNUMBER) {
@@ -441,8 +442,9 @@ class Transaction {
     ///
     /// [timestamp] - The date in future before which transaction will not be spendable.
     Transaction lockUntilUnixTime(int timestamp) {
-        if (timestamp < NLOCKTIME_BLOCKHEIGHT_LIMIT)
-            throw  LockTimeException('Block time is set too early');
+        if (timestamp < NLOCKTIME_BLOCKHEIGHT_LIMIT) {
+            throw LockTimeException('Block time is set too early');
+        }
 
         _nLockTime = timestamp;
 
@@ -454,11 +456,13 @@ class Transaction {
     ///
     /// [blockHeight] - The block height before which transaction will not be spendable.
     Transaction lockUntilBlockHeight(int blockHeight) {
-        if (blockHeight > NLOCKTIME_BLOCKHEIGHT_LIMIT)
-            throw  LockTimeException('Block height must be less than 500000000');
+        if (blockHeight > NLOCKTIME_BLOCKHEIGHT_LIMIT) {
+            throw LockTimeException('Block height must be less than 500000000');
+        }
 
-        if (blockHeight < 0)
-            throw  LockTimeException("Block height can't be negative");
+        if (blockHeight < 0) {
+            throw LockTimeException("Block height can't be negative");
+        }
 
 
         for (var input in _txnInputs) {
@@ -551,13 +555,11 @@ class Transaction {
     bool verifySignature(SVSignature sig, SVPublicKey pubKey, int inputNumber, SVScript subscript, BigInt satoshis, int flags){
         var hash = Sighash().hash(this, sig.nhashtype, inputNumber, subscript, satoshis, flags: flags);
 
-        var reversedHash = HEX.encode(HEX.decode(hash).reversed.toList());
-
         var publicKey =  ECPublicKey(pubKey.point, _domainParams);
 
         _dsaSigner.init(false, PublicKeyParameter(publicKey));
 
-        var decodedMessage = Uint8List.fromList(HEX.decode(reversedHash).toList());
+        var decodedMessage = Uint8List.fromList(HEX.decode(hash).reversed.toList()); //FIXME: More reversi !
         return _dsaSigner.verifySignature(decodedMessage,ECSignature(sig.r, sig.s));
     }
 
@@ -603,8 +605,9 @@ class Transaction {
             return BigInt.zero;
         }
 
-        if (_fee != null)
+        if (_fee != null) {
             return _fee;
+        }
 
         // if no change output is set, fees should equal all the unspent amount
         if (!_hasChangeScript()) {
@@ -620,7 +623,7 @@ class Transaction {
     }
 
 
-    _doSerializationChecks() {
+    void _doSerializationChecks() {
         if (_invalidSatoshis()) {
             throw TransactionAmountException('Invalid quantity of satoshis');
         }
@@ -639,8 +642,9 @@ class Transaction {
     }
 
     void _checkForDustErrors() {
-        if (transactionOptions.contains(TransactionOption.DISABLE_DUST_OUTPUTS))
+        if (transactionOptions.contains(TransactionOption.DISABLE_DUST_OUTPUTS)) {
             return;
+        }
 
         for (var output in _txnOutputs) {
             if (output.satoshis < Transaction.DUST_AMOUNT && !(output.script is OpReturnScriptPubkey)) {
@@ -652,8 +656,9 @@ class Transaction {
     void _checkForMissingSignatures() {
         if (transactionOptions.contains(TransactionOption.DISABLE_FULLY_SIGNED)) return;
 
-        if (!_isFullySigned())
-            throw  TransactionException('Missing Signatures');
+        if (!_isFullySigned()) {
+            throw TransactionException('Missing Signatures');
+        }
     }
 
 
