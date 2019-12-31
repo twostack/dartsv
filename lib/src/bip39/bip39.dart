@@ -53,7 +53,7 @@ class Mnemonic {
   ///
   /// [wordList] - Wordlist used to generic new mnemonics. Defaults to English
   Mnemonic({Wordlist wordList = Wordlist.ENGLISH}){
-    this.DEFAULT_WORDLIST = wordList;
+    DEFAULT_WORDLIST = wordList;
   }
 
   /// Generates a random mnemonic.
@@ -79,7 +79,7 @@ class Mnemonic {
   /// [mnemonic] - An existing mnemonic string that will be deterministically converted into a seed.
   ///
   /// Returns a byte array containing the seed data
-  Uint8List toSeed(String mnemonic, [String password = ""]) {
+  Uint8List toSeed(String mnemonic, [String password = '']) {
     final mnemonicBuffer = utf8.encode(nfkd(mnemonic));
     final saltBuffer = utf8.encode(_salt(nfkd(password)));
     final pbkdf2 = KeyDerivator('SHA-512/HMAC/PBKDF2');
@@ -94,7 +94,7 @@ class Mnemonic {
   /// [mnemonic] - An existing mnemonic string that will be deterministically converted into a seed.
   ///
   /// Returns a hex string containing the seed data
-  String toSeedHex(String mnemonic, [String password = ""]) {
+  String toSeedHex(String mnemonic, [String password = '']) {
     return toSeed(mnemonic, password).map((byte) {
       return byte.toRadixString(16).padLeft(2, '0');
     }).join('');
@@ -139,16 +139,16 @@ class Mnemonic {
 
     final bits = entroypyBits + checksumBits;
 
-    final regex = new RegExp(r".{1,11}", caseSensitive: false, multiLine: false);
+    final regex = RegExp(r'.{1,11}', caseSensitive: false, multiLine: false);
     final chunks = regex
         .allMatches(bits)
         .map((match) => match.group(0))
         .toList(growable: false);
 
-    this._wordRes = await _loadWordlist(DEFAULT_WORDLIST);
+    _wordRes = await _loadWordlist(DEFAULT_WORDLIST);
 
     return chunks
-        .map((binary) => this._wordRes[_binaryToByte(binary)])
+        .map((binary) => _wordRes[_binaryToByte(binary)])
         .join(DEFAULT_WORDLIST == Wordlist.JAPANESE ? '\u3000' : ' ');
   }
 
@@ -156,16 +156,16 @@ class Mnemonic {
   ///
   /// [mnemonic] - An existing mnemonic string that will be deterministically converted into a seed.
   Future<Uint8List> _mnemonicToEntropy(String mnemonic) async {
-    this._wordRes = await _loadWordlist(DEFAULT_WORDLIST);
+    _wordRes = await _loadWordlist(DEFAULT_WORDLIST);
     final words = nfkd(mnemonic).split(' ');
 
     if (words.length % 3 != 0) {
-      throw new ArgumentError(_INVALID_MNEMONIC);
+      throw ArgumentError(_INVALID_MNEMONIC);
     }
 
     // convert word indices to 11bit binary strings
     final bits = words.map((word) {
-      final index = this._wordRes.indexOf(word);
+      final index = _wordRes.indexOf(word);
       if (index == -1) {
         throw ArgumentError(_INVALID_MNEMONIC);
       }
@@ -178,7 +178,7 @@ class Mnemonic {
     final entropyBits = bits.substring(0, dividerIndex);
     final checksumBits = bits.substring(dividerIndex);
 
-    final regex = RegExp(r".{1,8}");
+    final regex = RegExp(r'.{1,8}');
 
     final entropyBytes = Uint8List.fromList(regex
         .allMatches(entropyBits)

@@ -1,3 +1,7 @@
+## 0.2.0-RC1
+- Completed the API documentation
+- Small API changes and cleanup
+
 ## 0.1.0-RC1
 - Library is now functionally complete
 - Script Interpreter Implementation is complete

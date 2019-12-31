@@ -2,36 +2,26 @@
 
 ## Overview
 
-TwoStack is a Bitcoin library for the Dart Language \( [dartlang.org](https://dartlang.org) \), loosely based on the Moneybutton/BSV Javascript library. This library has been built in line with the ideals espoused by BitcoinSV, i.e. massive on-chain scaling, protocol stability and original-bitcoin-protocol implementation.
+TwoStack WalletSDK is a Bitcoin library for the Dart Language \( [dartlang.org](https://dartlang.org) \), loosely based on the Moneybutton/BSV Javascript library. This library has been built in line with the ideals espoused by BitcoinSV, i.e. massive on-chain scaling, protocol stability and original-bitcoin-protocol implementation.
 
 This library therefore lacks , and will not implement :
-
 * Segregated Witness \(Segwit\) Transaction support
 * Schnorr Signature support 
 * Check Datasig \(OP\_CHECKDATASIG\) 
 
 Current Supported features are :
-
 * P2PKH Transactions \(building and spending from\)
-* Data-only Transactions \(untested\)
+* Data-only Transactions
 * HD Key Derivation \(BIP32\)
 * Original Bitcoin Address format 
 * Bitcoin Signed Messages
-* Bip39 Mnemonic Support
+* Bip39 Mnemonic Support (BIP39)
 * A built-in Bitcoin Script Interpreter
 
 Pending Features :
-
 * P2SH support \(low priority since it will be deprecated in BitcoinSV\)
-* Broader support for original OP\_CODES as they become available on BitcoinSV mainnet 
 
-## Note to Developers
-
-This is an Alpha-Release aimed at interested individuals and experienced developers for the purpose of getting feedback on library improvements as I build towards a stable 0.1.0 release. I am especially interested in hearing from Flutter developers.
-
-Documentation is lacking. Your best source for seeing how the library works is the `cli-example` application on GitHub: [DartSV CLI Example](https://github.com/twostack/cli-example)
-
-Here is a small sample of the Transaction API \(method taken from `cli-example`\):
+#### Sample of the Transaction API:
 
 ```dart
 String createWalletTxn(Address address, List<TransactionInput> utxosToSpendFrom, BigInt amount ){

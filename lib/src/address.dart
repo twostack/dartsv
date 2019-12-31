@@ -76,7 +76,7 @@ class Address {
   /// Also see [NetworkType]
   Address.fromCompressedPubKey(List<int> pubkeyBytes, NetworkType networkType) {
       _createFromHex(HEX.encode(pubkeyBytes), networkType);
-      this._publicKeyHash = HEX.encode(hash160(pubkeyBytes));
+      _publicKeyHash = HEX.encode(hash160(pubkeyBytes));
   }
 
   /// Constructs a new Address object from a base58-encoded string.
@@ -90,7 +90,7 @@ class Address {
   ///
   Address.fromBase58(String base58Address) {
       if (base58Address.length != 25){
-          throw new AddressFormatException('Address should be 25 bytes long. Only [${base58Address.length}] bytes long.');
+          throw AddressFormatException('Address should be 25 bytes long. Only [${base58Address.length}] bytes long.');
       }
 
       _fromBase58(base58Address);
@@ -109,27 +109,28 @@ class Address {
   String toBase58() {
       // A stringified buffer is:
       //   1 byte version + data bytes + 4 bytes check code (a truncated hash)
-      List<int> rawHash = HEX.decode(this._publicKeyHash).map((elem) => elem.toSigned(8)).toList();
+      var rawHash = HEX.decode(_publicKeyHash).map((elem) => elem.toSigned(8)).toList();
 
       return _getEncoded(rawHash);
   }
 
   /// Serialise this address object to a base58-encoded string.
   /// This method is an alias for the [toBase58()] method
+  @override
   String toString() {
       return toBase58();
   }
 
   /// Returns the public key hash `ripemd160(sha256(public_key))` encoded as a  hexadecimal string
   String toHex(){
-      return this._publicKeyHash;
+      return _publicKeyHash;
   }
 
 
   String _getEncoded(List<int> hashAddress) {
 
-      List<int> addressBytes = List<int>(1 + hashAddress.length + 4);
-      addressBytes[0] = this._version;
+      var addressBytes = List<int>(1 + hashAddress.length + 4);
+      addressBytes[0] = _version;
 
       //copy all of raw address content, taking care not to
       //overwrite the version byte at start
@@ -148,35 +149,37 @@ class Address {
       return utf8Decoded;
   }
 
-  _fromBase58(String address){
+  void _fromBase58(String address){
 
       address = address.trim();
 
-      List<int> versionAndDataBytes = bs58check.decodeChecked(address);
-      int versionByte = versionAndDataBytes[0].toUnsigned(8);
+      var versionAndDataBytes = bs58check.decodeChecked(address);
+      var versionByte = versionAndDataBytes[0].toUnsigned(8);
 
-      this._version = versionByte & 0xFF;
-      this._networkTypes = Networks.getNetworkTypes(this._version);
-      this._addressType = Networks.getAddressType(this._version);
-      this._networkType = Networks.getNetworkTypes(this._version)[0];
+      _version = versionByte & 0xFF;
+      _networkTypes = Networks.getNetworkTypes(_version);
+      _addressType = Networks.getAddressType(_version);
+      _networkType = Networks.getNetworkTypes(_version)[0];
       var stripVersion = versionAndDataBytes.sublist(1, versionAndDataBytes.length);
-      this._publicKeyHash = HEX.encode(stripVersion.map((elem) => elem.toUnsigned(8)).toList());
+      _publicKeyHash = HEX.encode(stripVersion.map((elem) => elem.toUnsigned(8)).toList());
   }
 
-  _createFromHex(String hexPubKey, NetworkType networkType){
+  void _createFromHex(String hexPubKey, NetworkType networkType){
 
 
       //make an assumption about PKH vs PSH for naked address generation
       var versionByte;
-      if (networkType == NetworkType.MAIN)
+      if (networkType == NetworkType.MAIN) {
           versionByte = Networks.getNetworkVersion(NetworkAddressType.MAIN_PKH);
-      else
+      }
+      else {
           versionByte = Networks.getNetworkVersion(NetworkAddressType.TEST_PKH);
+      }
 
-      this._version = versionByte & 0XFF;
-      this._publicKeyHash = HEX.encode(hash160(HEX.decode(hexPubKey)));
-      this._addressType = Networks.getAddressType(this._version);
-      this._networkType = networkType;
+      _version = versionByte & 0XFF;
+      _publicKeyHash = HEX.encode(hash160(HEX.decode(hexPubKey)));
+      _addressType = Networks.getAddressType(_version);
+      _networkType = networkType;
   }
 
 
@@ -186,10 +189,10 @@ class Address {
   /// computation is then passed to the `ripemd160()` digest function.
   ///
   /// The returned value is HEX-encoded
-  String get address => this._publicKeyHash;
+  String get address => _publicKeyHash;
 
   /// An alias for the [address] property
-  String get pubkeyHash160 => this._publicKeyHash;
+  String get pubkeyHash160 => _publicKeyHash;
 
 
   /// Returns a list of network types supported by this address
@@ -197,11 +200,11 @@ class Address {
   /// This is only really needed because BSV has three different test networks
   /// which technically share the same integer value when encoded, but for
   /// which it is useful to have a type-level distinction during development
-  List<NetworkType> get networkTypes => this._networkTypes;
+  List<NetworkType> get networkTypes => _networkTypes;
 
 
   /// Returns the specific Network Type that this Address is compatible with
-  NetworkType get networkType => this._networkType;
+  NetworkType get networkType => _networkType;
 
   /// Returns the type of "standard transaction" this Address is meant to be used for.
   ///
@@ -215,7 +218,7 @@ class Address {
   /// as "non-standard" transaction types start appearing on the Bitcoin SV blockchain.
   ///
   /// See documentation for [Transaction]
-  AddressType get addressType => this._addressType;
+  AddressType get addressType => _addressType;
 
 
 }
