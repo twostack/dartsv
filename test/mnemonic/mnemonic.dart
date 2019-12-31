@@ -86,7 +86,7 @@ main(){
         expect(ENGLISH_WORDS.contains(mnemonic.split(' ')[1]), isTrue);
         expect(ENGLISH_WORDS.contains(mnemonic.split(' ')[2]), isTrue);
 
-        var mnemonic3 = await new Mnemonic(DEFAULT_WORDLIST: Wordlist.SPANISH).generateMnemonic();
+        var mnemonic3 = await new Mnemonic(wordList :  Wordlist.SPANISH).generateMnemonic();
 
         expect(SPANISH_WORDS.contains(mnemonic3.split(' ')[0]), isTrue);
         expect(SPANISH_WORDS.contains(mnemonic3.split(' ')[1]), isTrue);
@@ -166,7 +166,7 @@ main(){
 
     test('it validates mnemonic phrases', () async {
 
-        var validate = (String phrase, Wordlist wordList) async => await Mnemonic(DEFAULT_WORDLIST: wordList).validateMnemonic(phrase);
+        var validate = (String phrase, Wordlist wordList) async => await Mnemonic(wordList: wordList).validateMnemonic(phrase);
 
         var validPhrase = 'afirmar diseño hielo fideo etapa ogro cambio fideo toalla pomelo número buscar';
         expect( await validate(validPhrase, Wordlist.SPANISH) , isTrue);
@@ -215,7 +215,7 @@ main(){
             await Future.forEach(hashMap.keys, (key) async {
 
                 var wordList = getWordlist(key);
-                Mnemonic mnemonic = Mnemonic(DEFAULT_WORDLIST: wordList);
+                Mnemonic mnemonic = Mnemonic(wordList: wordList);
                 for (List<dynamic> vector in hashMap[key])  {
                     var code = vector[1] ;
                     var phrase = vector[2] ;

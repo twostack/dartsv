@@ -3,7 +3,6 @@ import 'dart:math';
 import 'dart:convert';
 import 'dart:async';
 
-import 'package:hex/hex.dart';
 import 'package:pointycastle/key_derivators/api.dart';
 import 'package:resource/resource.dart';
 import 'package:dartsv/src/encoding/utils.dart';
@@ -13,7 +12,7 @@ import 'package:pointycastle/api.dart';
 //thanks to https://github.com/yshrsmz/bip39-dart
 //the source code come from here
 
-
+/// The supported word lists for Bip39 mnemonics
 enum Wordlist {
   CHINESE_SIMPLIFIED,
   CHINESE_TRADITIONAL,
@@ -25,9 +24,18 @@ enum Wordlist {
   SPANISH,
 }
 
+/// Byte buffer to represent a random seed
 typedef Uint8List RandomBytes(int size);
 
+/// This class implements the Bip39 spec.
+///
+/// *See:* [The Bip39 Spec](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki)
+///
+/// Mnemonic seeds provide a means to derive a private key from a standard, indexed dictionary
+/// of words. This is a popular means for wallets to provide backup and recovery functionality
+/// to users.
 class Mnemonic {
+
 
   final _wordlistCache = Map<Wordlist, List<dynamic>>();
 
@@ -41,40 +49,80 @@ class Mnemonic {
   List<String> _wordRes ;
 
 
-  Mnemonic({this.DEFAULT_WORDLIST = Wordlist.ENGLISH});
-
-
-  static Uint8List _nextBytes(int size) {
-    final rnd = Random.secure();
-    final bytes = Uint8List(size);
-    for (var i = 0; i < size; i++) {
-      bytes[i] = rnd.nextInt(_SIZE_8BITS);
-    }
-    return bytes;
+  /// Construct a new Mnemonic instance
+  ///
+  /// [wordList] - Wordlist used to generic new mnemonics. Defaults to English
+  Mnemonic({Wordlist wordList = Wordlist.ENGLISH}){
+    this.DEFAULT_WORDLIST = wordList;
   }
 
   /// Generates a random mnemonic.
   ///
   /// Defaults to 128-bits of entropy.
-  /// By default it uses [Random.secure()] under the food to get random bytes,
+  /// By default it uses `Random.secure()` under the food to get random bytes,
   /// but you can swap RNG by providing [randomBytes].
-  /// Default wordlist is English, but you can use different wordlist by providing [wordlist].
+  ///
+  /// [strength] - Optional number of entropy bits
+  ///
+  /// [randomBytes] - A seed buffer of random data to provide entropy
   Future<String> generateMnemonic({ int strength = 128, RandomBytes randomBytes = _nextBytes }) async {
 
     assert(strength % 32 == 0);
 
     final entropy = randomBytes(strength ~/ 8);
 
-    return await entropyToMnemonic(entropy);
+    return await _entropyToMnemonic(entropy);
   }
 
-  /// Converts HEX string [entropy] to mnemonic code
-  Future<String> entropyHexToMnemonic(String entropy) {
-    return entropyToMnemonic(HEX.decode(entropy));
+  /// Converts [mnemonic] code to seed.
+  ///
+  /// [mnemonic] - An existing mnemonic string that will be deterministically converted into a seed.
+  ///
+  /// Returns a byte array containing the seed data
+  Uint8List toSeed(String mnemonic, [String password = ""]) {
+    final mnemonicBuffer = utf8.encode(nfkd(mnemonic));
+    final saltBuffer = utf8.encode(_salt(nfkd(password)));
+    final pbkdf2 = KeyDerivator('SHA-512/HMAC/PBKDF2');
+
+    pbkdf2.init(Pbkdf2Parameters(saltBuffer, 2048, 64));
+    return pbkdf2.process(mnemonicBuffer);
+  }
+
+
+  /// Converts [mnemonic] code to seed, as hex string.
+  ///
+  /// [mnemonic] - An existing mnemonic string that will be deterministically converted into a seed.
+  ///
+  /// Returns a hex string containing the seed data
+  String toSeedHex(String mnemonic, [String password = ""]) {
+    return toSeed(mnemonic, password).map((byte) {
+      return byte.toRadixString(16).padLeft(2, '0');
+    }).join('');
+  }
+
+  /// Checks a mnemonic string for validity against the known word list
+  ///
+  /// [mnemonic] - The mnemonic string to check for validity
+  ///
+  /// Returns *true* if the mnemonic is valid
+  Future<bool> validateMnemonic(String mnemonic) async {
+    try {
+      await _mnemonicToEntropy(mnemonic);
+    } catch (e) {
+      return false;
+    }
+    return true;
+  }
+
+  /// Returns the full list of words for the named word list
+  ///
+  /// [wordList] - The word list to return words for
+  Future<List<String>> getWordList(Wordlist wordList) async {
+    return _loadWordlist(wordList);
   }
 
   /// Converts [entropy] to mnemonic code.
-  Future<String> entropyToMnemonic(Uint8List entropy) async {
+  Future<String> _entropyToMnemonic(Uint8List entropy) async {
 
     if (entropy.length < 16) {
       throw ArgumentError(_INVALID_ENTROPY);
@@ -102,6 +150,65 @@ class Mnemonic {
     return chunks
         .map((binary) => this._wordRes[_binaryToByte(binary)])
         .join(DEFAULT_WORDLIST == Wordlist.JAPANESE ? '\u3000' : ' ');
+  }
+
+  /// Converts [mnemonic] code to entropy.
+  ///
+  /// [mnemonic] - An existing mnemonic string that will be deterministically converted into a seed.
+  Future<Uint8List> _mnemonicToEntropy(String mnemonic) async {
+    this._wordRes = await _loadWordlist(DEFAULT_WORDLIST);
+    final words = nfkd(mnemonic).split(' ');
+
+    if (words.length % 3 != 0) {
+      throw new ArgumentError(_INVALID_MNEMONIC);
+    }
+
+    // convert word indices to 11bit binary strings
+    final bits = words.map((word) {
+      final index = this._wordRes.indexOf(word);
+      if (index == -1) {
+        throw ArgumentError(_INVALID_MNEMONIC);
+      }
+
+      return index.toRadixString(2).padLeft(11, '0');
+    }).join('');
+
+    // split the binary string into ENT/CS
+    final dividerIndex = (bits.length / 33).floor() * 32;
+    final entropyBits = bits.substring(0, dividerIndex);
+    final checksumBits = bits.substring(dividerIndex);
+
+    final regex = RegExp(r".{1,8}");
+
+    final entropyBytes = Uint8List.fromList(regex
+        .allMatches(entropyBits)
+        .map((match) => _binaryToByte(match.group(0)))
+        .toList(growable: false));
+    if (entropyBytes.length < 16) {
+      throw StateError(_INVALID_ENTROPY);
+    }
+    if (entropyBytes.length > 32) {
+      throw StateError(_INVALID_ENTROPY);
+    }
+    if (entropyBytes.length % 4 != 0) {
+      throw StateError(_INVALID_ENTROPY);
+    }
+
+    final newCheckSum = _deriveChecksumBits(entropyBytes);
+    if (newCheckSum != checksumBits) {
+      throw StateError(_INVALID_CHECKSUM);
+    }
+
+    return entropyBytes;
+  }
+
+  static Uint8List _nextBytes(int size) {
+    final rnd = Random.secure();
+    final bytes = Uint8List(size);
+    for (var i = 0; i < size; i++) {
+      bytes[i] = rnd.nextInt(_SIZE_8BITS);
+    }
+    return bytes;
   }
 
   String _deriveChecksumBits(Uint8List entropy) {
@@ -167,102 +274,4 @@ class Mnemonic {
     return 'mnemonic${password ?? ""}';
   }
 
-  /// Converts [mnemonic] code to seed.
-  ///
-  /// Returns Uint8List.
-  Uint8List toSeed(String mnemonic, [String password = ""]) {
-    final mnemonicBuffer = utf8.encode(nfkd(mnemonic));
-    final saltBuffer = utf8.encode(_salt(nfkd(password)));
-    final pbkdf2 = KeyDerivator('SHA-512/HMAC/PBKDF2');
-
-    pbkdf2.init(Pbkdf2Parameters(saltBuffer, 2048, 64));
-    return pbkdf2.process(mnemonicBuffer);
-  }
-
-
-  /// Converts [mnemonic] code to seed, as hex string.
-  ///
-  /// Returns hex string.
-  String toSeedHex(String mnemonic, [String password = ""]) {
-    return toSeed(mnemonic, password).map((byte) {
-      return byte.toRadixString(16).padLeft(2, '0');
-    }).join('');
-  }
-
-  /// Converts [mnemonic] code to entropy.
-  Future<Uint8List> mnemonicToEntropy(String mnemonic) async {
-    this._wordRes = await _loadWordlist(DEFAULT_WORDLIST);
-    final words = nfkd(mnemonic).split(' ');
-
-    if (words.length % 3 != 0) {
-      throw new ArgumentError(_INVALID_MNEMONIC);
-    }
-
-    // convert word indices to 11bit binary strings
-    final bits = words.map((word) {
-      final index = this._wordRes.indexOf(word);
-      if (index == -1) {
-        throw ArgumentError(_INVALID_MNEMONIC);
-      }
-
-      return index.toRadixString(2).padLeft(11, '0');
-    }).join('');
-
-    // split the binary string into ENT/CS
-    final dividerIndex = (bits.length / 33).floor() * 32;
-    final entropyBits = bits.substring(0, dividerIndex);
-    final checksumBits = bits.substring(dividerIndex);
-
-    final regex = RegExp(r".{1,8}");
-
-    final entropyBytes = Uint8List.fromList(regex
-        .allMatches(entropyBits)
-        .map((match) => _binaryToByte(match.group(0)))
-        .toList(growable: false));
-    if (entropyBytes.length < 16) {
-      throw StateError(_INVALID_ENTROPY);
-    }
-    if (entropyBytes.length > 32) {
-      throw StateError(_INVALID_ENTROPY);
-    }
-    if (entropyBytes.length % 4 != 0) {
-      throw StateError(_INVALID_ENTROPY);
-    }
-
-    final newCheckSum = _deriveChecksumBits(entropyBytes);
-    if (newCheckSum != checksumBits) {
-      throw StateError(_INVALID_CHECKSUM);
-    }
-
-    return entropyBytes;
-  }
-
-  /// Check if [mnemonic] code is valid.
-  Future<bool> validateMnemonic(String mnemonic) async {
-    try {
-      await mnemonicToEntropy(mnemonic);
-    } catch (e) {
-      return false;
-    }
-    return true;
-  }
-
-  Future<List<String>> getWordList(Wordlist wordList) async {
-    return _loadWordlist(wordList);
-  }
-
 }
-
-
-//void main() async{
-// var mnemoic = await generateMnemonic();
-// var seed = mnemonicToSeedHex('cheese coconut blur slam train brother rent lawn ten silk crystal transfer');
-//
-// print(seed);
-//
-//  print(mnemoic);
-//
-//  print(mnemonicToSeedHex(mnemoic));
-//
-//}
-
