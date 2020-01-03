@@ -126,11 +126,12 @@ main() {
         var transaction = new Transaction()
             .spendFromMap(simpleUtxoWith1000000Satoshis)
             .spendTo(toAddress, BigInt.from(500000))
+            .withUnLockingScriptBuilder(P2PKHUnlockBuilder())
             .sendChangeTo(changeAddress);
 //        transaction.signWith(privateKey);
         transaction.withFeePerKb(100000);
 
-        transaction.signInput(0, privateKey);
+        transaction.signInput( 0, privateKey);
 
         expect(transaction.outputs.length, equals(2));
         expect(transaction.outputs[1].satoshis, equals(BigInt.from(472899)));
@@ -169,6 +170,7 @@ main() {
                 var utxoMap = item['from'][0][0];
                 utxoMap['satoshis'] = BigInt.from(utxoMap['satoshis']);
                 var transaction = new Transaction()
+                    .withUnLockingScriptBuilder(P2PKHUnlockBuilder())
                     .spendFromMap(utxoMap);
 
                 for (var elem in item['to']) {
@@ -254,9 +256,10 @@ main() {
             .spendFromMap(simpleUtxoWith100000Satoshis)
             .spendTo(toAddress, BigInt.from(50000))
             .sendChangeTo(changeAddress)
+            .withUnLockingScriptBuilder(P2PKHUnlockBuilder())
             .withFee(BigInt.zero);
 //            .signWith(privateKey);
-        transaction.signInput(0, privateKey);
+        transaction.signInput( 0, privateKey);
 
         expect(transaction
             .getChangeOutput()
@@ -265,7 +268,7 @@ main() {
         transaction = transaction
             .spendTo(toAddress, BigInt.from(20000));
 //            .signWith(privateKey);
-        transaction.signInput(0, privateKey);
+        transaction.signInput( 0, privateKey);
 
         expect(transaction.outputs.length, equals(3));
         expect(transaction.outputs[2].satoshis, equals(BigInt.from(30000)));
@@ -384,8 +387,9 @@ main() {
             var transaction = new Transaction()
                 .spendFromMap(simpleUtxoWith1BTC)
                 .spendTo(toAddress, BigInt.from(546))
+                .withUnLockingScriptBuilder(P2PKHUnlockBuilder())
                 .sendChangeTo(changeAddress);
-            transaction.signInput(0, privateKey);
+            transaction.signInput( 0, privateKey);
 //                .signWith(privateKey);
             expect(() => transaction.serialize(), returnsNormally);
         });
@@ -394,6 +398,7 @@ main() {
             var transaction = new Transaction()
                 .spendFromMap(simpleUtxoWith1BTC)
                 .addData('not dust!')
+                .withUnLockingScriptBuilder(P2PKHUnlockBuilder())
                 .sendChangeTo(changeAddress);
 //                .signWith(privateKey);
             transaction.signInput(0, privateKey);
@@ -442,9 +447,10 @@ main() {
             var txn = Transaction()
                 .spendFromMap(simpleUtxoWith1BTC)
                 .withFee(BigInt.from(50000000))
+                .withUnLockingScriptBuilder(P2PKHUnlockBuilder())
                 .sendChangeTo(changeAddress);
 //                .signWith(privateKey);
-            txn.signInput(0, privateKey);
+            txn.signInput( 0, privateKey);
             expect(() => txn.serialize(), throwsException);
 
             txn.transactionOptions.add(TransactionOption.DISABLE_LARGE_FEES);
@@ -455,6 +461,7 @@ main() {
             var txn = Transaction()
                 .spendFromMap(simpleUtxoWith1BTC)
                 .spendTo(toAddress, BigInt.from(100))
+                .withUnLockingScriptBuilder(P2PKHUnlockBuilder())
                 .sendChangeTo(changeAddress);
 //                .signWith(privateKey);
             txn.signInput(0, privateKey);
@@ -481,6 +488,7 @@ main() {
             var txn = Transaction()
                 .spendFromMap(simpleUtxoWith1BTC)
                 .spendTo(toAddress, BigInt.from(10000000000000))
+                .withUnLockingScriptBuilder(P2PKHUnlockBuilder())
                 .sendChangeTo(changeAddress);
 //                .signWith(privateKey);
             txn.signInput(0, privateKey);

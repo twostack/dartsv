@@ -156,8 +156,9 @@ void main() {
             };
             var tx = new Transaction()
                 .spendFromMap(utxo)
+                .withUnLockingScriptBuilder(P2PKHUnlockBuilder())
                 .spendTo(toAddress, BigInt.from(100000));
-            tx.signInput(0, privateKey, sighashType: 1);
+            tx.signInput( 0, privateKey, sighashType: 1);
 //                .signWith(privateKey, sighashType: 1);
 
             // we then extract the signature from the first input
@@ -443,15 +444,15 @@ void main() {
         );
         credtx.addInput(txCredInput);
         credtx.serialize(performChecks: false);
-        TransactionOutput txCredOut = new TransactionOutput();
+        var txCredOut = TransactionOutput();
         txCredOut.satoshis = BigInt.from(inputAmount);
         txCredOut.script = scriptPubkey;
         credtx.addOutput(txCredOut);
 
         String idbuf = credtx.id;
 
-        var spendtx = new Transaction();
-        var txSpendInput = new TransactionInput(
+        var spendtx = Transaction();
+        var txSpendInput = TransactionInput(
             idbuf,
             0,
             scriptSig,

@@ -12,6 +12,44 @@ import 'package:buffer/buffer.dart';
 import 'transaction.dart';
 
 
+//class P2PKHInput extends TransactionInput with ScriptSig{
+//
+//    P2PKHInput(String txId, int outputIndex, SVScript script, BigInt satoshis, int seqNumber) :
+//            super(txId, outputIndex, script, satoshis, seqNumber);
+//
+//    SVScript getScriptSig(SVSignature txSignature, SVPublicKey signerPubkey){
+//        return P2PKHScriptSig(txSignature.toTxFormat(), signerPubkey.toString()); //Spend using pubkey associated with privateKey
+//    }
+//
+//}
+
+abstract class UnlockingScriptBuilder {
+    SVScript getScriptSig(SVSignature txSignature, SVPublicKey signerPubkey);
+}
+
+abstract class LockingScriptBuilder {
+    SVScript getScriptPubkey();
+}
+
+class P2PKHLockBuilder extends LockingScriptBuilder {
+    Address _address;
+
+    P2PKHLockBuilder(this._address);
+
+    SVScript getScriptPubkey(){
+        return P2PKHScriptPubkey(_address);
+    }
+}
+
+class P2PKHUnlockBuilder extends UnlockingScriptBuilder{
+
+    SVScript getScriptSig(SVSignature txSignature, SVPublicKey signerPubkey){
+        return P2PKHScriptSig(txSignature.toTxFormat(), signerPubkey.toString()); //Spend using pubkey associated with privateKey
+    }
+}
+
+
+
 /// Class that represents the "input" to a transaction.
 ///
 /// In bitcoin the transaction inputs of a new transaction are formed
@@ -53,7 +91,7 @@ class TransactionInput {
         _prevTxnOutput.script = script;
         _sequenceNumber = seqNumber == null ? UINT_MAX - 1 : seqNumber;
 
-        _isPubkeyHashInput = this._prevTxnOutput.script.isScriptHashOut();
+        _isPubkeyHashInput = _prevTxnOutput.script.isScriptHashOut();
     }
 
 
@@ -122,20 +160,15 @@ class TransactionInput {
     }
 
 
-    void sign(Transaction tx, SVPrivateKey privateKey, {sighashType = 0}){
+    void sign(UnlockingScriptBuilder sigBuilder, Transaction tx, SVPrivateKey privateKey, {sighashType = 0}){
 
-        var inputIndex = tx.inputs.indexOf(this);
-        var sig = SVSignature.fromPrivateKey(privateKey);
-        sig.nhashtype = sighashType;
 
-        //FIXME: This assumes we are spending multiple inputs with the same private key
         //FIXME: This is a test work-around for why I can't sign an unsigned raw txn
         //FIXME: This assumes we're signing P2PKH
-        prevTxnOutput.script = P2PKHScriptPubkey(privateKey.toAddress(networkType: privateKey.networkType));
 
         var subscript = prevTxnOutput.script; //pubKey script of the output we're spending
-        var sigHash = Sighash();
-        var hash = sigHash.hash(tx, sighashType, inputIndex, subscript, prevTxnOutput.satoshis);
+        var inputIndex = tx.inputs.indexOf(this);
+        var hash = Sighash().hash(tx, sighashType, inputIndex, subscript, prevTxnOutput.satoshis);
 
         //FIXME: Revisit this issue surrounding the need to sign a reversed copy of the hash.
         ///      Right now I've factored this out of signature.dart because 'coupling' & 'seperation of concerns'.
@@ -143,13 +176,16 @@ class TransactionInput {
             .decode(hash)
             .reversed
             .toList());
+
+        // generate a signature for the input
+        var sig = SVSignature.fromPrivateKey(privateKey);
+        sig.nhashtype = sighashType;
         sig.sign(reversedHash);
 
-        var txSignature = sig.toTxFormat(); //signed hash with SighashType appended
-        var signerPubkey = privateKey.publicKey.toString();
+        var signerPubkey = privateKey.publicKey;
 
         //update the input script's scriptSig
-        script = P2PKHScriptSig(txSignature, signerPubkey); //Spend using pubkey associated with privateKey
+        script = sigBuilder.getScriptSig(sig, signerPubkey);
 
     }
 

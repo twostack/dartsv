@@ -114,6 +114,9 @@ class Transaction {
     static final MAXIMUM_EXTRA_SIZE = 4 + 9 + 9 + 4;
     static final SCRIPT_MAX_SIZE = 149;
 
+    LockingScriptBuilder _lockingScriptBuilder;
+    UnlockingScriptBuilder _unlockingScriptBuilder;
+
     var _feePerKb = FEE_PER_KB;
 
     /// Default constructor. Start empty, use the builder pattern to
@@ -362,24 +365,27 @@ class Transaction {
         return this;
     }
 
-    void signInput(int index, SVPrivateKey privateKey, {sighashType = 0}){
+    void signInput( int index, SVPrivateKey privateKey, {sighashType = 0}){
         if (_txnInputs.length > index + 1){
             throw TransactionException("Input index out of range. Max index is ${_txnInputs.length + 1}");
         }
-        _txnInputs[index].sign(this, privateKey, sighashType: sighashType);
+        _txnInputs[index].sign(_unlockingScriptBuilder, this, privateKey, sighashType: sighashType);
 
     }
 
-//    Transaction signWith(SVPrivateKey privateKey, {sighashType = 0}) {
-//        var sig = SVSignature.fromPrivateKey(privateKey);
-//        sig.nhashtype = sighashType;
-//
-//        for (var ndx = 0; ndx < _txnInputs.length; ndx++) {
-//            _txnInputs[ndx].sign(this, privateKey, sighashType: sighashType);
-//        }
-//
-//        return this;
-//    }
+    Transaction withLockingScriptBuilder(LockingScriptBuilder scriptBuilder){
+        _lockingScriptBuilder = scriptBuilder;
+
+        return this;
+    }
+
+
+    Transaction withUnLockingScriptBuilder(UnlockingScriptBuilder scriptBuilder){
+        _unlockingScriptBuilder = scriptBuilder;
+
+        return this;
+    }
+
 
     Transaction withFee(BigInt value) {
         _fee = value;
@@ -721,7 +727,10 @@ class Transaction {
         if (changeAmount > BigInt.zero) {
             txnOutput.recipient = _changeAddress;
             txnOutput.satoshis = changeAmount;
-            txnOutput.script = P2PKHScriptPubkey(_changeAddress);
+            if (_lockingScriptBuilder == null) {
+                _lockingScriptBuilder =  P2PKHLockBuilder(_changeAddress);
+            }
+            txnOutput.script = _lockingScriptBuilder.getScriptPubkey();
             txnOutput.isChangeOutput = true;
             _txnOutputs.add(txnOutput);
         }
