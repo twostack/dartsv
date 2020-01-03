@@ -84,10 +84,10 @@ main() {
         .spendTo(Address('mrU9pEmAx26HcbKVrABvgL7AwA5fjNFoDc'), testAmount - BigInt.from(10000));
 
     test('can perform serialization', () {
-        expect(testTransaction.inputs[0].output.satoshis, equals(testAmount));
+        expect(testTransaction.inputs[0].prevTxnOutput.satoshis, equals(testAmount));
 //        expect(testTransaction.inputs[0].output.scriptHex, equals(testScriptHex));  //FIXME: SVScript does not properly process these human-readable script translations right now
         expect(testTransaction.inputs[0].prevTxnId, equals(testPrevTx));
-        expect(testTransaction.inputs[0].outputIndex, equals(0));
+        expect(testTransaction.inputs[0].prevTxnOutputIndex, equals(0));
         expect(testTransaction.outputs[0].satoshis, equals(testAmount - BigInt.from(10000)));
     });
 
@@ -127,8 +127,10 @@ main() {
             .spendFromMap(simpleUtxoWith1000000Satoshis)
             .spendTo(toAddress, BigInt.from(500000))
             .sendChangeTo(changeAddress);
-        transaction.signWith(privateKey);
+//        transaction.signWith(privateKey);
         transaction.withFeePerKb(100000);
+
+        transaction.signInput(0, privateKey);
 
         expect(transaction.outputs.length, equals(2));
         expect(transaction.outputs[1].satoshis, equals(BigInt.from(472899)));
@@ -174,7 +176,8 @@ main() {
                 };
 
                 transaction.withFeePerKb(100000);
-                transaction.signWith(SVPrivateKey.fromWIF(item['sign'][0]), sighashType: item['sign'][1]);
+//                transaction.signWith(SVPrivateKey.fromWIF(item['sign'][0]), sighashType: item['sign'][1]);
+                transaction.signInput(0, SVPrivateKey.fromWIF(item['sign'][0]), sighashType: item['sign'][1]);
 
                 expect(transaction.serialize(performChecks: false), equals(item['serialize']));
             });
@@ -212,9 +215,9 @@ main() {
             expect(tx.inputs[0].prevTxnId.toString(), equals(from1["txId"]));
             expect(tx.inputs[1].prevTxnId.toString(), equals(from2["txId"]));
             expect(tx.inputs[2].prevTxnId.toString(), equals(from3["txId"]));
-            expect(tx.inputs[0].outputIndex, equals(from1["outputIndex"]));
-            expect(tx.inputs[1].outputIndex, equals(from2["outputIndex"]));
-            expect(tx.inputs[2].outputIndex, equals(from3["outputIndex"]));
+            expect(tx.inputs[0].prevTxnOutputIndex, equals(from1["outputIndex"]));
+            expect(tx.inputs[1].prevTxnOutputIndex, equals(from2["outputIndex"]));
+            expect(tx.inputs[2].prevTxnOutputIndex, equals(from3["outputIndex"]));
         });
 
 
@@ -251,16 +254,18 @@ main() {
             .spendFromMap(simpleUtxoWith100000Satoshis)
             .spendTo(toAddress, BigInt.from(50000))
             .sendChangeTo(changeAddress)
-            .withFee(BigInt.zero)
-            .signWith(privateKey);
+            .withFee(BigInt.zero);
+//            .signWith(privateKey);
+        transaction.signInput(0, privateKey);
 
         expect(transaction
             .getChangeOutput()
             .satoshis, equals(BigInt.from(50000)));
 
         transaction = transaction
-            .spendTo(toAddress, BigInt.from(20000))
-            .signWith(privateKey);
+            .spendTo(toAddress, BigInt.from(20000));
+//            .signWith(privateKey);
+        transaction.signInput(0, privateKey);
 
         expect(transaction.outputs.length, equals(3));
         expect(transaction.outputs[2].satoshis, equals(BigInt.from(30000)));
@@ -271,8 +276,8 @@ main() {
     test('adds no fee if no change is available', () {
         var transaction = new Transaction()
             .spendFromMap(simpleUtxoWith100000Satoshis)
-            .spendTo(toAddress, BigInt.from(99000))
-            .signWith(privateKey);
+            .spendTo(toAddress, BigInt.from(99000));
+//            .signWith(privateKey);
         expect(transaction.outputs.length, equals(1));
         expect(transaction.getFee(), equals(BigInt.from(1000))); //fee is implicitly calculated
     });
@@ -281,8 +286,8 @@ main() {
         var transaction = new Transaction()
             .spendFromMap(simpleUtxoWith100000Satoshis)
             .spendTo(toAddress, BigInt.from(100000))
-            .sendChangeTo(changeAddress)
-            .signWith(privateKey);
+            .sendChangeTo(changeAddress);
+//            .signWith(privateKey);
         //expect( transaction.getFee(), equals(BigInt.zero)); FIXME: Why does this fail ?
         expect(transaction.outputs.length, equals(1));
     });
@@ -292,8 +297,8 @@ main() {
             .spendFromMap(simpleUtxoWith100000Satoshis)
             .spendTo(toAddress, BigInt.from(80000))
             .withFee(BigInt.from(10000))
-            .sendChangeTo(changeAddress)
-            .signWith(privateKey);
+            .sendChangeTo(changeAddress);
+//            .signWith(privateKey);
         expect(transaction.outputs.length, equals(2));
         expect(transaction.outputs[1].satoshis, equals(BigInt.from(10000)));
     });
@@ -311,8 +316,8 @@ main() {
             .spendFromInputs(inputs)
             .spendTo(toAddress, BigInt.from(950000))
             .withFeePerKb(8000)
-            .sendChangeTo(changeAddress)
-            .signWith(privateKey);
+            .sendChangeTo(changeAddress);
+//            .signWith(privateKey);
 
 //      expect(transaction._estimateSize(), .should.be.within(1000, 1999)
         expect(transaction.outputs.length, equals(2));
@@ -324,9 +329,9 @@ main() {
         var transaction = new Transaction()
             .spendFromMap(simpleUtxoWith100000Satoshis)
             .spendTo(toAddress, BigInt.from(100000))
-            .sendChangeTo(changeAddress)
-            .signWith(privateKey)
-            .signWith(privateKey);
+            .sendChangeTo(changeAddress);
+//            .signWith(privateKey)
+//            .signWith(privateKey);
         expect(transaction.outputs.length, equals(1));
     });
 
@@ -369,8 +374,8 @@ main() {
             var transaction = new Transaction()
                 .spendFromMap(simpleUtxoWith1BTC)
                 .spendTo(toAddress, BigInt.from(545))
-                .sendChangeTo(changeAddress)
-                .signWith(privateKey);
+                .sendChangeTo(changeAddress);
+//                .signWith(privateKey);
 
             expect(() => transaction.serialize(), throwsA(TypeMatcher<TransactionAmountException>()));
         });
@@ -379,8 +384,9 @@ main() {
             var transaction = new Transaction()
                 .spendFromMap(simpleUtxoWith1BTC)
                 .spendTo(toAddress, BigInt.from(546))
-                .sendChangeTo(changeAddress)
-                .signWith(privateKey);
+                .sendChangeTo(changeAddress);
+            transaction.signInput(0, privateKey);
+//                .signWith(privateKey);
             expect(() => transaction.serialize(), returnsNormally);
         });
 
@@ -388,8 +394,9 @@ main() {
             var transaction = new Transaction()
                 .spendFromMap(simpleUtxoWith1BTC)
                 .addData('not dust!')
-                .sendChangeTo(changeAddress)
-                .signWith(privateKey);
+                .sendChangeTo(changeAddress);
+//                .signWith(privateKey);
+            transaction.signInput(0, privateKey);
 
             expect(() => transaction.serialize(), returnsNormally);
         });
@@ -398,8 +405,8 @@ main() {
             var transaction = new Transaction()
                 .spendFromMap(simpleUtxoWith1BTC)
                 .spendTo(toAddress, BigInt.from(99900000))
-                .withFee(BigInt.from(99999))
-                .signWith(privateKey);
+                .withFee(BigInt.from(99999));
+//                .signWith(privateKey);
             expect(() => transaction.serialize(), throwsA(TypeMatcher<TransactionFeeException>()));
         });
 
@@ -435,9 +442,9 @@ main() {
             var txn = Transaction()
                 .spendFromMap(simpleUtxoWith1BTC)
                 .withFee(BigInt.from(50000000))
-                .sendChangeTo(changeAddress)
-                .signWith(privateKey);
-
+                .sendChangeTo(changeAddress);
+//                .signWith(privateKey);
+            txn.signInput(0, privateKey);
             expect(() => txn.serialize(), throwsException);
 
             txn.transactionOptions.add(TransactionOption.DISABLE_LARGE_FEES);
@@ -448,8 +455,9 @@ main() {
             var txn = Transaction()
                 .spendFromMap(simpleUtxoWith1BTC)
                 .spendTo(toAddress, BigInt.from(100))
-                .sendChangeTo(changeAddress)
-                .signWith(privateKey);
+                .sendChangeTo(changeAddress);
+//                .signWith(privateKey);
+            txn.signInput(0, privateKey);
 
             expect(() => txn.serialize(), throwsException);
 
@@ -473,8 +481,9 @@ main() {
             var txn = Transaction()
                 .spendFromMap(simpleUtxoWith1BTC)
                 .spendTo(toAddress, BigInt.from(10000000000000))
-                .sendChangeTo(changeAddress)
-                .signWith(privateKey);
+                .sendChangeTo(changeAddress);
+//                .signWith(privateKey);
+            txn.signInput(0, privateKey);
 
             expect(() => txn.serialize(), throwsException);
 

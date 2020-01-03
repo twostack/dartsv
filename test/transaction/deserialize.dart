@@ -25,7 +25,7 @@ main(){
                         var prevOutIndex = item[0][outNdx][1]; //prev out index
                         var prevOutSPK   = item[0][outNdx][2]; //prev out script pubkey
                         expect(prevHash, equals(txn.inputs[outNdx].prevTxnId));
-                        expect(prevOutIndex, equals(txn.inputs[outNdx].outputIndex));
+                        expect(prevOutIndex, equals(txn.inputs[outNdx].prevTxnOutputIndex));
 //                        expect(prevOutSPK, equals(txn.inputs[outNdx].script.toHex()));
 
                         outNdx++;

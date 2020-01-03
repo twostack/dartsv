@@ -362,40 +362,24 @@ class Transaction {
         return this;
     }
 
-
-    Transaction signWith(SVPrivateKey privateKey, {sighashType = 0}) {
-        SVSignature sig = SVSignature.fromPrivateKey(privateKey);
-        sig.nhashtype = sighashType;
-
-        for (var ndx = 0; ndx < _txnInputs.length; ndx++) {
-            var input = _txnInputs[ndx];
-
-            //FIXME: This assumes we are spending multiple inputs with the same private key
-            //FIXME: This is a test work-around for why I can't sign an unsigned raw txn
-            input.output.script = P2PKHScriptPubkey(privateKey.toAddress(networkType: privateKey.networkType));
-
-            var subscript = input.output.script; //pubKey script of the output we're spending
-            var sigHash = Sighash();
-            var hash = sigHash.hash(this, sighashType, ndx, subscript, input.output.satoshis);
-
-            //FIXME: Revisit this issue surrounding the need to sign a reversed copy of the hash.
-            ///      Right now I've factored this out of signature.dart because 'coupling' & 'seperation of concerns'.
-            var reversedHash = HEX.encode(HEX
-                .decode(hash)
-                .reversed
-                .toList());
-            sig.sign(reversedHash);
-
-            var txSignature = sig.toTxFormat(); //signed hash with SighashType appended
-            var signerPubkey = privateKey.publicKey.toString();
-
-            //update the input script's scriptSig
-            input.script = P2PKHScriptSig(txSignature, signerPubkey); //Spend using pubkey associated with privateKey
-
+    void signInput(int index, SVPrivateKey privateKey, {sighashType = 0}){
+        if (_txnInputs.length > index + 1){
+            throw TransactionException("Input index out of range. Max index is ${_txnInputs.length + 1}");
         }
+        _txnInputs[index].sign(this, privateKey, sighashType: sighashType);
 
-        return this;
     }
+
+//    Transaction signWith(SVPrivateKey privateKey, {sighashType = 0}) {
+//        var sig = SVSignature.fromPrivateKey(privateKey);
+//        sig.nhashtype = sighashType;
+//
+//        for (var ndx = 0; ndx < _txnInputs.length; ndx++) {
+//            _txnInputs[ndx].sign(this, privateKey, sighashType: sighashType);
+//        }
+//
+//        return this;
+//    }
 
     Transaction withFee(BigInt value) {
         _fee = value;
@@ -529,7 +513,7 @@ class Transaction {
         for (var i = 0; i < inputs.length; i++) {
             var txin = inputs[i];
 
-            var inputid = txin.prevTxnId + ':' + txin.outputIndex.toString();
+            var inputid = txin.prevTxnId + ':' + txin.prevTxnOutputIndex.toString();
             if (txinmap[inputid] != null) {
                 return 'transaction input ' + i.toString() + ' duplicate input';
             }
@@ -580,7 +564,7 @@ class Transaction {
 
     bool isCoinbase() {
         //if we have a Transaction with one input, and a prevTransactionId of zeroooos, it's a coinbase.
-        return (_txnInputs.length == 1 && _txnInputs[0].output.transactionId.replaceAll('0', '').trim() == '');
+        return (_txnInputs.length == 1 && _txnInputs[0].prevTxnOutput.transactionId.replaceAll('0', '').trim() == '');
     }
 
 
@@ -711,7 +695,7 @@ class Transaction {
 
     bool _inputExists(String transactionId, int outputIndex) =>
         _txnInputs
-            .where((input) => input.prevTxnId == transactionId && input.outputIndex == outputIndex)
+            .where((input) => input.prevTxnId == transactionId && input.prevTxnOutputIndex == outputIndex)
             .isNotEmpty;
 
     void _removeChangeOutputs() {
@@ -814,7 +798,7 @@ class Transaction {
                 return txnIdComparison;
             } else {
                 //txnIds can't be used (probably 'cause there's only one)
-                return lhs.outputIndex - rhs.outputIndex;
+                return lhs.prevTxnOutputIndex - rhs.prevTxnOutputIndex;
             }
         });
     }

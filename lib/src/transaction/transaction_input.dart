@@ -1,11 +1,15 @@
 import 'dart:typed_data';
 
+import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
+import 'package:dartsv/src/script/P2PKHScriptPubkey.dart';
 import 'package:dartsv/src/script/P2PKHScriptSig.dart';
 import 'package:dartsv/src/script/svscript.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
 import 'package:hex/hex.dart';
 import 'package:buffer/buffer.dart';
+
+import 'transaction.dart';
 
 
 /// Class that represents the "input" to a transaction.
@@ -18,15 +22,14 @@ import 'package:buffer/buffer.dart';
 /// from one transaction to the next is also captured.
 ///
 class TransactionInput {
-    TransactionOutput _utxo;
+    TransactionOutput _prevTxnOutput;
 
     /// Maximum size an unsigned int can be. Used as value of [sequenceNumber] when we
     /// want to indicate that the transaction's [Transaction.nLockTime] should be ignored.
     static int UINT_MAX =  0xFFFFFFFF;
     bool _isPubkeyHashInput = false;
 
-    /// See the [TransactionInput()] constructor.
-    int sequenceNumber;
+    int _sequenceNumber;
 
     /// Constructs a new transaction input
     ///
@@ -38,19 +41,19 @@ class TransactionInput {
     ///
     /// [satoshis] - The amount of satoshis in the transaction output (UTXO) in the transaction identified by [txId]
     ///
-    /// [sequenceNumber] - The sequenceNumber is supposed to allow a transaction to be updated before being
+    /// [seqNumber] - The sequenceNumber is supposed to allow a transaction to be updated before being
     /// broadcast to the network. At least, that was the original purpose. At present this is only used to
     /// indicate whether nLockTime should be honored or ignored. Set this value to [UINT_MAX] to indicate
     /// that transaction's [Transaction.nLockTime] should be ignored.
-    TransactionInput(String txId, int outputIndex, SVScript script, BigInt satoshis, int sequenceNumber) {
-        this._utxo = TransactionOutput();
-        this._utxo.satoshis = satoshis;
-        this._utxo.transactionId = txId;
-        this._utxo.outputIndex = outputIndex;
-        this._utxo.script = script;
-        this.sequenceNumber = sequenceNumber == null ? UINT_MAX - 1 : sequenceNumber;
+    TransactionInput(String txId, int outputIndex, SVScript script, BigInt satoshis, int seqNumber) {
+        _prevTxnOutput = TransactionOutput();
+        _prevTxnOutput.satoshis = satoshis;
+        _prevTxnOutput.transactionId = txId;
+        _prevTxnOutput.outputIndex = outputIndex;
+        _prevTxnOutput.script = script;
+        _sequenceNumber = seqNumber == null ? UINT_MAX - 1 : seqNumber;
 
-        this._isPubkeyHashInput = this._utxo.script.isScriptHashOut();
+        _isPubkeyHashInput = this._prevTxnOutput.script.isScriptHashOut();
     }
 
 
@@ -62,32 +65,32 @@ class TransactionInput {
     /// being used.
     TransactionInput.fromReader(ByteDataReader reader) {
 
-        this._utxo = TransactionOutput();
-        this._utxo.transactionId = HEX.encode(reader.read(32, copy: true).reversed.toList());
-        this._utxo.outputIndex = reader.readUint32(Endian.little);
+        _prevTxnOutput = TransactionOutput();
+        _prevTxnOutput.transactionId = HEX.encode(reader.read(32, copy: true).reversed.toList());
+        _prevTxnOutput.outputIndex = reader.readUint32(Endian.little);
 
         var len = readVarIntNum(reader);
-        this._utxo.script = SVScript.fromBuffer(reader.read(len, copy: true));
+        _prevTxnOutput.script = SVScript.fromBuffer(reader.read(len, copy: true));
 
-        this.sequenceNumber = reader.readUint32(Endian.little);
+        _sequenceNumber = reader.readUint32(Endian.little);
 
-        this._isPubkeyHashInput = this._utxo.script.isScriptHashOut();
+        _isPubkeyHashInput = _prevTxnOutput.script.isScriptHashOut();
     }
 
     ///Returns a buffer containing the serialized bytearray for this TransactionInput
     List<int> serialize() {
-        ByteDataWriter writer = ByteDataWriter();
+        var writer = ByteDataWriter();
 
 
-        writer.write(HEX.decode(this.prevTxnId).reversed.toList(), copy: true);
+        writer.write(HEX.decode(_prevTxnOutput.transactionId).reversed.toList(), copy: true);
 
-        writer.writeUint32(this.output.outputIndex, Endian.little);
-        var scriptHex = HEX.decode(this.script.toHex());
+        writer.writeUint32(_prevTxnOutput.outputIndex, Endian.little);
+        var scriptHex = HEX.decode(_prevTxnOutput.script.toHex());
 
         writer.write(varIntWriter(scriptHex.length).toList(), copy: true);
         writer.write(scriptHex, copy: true);
 
-        writer.writeUint32(this.sequenceNumber, Endian.little);
+        writer.writeUint32(sequenceNumber, Endian.little);
 
         return writer.toBytes().toList();
     }
@@ -98,28 +101,60 @@ class TransactionInput {
     /// It is only used in the context of P2PKH transaction types and
     /// will likely be deprecated in future.
     bool isFullySigned() {
-        return this._isPubkeyHashInput;
+        return _isPubkeyHashInput;
     }
 
     /// Returns the Transaction input as structured data to make
     /// working with JSON serializers easier.
     Map<String, dynamic> toObject(){
         return {
-            "prevTxId": this.prevTxnId,
-            "outputIndex": this.outputIndex,
-            "sequenceNumber": this.sequenceNumber,
-            "script": this.script.toHex()
+            'prevTxId': _prevTxnOutput.transactionId,
+            'outputIndex': _prevTxnOutput.outputIndex,
+            'sequenceNumber': sequenceNumber,
+            'script': _prevTxnOutput.script.toHex()
         };
     }
 
     /// Returns *true* if the sequence number has reached it's maximum
     /// limit and can no longer be updated.
     bool isFinal() {
-        return this.sequenceNumber == UINT_MAX;
+        return sequenceNumber == UINT_MAX;
+    }
+
+
+    void sign(Transaction tx, SVPrivateKey privateKey, {sighashType = 0}){
+
+        var inputIndex = tx.inputs.indexOf(this);
+        var sig = SVSignature.fromPrivateKey(privateKey);
+        sig.nhashtype = sighashType;
+
+        //FIXME: This assumes we are spending multiple inputs with the same private key
+        //FIXME: This is a test work-around for why I can't sign an unsigned raw txn
+        //FIXME: This assumes we're signing P2PKH
+        prevTxnOutput.script = P2PKHScriptPubkey(privateKey.toAddress(networkType: privateKey.networkType));
+
+        var subscript = prevTxnOutput.script; //pubKey script of the output we're spending
+        var sigHash = Sighash();
+        var hash = sigHash.hash(tx, sighashType, inputIndex, subscript, prevTxnOutput.satoshis);
+
+        //FIXME: Revisit this issue surrounding the need to sign a reversed copy of the hash.
+        ///      Right now I've factored this out of signature.dart because 'coupling' & 'seperation of concerns'.
+        var reversedHash = HEX.encode(HEX
+            .decode(hash)
+            .reversed
+            .toList());
+        sig.sign(reversedHash);
+
+        var txSignature = sig.toTxFormat(); //signed hash with SighashType appended
+        var signerPubkey = privateKey.publicKey.toString();
+
+        //update the input script's scriptSig
+        script = P2PKHScriptSig(txSignature, signerPubkey); //Spend using pubkey associated with privateKey
+
     }
 
     /// Returns the number of satoshis this input is spending.
-    BigInt get satoshis => output.satoshis;
+    BigInt get satoshis => prevTxnOutput.satoshis;
 
     /// Sets the number of satoshis this input is spending.
     ///
@@ -128,42 +163,52 @@ class TransactionInput {
     /// between satoshis "consumed" by and input and those "locked" by the input's
     /// corresponding output goes to the miner as a fee reward.
     set satoshis(BigInt value) {
-        output.satoshis = value;
+        _prevTxnOutput.satoshis = value;
     }
 
     /// Returns the script from the parent transaction's output (UTXO)
-    SVScript get script => output.script;
+    SVScript get script => _prevTxnOutput.script;
 
     /// Set the script that represents the parent transaction's output (UTXO)
     set script(SVScript script) {
-        this._isPubkeyHashInput = script is P2PKHScriptSig;
-        output.script = script;
+        _isPubkeyHashInput = script is P2PKHScriptSig;
+        _prevTxnOutput.script = script;
     }
 
     /// Returns the index value of the transaction output (UTXO) that this input is spending from.
-    int get outputIndex => output.outputIndex;
+    int get prevTxnOutputIndex => _prevTxnOutput.outputIndex;
 
     /// Sets the index value of the transaction output (UTXO) that this input is spending from.
-    set outputIndex(int value) {
-        output.outputIndex = value;
+    set prevTxnOutputIndex(int value) {
+        _prevTxnOutput.outputIndex = value;
     }
 
     /// Returns the transaction Id of the transaction that this input is spending from
-    String get prevTxnId => output.transactionId;
+    String get prevTxnId => _prevTxnOutput.transactionId;
 
     /// Sets the transaction Id of the transaction that this input is spending from
     set prevTxnId(String value) {
-        output.transactionId = value;
+        _prevTxnOutput.transactionId = value;
     }
 
     /// Returns the complete transaction output (UTXO) of the transaction we are spending from
-    TransactionOutput get output => _utxo;
+    TransactionOutput get prevTxnOutput => _prevTxnOutput;
 
     /// Sets the transaction output (UTXO) of the transaction we are spending from
-    set output(TransactionOutput value) {
-        _utxo = value;
+    set prevTxnOutput(TransactionOutput value) {
+        _prevTxnOutput = value;
     }
 
+
+    /// [sequenceNumber] - The sequenceNumber is supposed to allow a transaction to be updated before being
+    /// broadcast to the network. At least, that was the original purpose. At present this is only used to
+    /// indicate whether nLockTime should be honored or ignored. Set this value to [UINT_MAX] to indicate
+    /// that transaction's [Transaction.nLockTime] should be ignored.
+    int get sequenceNumber => _sequenceNumber;
+
+    void set sequenceNumber(int seqNumber) {
+        _sequenceNumber = seqNumber;
+    }
 
 
 }

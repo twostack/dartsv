@@ -137,7 +137,7 @@ class Sighash {
         //setup the input we wish to sign
 //        txcopy.inputs[inputNumber] = new Input(txcopy.inputs[inputNumber]).setScript(subscript)
         var tmpInput = txnCopy.inputs[inputNumber];
-        tmpInput = TransactionInput(tmpInput.prevTxnId, tmpInput.outputIndex, tmpInput.script, tmpInput.satoshis, tmpInput.sequenceNumber);
+        tmpInput = TransactionInput(tmpInput.prevTxnId, tmpInput.prevTxnOutputIndex, tmpInput.script, tmpInput.satoshis, tmpInput.sequenceNumber);
         tmpInput.script = this._subScript;
         txnCopy.inputs[inputNumber] = tmpInput;
 //        txnCopy.inputs[inputNumber].script = this._subScript;
@@ -242,7 +242,7 @@ class Sighash {
 
             tx.inputs.forEach((TransactionInput input) {
                 writer.write(HEX.decode(input.prevTxnId).reversed.toList());
-                writer.writeUint32(input.outputIndex, Endian.little);
+                writer.writeUint32(input.prevTxnOutputIndex, Endian.little);
             });
 
             var buf = writer.toBytes();
@@ -309,7 +309,7 @@ class Sighash {
             .decode(input.prevTxnId)
             .reversed
             .toList());
-        writer.writeUint32(input.outputIndex, Endian.little);
+        writer.writeUint32(input.prevTxnOutputIndex, Endian.little);
 
         // scriptCode of the input (serialized as scripts inside CTxOuts)
         writer.write(varIntWriter(subscript.buffer.length).toList(), copy: true);

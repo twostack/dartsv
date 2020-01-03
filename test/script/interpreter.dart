@@ -156,8 +156,9 @@ void main() {
             };
             var tx = new Transaction()
                 .spendFromMap(utxo)
-                .spendTo(toAddress, BigInt.from(100000))
-                .signWith(privateKey, sighashType: 1);
+                .spendTo(toAddress, BigInt.from(100000));
+            tx.signInput(0, privateKey, sighashType: 1);
+//                .signWith(privateKey, sighashType: 1);
 
             // we then extract the signature from the first input
             var inputIndex = 0;
@@ -535,7 +536,7 @@ void main() {
 //            }
             var scriptSig = txin.script;
             var txidhex = txin.prevTxnId;
-            var txoutnum = txin.outputIndex;
+            var txoutnum = txin.prevTxnOutputIndex;
             var scriptPubkey = map[txidhex + ':' + txoutnum.toString()];
             expect(scriptPubkey, isNotNull);
             expect(scriptSig, isNotNull);
