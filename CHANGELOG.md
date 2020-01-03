@@ -1,3 +1,6 @@
+## 0.2.5-RC1
+- Added CLI example app
+
 ## 0.2.4-RC1
 - Additional test coverage for Signatures
 - Minor code refactor to improve code readability in line with linter suggestions
