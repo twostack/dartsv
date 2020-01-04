@@ -1,14 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/block/block.dart';
 import 'package:dartsv/src/block/blockheader.dart';
-import 'package:dartsv/src/privatekey.dart';
-import 'package:dartsv/src/script/P2PKHScriptPubkey.dart';
-import 'package:dartsv/src/script/P2PKHScriptSig.dart';
-import 'package:dartsv/src/script/interpreter.dart';
 import 'package:dartsv/src/script/svscript.dart';
 import 'package:hex/hex.dart';
 import 'package:test/test.dart';

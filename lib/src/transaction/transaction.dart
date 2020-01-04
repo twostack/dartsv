@@ -3,8 +3,6 @@ import 'dart:collection';
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/script/OpReturnScriptPubkey.dart';
-import 'package:dartsv/src/script/P2PKHScriptPubkey.dart';
-import 'package:dartsv/src/script/P2PKHScriptSig.dart';
 import 'package:dartsv/src/signature.dart';
 import 'package:dartsv/src/transaction/transaction_input.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
@@ -18,6 +16,9 @@ import 'dart:typed_data';
 import 'package:buffer/buffer.dart';
 
 import '../exceptions.dart';
+import 'locking_script_builder.dart';
+import 'p2pkh_locking_script_builder.dart';
+import 'unlocking_script_builder.dart';
 
 enum FeeMethod {
     USER_SPECIFIES,
@@ -113,6 +114,9 @@ class Transaction {
     static final CHANGE_OUTPUT_MAX_SIZE = 20 + 4 + 34 + 4;
     static final MAXIMUM_EXTRA_SIZE = 4 + 9 + 9 + 4;
     static final SCRIPT_MAX_SIZE = 149;
+
+    LockingScriptBuilder _lockingScriptBuilder;
+    UnlockingScriptBuilder _unlockingScriptBuilder;
 
     var _feePerKb = FEE_PER_KB;
 
@@ -351,10 +355,22 @@ class Transaction {
     }
 
 
+    /// Add a "change" output to this transaction
+    ///
+    /// When a new transaction is created to spend coins from an input transaction,
+    /// the entire *UTXO* needs to be consumed. I.e you cannot *partially* spend coins.
+    /// What needs to happen is :
+    ///   1) You consumer the entire UTXO in the new transaction input
+    ///   2) You subtract a *change* amount from the UTXO and the remainder will be sent to the receiving party
+    ///
+    /// The change amount is automatically calculated based on the fee rate that you set with [withFee()] or [withFeePerKb()]
+    ///
+    /// [changeAddress] - A bitcoin address where a standard P2PKH (Pay-To-Public-Key-Hash) output will be "sent"
+    ///
+    /// Returns an instance of the current Transaction as part of the builder pattern.
     Transaction sendChangeTo(Address changeAddress) {
         _changeScriptFlag = true;
         //get fee, and if there is not enough change to cover fee, remove change outputs
-
 
         //delete previous change transaction if exists
         _changeAddress = changeAddress;
@@ -362,40 +378,38 @@ class Transaction {
         return this;
     }
 
-
-    Transaction signWith(SVPrivateKey privateKey, {sighashType = 0}) {
-        SVSignature sig = SVSignature.fromPrivateKey(privateKey);
-        sig.nhashtype = sighashType;
-
-        for (var ndx = 0; ndx < _txnInputs.length; ndx++) {
-            var input = _txnInputs[ndx];
-
-            //FIXME: This assumes we are spending multiple inputs with the same private key
-            //FIXME: This is a test work-around for why I can't sign an unsigned raw txn
-            input.output.script = P2PKHScriptPubkey(privateKey.toAddress(networkType: privateKey.networkType));
-
-            var subscript = input.output.script; //pubKey script of the output we're spending
-            var sigHash = Sighash();
-            var hash = sigHash.hash(this, sighashType, ndx, subscript, input.output.satoshis);
-
-            //FIXME: Revisit this issue surrounding the need to sign a reversed copy of the hash.
-            ///      Right now I've factored this out of signature.dart because 'coupling' & 'seperation of concerns'.
-            var reversedHash = HEX.encode(HEX
-                .decode(hash)
-                .reversed
-                .toList());
-            sig.sign(reversedHash);
-
-            var txSignature = sig.toTxFormat(); //signed hash with SighashType appended
-            var signerPubkey = privateKey.publicKey.toString();
-
-            //update the input script's scriptSig
-            input.script = P2PKHScriptSig(txSignature, signerPubkey); //Spend using pubkey associated with privateKey
-
+    void signInput( int index, SVPrivateKey privateKey, {sighashType = 0}){
+        if (_txnInputs.length > index + 1){
+            throw TransactionException("Input index out of range. Max index is ${_txnInputs.length + 1}");
         }
+        _txnInputs[index].sign(_unlockingScriptBuilder, this, privateKey, sighashType: sighashType);
+
+    }
+
+    /// Specifies a custom way of generating the unlocking script when "spending" a UTXO with
+    /// this transaction.
+    ///
+    /// Transactions are composed of "locking" and "unlocking" scripts (also referred to as ScriptPubKey and ScriptSig respectively)
+    /// which determine the conditions under which a new transaction will be considered valid. Bitcoin is *Programmable Money*
+    /// because we can write programmatic scripts using Bitcoin's Forth-like programming language
+    /// to determine the rules under which a transaction can "spend" the output from a previous transaction.
+    ///
+    /// A [LockingScriptBuilder] instance is used by the Transaction class to generate the bitcoin
+    /// script that will set this transaction's spending rules/conditions. By default a [P2PKHLockBuilder], which
+    /// creates a P2PKH (Pay-to-Public-Key-Hash) output script will be created.
+    Transaction withLockingScriptBuilder(LockingScriptBuilder scriptBuilder){
+        _lockingScriptBuilder = scriptBuilder;
 
         return this;
     }
+
+
+    Transaction withUnLockingScriptBuilder(UnlockingScriptBuilder scriptBuilder){
+        _unlockingScriptBuilder = scriptBuilder;
+
+        return this;
+    }
+
 
     Transaction withFee(BigInt value) {
         _fee = value;
@@ -529,7 +543,7 @@ class Transaction {
         for (var i = 0; i < inputs.length; i++) {
             var txin = inputs[i];
 
-            var inputid = txin.prevTxnId + ':' + txin.outputIndex.toString();
+            var inputid = txin.prevTxnId + ':' + txin.prevTxnOutputIndex.toString();
             if (txinmap[inputid] != null) {
                 return 'transaction input ' + i.toString() + ' duplicate input';
             }
@@ -580,7 +594,7 @@ class Transaction {
 
     bool isCoinbase() {
         //if we have a Transaction with one input, and a prevTransactionId of zeroooos, it's a coinbase.
-        return (_txnInputs.length == 1 && _txnInputs[0].output.transactionId.replaceAll('0', '').trim() == '');
+        return (_txnInputs.length == 1 && _txnInputs[0].prevTxnOutput.transactionId.replaceAll('0', '').trim() == '');
     }
 
 
@@ -711,7 +725,7 @@ class Transaction {
 
     bool _inputExists(String transactionId, int outputIndex) =>
         _txnInputs
-            .where((input) => input.prevTxnId == transactionId && input.outputIndex == outputIndex)
+            .where((input) => input.prevTxnId == transactionId && input.prevTxnOutputIndex == outputIndex)
             .isNotEmpty;
 
     void _removeChangeOutputs() {
@@ -737,7 +751,10 @@ class Transaction {
         if (changeAmount > BigInt.zero) {
             txnOutput.recipient = _changeAddress;
             txnOutput.satoshis = changeAmount;
-            txnOutput.script = P2PKHScriptPubkey(_changeAddress);
+            if (_lockingScriptBuilder == null) {
+                _lockingScriptBuilder =  P2PKHLockBuilder(_changeAddress); //For now we always generate change to a P2PKH address
+            }
+            txnOutput.script = _lockingScriptBuilder.getScriptPubkey();
             txnOutput.isChangeOutput = true;
             _txnOutputs.add(txnOutput);
         }
@@ -814,7 +831,7 @@ class Transaction {
                 return txnIdComparison;
             } else {
                 //txnIds can't be used (probably 'cause there's only one)
-                return lhs.outputIndex - rhs.outputIndex;
+                return lhs.prevTxnOutputIndex - rhs.prevTxnOutputIndex;
             }
         });
     }

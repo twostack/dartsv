@@ -5,12 +5,12 @@ import 'dart:typed_data';
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/privatekey.dart';
-import 'package:dartsv/src/script/P2PKHScriptPubkey.dart';
-import 'package:dartsv/src/script/P2PKHScriptSig.dart';
 import 'package:dartsv/src/script/interpreter.dart';
 import 'package:dartsv/src/script/opcodes.dart';
 import 'package:dartsv/src/script/scriptflags.dart';
 import 'package:dartsv/src/script/svscript.dart';
+import 'package:dartsv/src/transaction/p2pkh_locking_script_builder.dart';
+import 'package:dartsv/src/transaction/p2pkh_unlocking_script_builder.dart';
 import 'package:hex/hex.dart';
 import 'package:test/test.dart';
 
@@ -119,7 +119,7 @@ void main() {
         test('should verify these trivial scripts', () {
             bool verified;
             var si = Interpreter();
-            verified = si.verifyScript(P2PKHScriptSig.fromString('OP_1'), P2PKHScriptPubkey.fromString('OP_1'));
+            verified = si.verifyScript(SVScript.fromString('OP_1'), SVScript.fromString('OP_1'));
             expect(verified, isTrue);
             verified = Interpreter().verifyScript(SVScript.fromString('OP_1'), SVScript.fromString('OP_0'));
             expect(verified, isFalse);
@@ -146,7 +146,7 @@ void main() {
             var publicKey = privateKey.publicKey;
             var fromAddress = publicKey.toAddress(NetworkType.TEST);
             var toAddress = Address('mrU9pEmAx26HcbKVrABvgL7AwA5fjNFoDc');
-            var scriptPubkey = P2PKHScriptPubkey(fromAddress);
+            var scriptPubkey = P2PKHLockBuilder(fromAddress).getScriptPubkey();
             var utxo = {
                 "address": fromAddress,
                 "txId": 'a477af6b2667c29670467e4e0728b685ee07b240235771862318e29ddbe58458',
@@ -156,16 +156,18 @@ void main() {
             };
             var tx = new Transaction()
                 .spendFromMap(utxo)
-                .spendTo(toAddress, BigInt.from(100000))
-                .signWith(privateKey, sighashType: 1);
+                .withUnLockingScriptBuilder(P2PKHUnlockBuilder())
+                .spendTo(toAddress, BigInt.from(100000));
+            tx.signInput( 0, privateKey, sighashType: 1);
+//                .signWith(privateKey, sighashType: 1);
 
             // we then extract the signature from the first input
             var inputIndex = 0;
             print(HEX.encode(hash160(HEX.decode(publicKey.toString()))));
 
-            var signature = (tx.inputs[0].script as P2PKHScriptSig).signature;
+            var signature = tx.inputs[0].signature;
 
-            var scriptSig = P2PKHScriptSig(signature, publicKey.toString());
+            var scriptSig = P2PKHUnlockBuilder().getScriptSig(signature, publicKey);
             var flags = ScriptFlags.SCRIPT_VERIFY_P2SH | ScriptFlags.SCRIPT_VERIFY_STRICTENC;
             var interpreter = Interpreter();
 
@@ -442,15 +444,15 @@ void main() {
         );
         credtx.addInput(txCredInput);
         credtx.serialize(performChecks: false);
-        TransactionOutput txCredOut = new TransactionOutput();
+        var txCredOut = TransactionOutput();
         txCredOut.satoshis = BigInt.from(inputAmount);
         txCredOut.script = scriptPubkey;
         credtx.addOutput(txCredOut);
 
         String idbuf = credtx.id;
 
-        var spendtx = new Transaction();
-        var txSpendInput = new TransactionInput(
+        var spendtx = Transaction();
+        var txSpendInput = TransactionInput(
             idbuf,
             0,
             scriptSig,
@@ -535,7 +537,7 @@ void main() {
 //            }
             var scriptSig = txin.script;
             var txidhex = txin.prevTxnId;
-            var txoutnum = txin.outputIndex;
+            var txoutnum = txin.prevTxnOutputIndex;
             var scriptPubkey = map[txidhex + ':' + txoutnum.toString()];
             expect(scriptPubkey, isNotNull);
             expect(scriptSig, isNotNull);
