@@ -3,8 +3,8 @@ import 'dart:typed_data';
 import 'package:buffer/buffer.dart';
 import 'package:dartsv/src/address.dart';
 import 'package:dartsv/src/encoding/utils.dart';
-import 'package:dartsv/src/script/P2PKHScriptPubkey.dart';
 import 'package:dartsv/src/script/svscript.dart';
+import 'package:dartsv/src/transaction/p2pkh_locking_script_builder.dart';
 import 'package:hex/hex.dart';
 import 'transaction.dart';
 import 'package:sprintf/sprintf.dart';
@@ -115,7 +115,7 @@ class TransactionOutput {
     /// Sets the [Address] of the recipient in the case of a
     /// P2PKH output. This is only useful for generating "change outputs".
     set recipient(Address address) {
-        this._script = P2PKHScriptPubkey(address);
+        this._script = P2PKHLockBuilder(address).getScriptPubkey();
         _recipient = address;
     }
 

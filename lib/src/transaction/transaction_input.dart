@@ -2,53 +2,14 @@ import 'dart:typed_data';
 
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
-import 'package:dartsv/src/script/P2PKHScriptPubkey.dart';
-import 'package:dartsv/src/script/P2PKHScriptSig.dart';
 import 'package:dartsv/src/script/svscript.dart';
+import 'package:dartsv/src/transaction/p2pkh_unlocking_script_builder.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
+import 'package:dartsv/src/transaction/unlocking_script_builder.dart';
 import 'package:hex/hex.dart';
 import 'package:buffer/buffer.dart';
 
 import 'transaction.dart';
-
-
-//class P2PKHInput extends TransactionInput with ScriptSig{
-//
-//    P2PKHInput(String txId, int outputIndex, SVScript script, BigInt satoshis, int seqNumber) :
-//            super(txId, outputIndex, script, satoshis, seqNumber);
-//
-//    SVScript getScriptSig(SVSignature txSignature, SVPublicKey signerPubkey){
-//        return P2PKHScriptSig(txSignature.toTxFormat(), signerPubkey.toString()); //Spend using pubkey associated with privateKey
-//    }
-//
-//}
-
-abstract class UnlockingScriptBuilder {
-    SVScript getScriptSig(SVSignature txSignature, SVPublicKey signerPubkey);
-}
-
-abstract class LockingScriptBuilder {
-    SVScript getScriptPubkey();
-}
-
-class P2PKHLockBuilder extends LockingScriptBuilder {
-    Address _address;
-
-    P2PKHLockBuilder(this._address);
-
-    SVScript getScriptPubkey(){
-        return P2PKHScriptPubkey(_address);
-    }
-}
-
-class P2PKHUnlockBuilder extends UnlockingScriptBuilder{
-
-    SVScript getScriptSig(SVSignature txSignature, SVPublicKey signerPubkey){
-        return P2PKHScriptSig(txSignature.toTxFormat(), signerPubkey.toString()); //Spend using pubkey associated with privateKey
-    }
-}
-
-
 
 /// Class that represents the "input" to a transaction.
 ///
@@ -68,6 +29,8 @@ class TransactionInput {
     bool _isPubkeyHashInput = false;
 
     int _sequenceNumber;
+
+    SVSignature _signature;
 
     /// Constructs a new transaction input
     ///
@@ -182,10 +145,16 @@ class TransactionInput {
         sig.nhashtype = sighashType;
         sig.sign(reversedHash);
 
+        _signature = sig;
+
         var signerPubkey = privateKey.publicKey;
 
         //update the input script's scriptSig
         script = sigBuilder.getScriptSig(sig, signerPubkey);
+
+
+        //FIXME: This tight coupling between the TransactionInput and LockingScript Type needs to break !
+        _isPubkeyHashInput = sigBuilder is P2PKHUnlockBuilder;
 
     }
 
@@ -207,7 +176,6 @@ class TransactionInput {
 
     /// Set the script that represents the parent transaction's output (UTXO)
     set script(SVScript script) {
-        _isPubkeyHashInput = script is P2PKHScriptSig;
         _prevTxnOutput.script = script;
     }
 
@@ -235,6 +203,10 @@ class TransactionInput {
         _prevTxnOutput = value;
     }
 
+    /// Returns the signature associated with this TransactionInput
+    ///
+    /// This property will only hold a value *after* the [sign()] method has been called
+    SVSignature get signature => _signature;
 
     /// [sequenceNumber] - The sequenceNumber is supposed to allow a transaction to be updated before being
     /// broadcast to the network. At least, that was the original purpose. At present this is only used to

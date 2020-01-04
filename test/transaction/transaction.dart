@@ -5,8 +5,9 @@ import 'dart:typed_data';
 
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/exceptions.dart';
-import 'package:dartsv/src/script/P2PKHScriptPubkey.dart';
 import 'package:dartsv/src/script/opcodes.dart';
+import 'package:dartsv/src/transaction/p2pkh_locking_script_builder.dart';
+import 'package:dartsv/src/transaction/p2pkh_unlocking_script_builder.dart';
 import 'package:dartsv/src/transaction/transaction_input.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
 import 'package:test/test.dart';
@@ -29,7 +30,7 @@ main() {
         "address": fromAddress,
         "txId": 'a477af6b2667c29670467e4e0728b685ee07b240235771862318e29ddbe58458',
         "outputIndex": 0,
-        "scriptPubKey": P2PKHScriptPubkey(fromAddress).toString(),
+        "scriptPubKey": P2PKHLockBuilder(fromAddress).getScriptPubkey().toString(),
         "satoshis": BigInt.from(100000)
     };
 
@@ -37,7 +38,7 @@ main() {
         "address": fromAddress,
         "txId": 'a477af6b2667c29670467e4e0728b685ee07b240235771862318e29ddbe58458',
         "outputIndex": 0,
-        "scriptPubKey": P2PKHScriptPubkey(fromAddress).toString(),
+        "scriptPubKey": P2PKHLockBuilder(fromAddress).getScriptPubkey().toString(),
         "satoshis": BigInt.from(1000000)
     };
 
@@ -48,7 +49,7 @@ main() {
         "address": fromAddress,
         "txId": "a477af6b2667c29670467e4e0728b685ee07b240235771862318e29ddbe58458",
         "outputIndex": 1,
-        "scriptPubKey": P2PKHScriptPubkey(fromAddress).toString(),
+        "scriptPubKey": P2PKHLockBuilder(fromAddress).getScriptPubkey().toString(),
         "satoshis": BigInt.from(1e8)
     };
 
@@ -135,12 +136,12 @@ main() {
 
         expect(transaction.outputs.length, equals(2));
         expect(transaction.outputs[1].satoshis, equals(BigInt.from(472899)));
-        expect(transaction.outputs[1].script.toString(), equals(P2PKHScriptPubkey(changeAddress).toString()));
+        expect(transaction.outputs[1].script.toString(), equals(P2PKHLockBuilder(changeAddress).getScriptPubkey().toString()));
         var actual = transaction
             .getChangeOutput()
             .script
             .toString();
-        var expected = P2PKHScriptPubkey(changeAddress).toString();
+        var expected = P2PKHLockBuilder(changeAddress).getScriptPubkey().toString();
         expect(actual, equals(expected));
     });
 
@@ -194,19 +195,19 @@ main() {
             var from1 = {
                 "txId": '0000000000000000000000000000000000000000000000000000000000000000',
                 "outputIndex": 0,
-                "scriptPubKey": P2PKHScriptPubkey(fromAddress).toString(),
+                "scriptPubKey": P2PKHLockBuilder(fromAddress).getScriptPubkey().toString(),
                 "satoshis": BigInt.from(100000)
             };
             var from2 = {
                 "txId": '0000000000000000000000000000000000000000000000000000000000000001',
                 "outputIndex": 0,
-                "scriptPubKey": P2PKHScriptPubkey(fromAddress).toString(),
+                "scriptPubKey": P2PKHLockBuilder(fromAddress).getScriptPubkey().toString(),
                 "satoshis": BigInt.from(100000)
             };
             var from3 = {
                 "txId": '0000000000000000000000000000000000000000000000000000000000000001',
                 "outputIndex": 1,
-                "scriptPubKey": P2PKHScriptPubkey(fromAddress).toString(),
+                "scriptPubKey": P2PKHLockBuilder(fromAddress).getScriptPubkey().toString(),
                 "satoshis": BigInt.from(100000)
             };
             var tx = new Transaction()
@@ -272,7 +273,7 @@ main() {
 
         expect(transaction.outputs.length, equals(3));
         expect(transaction.outputs[2].satoshis, equals(BigInt.from(30000)));
-        expect(transaction.outputs[2].script.toString(), equals(P2PKHScriptPubkey(changeAddress).toString()));
+        expect(transaction.outputs[2].script.toString(), equals(P2PKHLockBuilder(changeAddress).getScriptPubkey().toString()));
     });
 
 
@@ -670,7 +671,7 @@ main() {
 
                     var txOutputs = outputSet.map((output) {
                         var txOut = TransactionOutput();
-                        txOut.script = P2PKHScriptPubkey.fromByteArray(utf8.encode(output["script"]));
+                        txOut.script = SVScript.fromByteArray(utf8.encode(output["script"]));
                         txOut.satoshis = BigInt.from(output["value"]);
                         return txOut;
                     }).toList();

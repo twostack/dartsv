@@ -3,8 +3,6 @@ import 'dart:collection';
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/script/OpReturnScriptPubkey.dart';
-import 'package:dartsv/src/script/P2PKHScriptPubkey.dart';
-import 'package:dartsv/src/script/P2PKHScriptSig.dart';
 import 'package:dartsv/src/signature.dart';
 import 'package:dartsv/src/transaction/transaction_input.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
@@ -18,6 +16,9 @@ import 'dart:typed_data';
 import 'package:buffer/buffer.dart';
 
 import '../exceptions.dart';
+import 'locking_script_builder.dart';
+import 'p2pkh_locking_script_builder.dart';
+import 'unlocking_script_builder.dart';
 
 enum FeeMethod {
     USER_SPECIFIES,
@@ -354,10 +355,22 @@ class Transaction {
     }
 
 
+    /// Add a "change" output to this transaction
+    ///
+    /// When a new transaction is created to spend coins from an input transaction,
+    /// the entire *UTXO* needs to be consumed. I.e you cannot *partially* spend coins.
+    /// What needs to happen is :
+    ///   1) You consumer the entire UTXO in the new transaction input
+    ///   2) You subtract a *change* amount from the UTXO and the remainder will be sent to the receiving party
+    ///
+    /// The change amount is automatically calculated based on the fee rate that you set with [withFee()] or [withFeePerKb()]
+    ///
+    /// [changeAddress] - A bitcoin address where a standard P2PKH (Pay-To-Public-Key-Hash) output will be "sent"
+    ///
+    /// Returns an instance of the current Transaction as part of the builder pattern.
     Transaction sendChangeTo(Address changeAddress) {
         _changeScriptFlag = true;
         //get fee, and if there is not enough change to cover fee, remove change outputs
-
 
         //delete previous change transaction if exists
         _changeAddress = changeAddress;
@@ -373,6 +386,17 @@ class Transaction {
 
     }
 
+    /// Specifies a custom way of generating the unlocking script when "spending" a UTXO with
+    /// this transaction.
+    ///
+    /// Transactions are composed of "locking" and "unlocking" scripts (also referred to as ScriptPubKey and ScriptSig respectively)
+    /// which determine the conditions under which a new transaction will be considered valid. Bitcoin is *Programmable Money*
+    /// because we can write programmatic scripts using Bitcoin's Forth-like programming language
+    /// to determine the rules under which a transaction can "spend" the output from a previous transaction.
+    ///
+    /// A [LockingScriptBuilder] instance is used by the Transaction class to generate the bitcoin
+    /// script that will set this transaction's spending rules/conditions. By default a [P2PKHLockBuilder], which
+    /// creates a P2PKH (Pay-to-Public-Key-Hash) output script will be created.
     Transaction withLockingScriptBuilder(LockingScriptBuilder scriptBuilder){
         _lockingScriptBuilder = scriptBuilder;
 
@@ -728,7 +752,7 @@ class Transaction {
             txnOutput.recipient = _changeAddress;
             txnOutput.satoshis = changeAmount;
             if (_lockingScriptBuilder == null) {
-                _lockingScriptBuilder =  P2PKHLockBuilder(_changeAddress);
+                _lockingScriptBuilder =  P2PKHLockBuilder(_changeAddress); //For now we always generate change to a P2PKH address
             }
             txnOutput.script = _lockingScriptBuilder.getScriptPubkey();
             txnOutput.isChangeOutput = true;
