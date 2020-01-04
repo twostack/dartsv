@@ -3,9 +3,9 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:dartsv/src/bip39/bip39.dart';
 import 'package:resource/resource.dart';
 import 'package:test/test.dart';
+import 'package:twostack/src/bip39/bip39.dart';
 
 main(){
 

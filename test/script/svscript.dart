@@ -1,9 +1,10 @@
 import 'dart:typed_data';
 
-import 'package:dartsv/dartsv.dart';
-import 'package:dartsv/src/script/opcodes.dart';
-import 'package:dartsv/src/transaction/p2pkh_locking_script_builder.dart';
 import 'package:test/test.dart';
+import 'package:twostack/src/address.dart';
+import 'package:twostack/src/script/opcodes.dart';
+import 'package:twostack/src/script/svscript.dart';
+import 'package:twostack/src/transaction/p2pkh_locking_script_builder.dart';
 
 main() {
     group("Script from ByteArray", () {

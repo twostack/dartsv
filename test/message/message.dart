@@ -2,10 +2,11 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:dartsv/dartsv.dart';
-import 'package:hex/hex.dart';
 import 'package:pointycastle/export.dart';
 import 'package:test/test.dart';
+import 'package:twostack/src/address.dart';
+import 'package:twostack/src/message.dart';
+import 'package:twostack/src/privatekey.dart';
 
 
 main() {

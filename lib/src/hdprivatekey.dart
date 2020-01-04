@@ -1,6 +1,10 @@
 
 
-import 'package:dartsv/dartsv.dart';
+import 'package:twostack/src/hdpublickey.dart';
+import 'package:twostack/src/networks.dart';
+import 'package:twostack/src/privatekey.dart';
+import 'package:twostack/src/publickey.dart';
+
 import 'encoding/ckdserializer.dart';
 import 'package:hex/hex.dart';
 import 'crypto/hdutils.dart';

@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:buffer/buffer.dart';
-import 'package:dartsv/src/encoding/utils.dart';
-import 'package:dartsv/src/exceptions.dart';
 import 'package:hex/hex.dart';
+import 'package:twostack/src/encoding/utils.dart';
+import 'package:twostack/src/exceptions.dart';
 
 /// The BlockHeader contains the metadata for the contents of a block, as well as
 /// data describing it's place/position in the blockchain.

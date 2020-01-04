@@ -1,6 +1,6 @@
 
 
-import 'package:dartsv/src/script/svscript.dart';
+import 'package:twostack/walletsdk.dart';
 
 abstract class LockingScriptBuilder {
     SVScript getScriptPubkey();

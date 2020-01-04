@@ -1,6 +1,6 @@
-import 'package:dartsv/dartsv.dart';
-import 'package:dartsv/src/exceptions.dart';
 import 'package:test/test.dart';
+import 'package:twostack/src/exceptions.dart';
+import 'package:twostack/src/hdpublickey.dart';
 
 
 var xprivkey = 'xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi';

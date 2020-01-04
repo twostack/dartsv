@@ -1,11 +1,15 @@
 
-import 'package:dartsv/dartsv.dart';
-import 'package:dartsv/src/encoding/utils.dart';
 import 'package:hex/hex.dart';
 import 'package:pointycastle/pointycastle.dart';
 import 'package:test/test.dart';
+import 'package:twostack/src/address.dart';
+import 'package:twostack/src/encoding/utils.dart';
+import 'package:twostack/src/networks.dart';
 import 'dart:convert';
 import 'dart:io';
+
+import 'package:twostack/src/privatekey.dart';
+import 'package:twostack/src/publickey.dart';
 
 final _domainParams = new ECDomainParameters('secp256k1');
 

@@ -1,5 +1,4 @@
 
-import 'package:dartsv/dartsv.dart';
 import 'package:test/test.dart';
 
 var xprivkey = 'xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi';

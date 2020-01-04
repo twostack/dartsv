@@ -1,8 +1,12 @@
-import 'package:dartsv/dartsv.dart';
 import 'package:test/test.dart';
 import 'package:hex/hex.dart';
+import 'package:twostack/src/script/interpreter.dart';
+import 'package:twostack/src/script/scriptflags.dart';
+import 'package:twostack/src/sighash.dart';
 import 'dart:io';
 import 'dart:convert';
+
+import 'package:twostack/src/signature.dart';
 
 main() {
     var derBuffer = '3044022075fc517e541bd54769c080b64397e32161c850f6c1b2b67a5c433affbb3e62770220729e85cc46ffab881065ec07694220e71d4df9b2b8c8fd12c3122cf3a5efbcf2';

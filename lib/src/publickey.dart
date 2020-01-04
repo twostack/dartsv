@@ -1,6 +1,8 @@
-import 'package:dartsv/dartsv.dart';
 import 'package:hex/hex.dart';
 import 'package:pointycastle/pointycastle.dart';
+import 'package:twostack/src/address.dart';
+import 'package:twostack/src/networks.dart';
+import 'package:twostack/src/privatekey.dart';
 
 import 'encoding/utils.dart';
 import 'exceptions.dart';

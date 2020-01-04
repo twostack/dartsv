@@ -1,8 +1,12 @@
-import 'package:dartsv/dartsv.dart';
-import 'package:dartsv/src/exceptions.dart';
 import 'package:test/test.dart';
 import 'dart:convert';
 import 'dart:io';
+
+import 'package:twostack/src/address.dart';
+import 'package:twostack/src/exceptions.dart';
+import 'package:twostack/src/networks.dart';
+import 'package:twostack/src/privatekey.dart';
+import 'package:twostack/src/publickey.dart';
 
 void main() {
     // livenet valid

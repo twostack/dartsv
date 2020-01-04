@@ -3,10 +3,10 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:buffer/buffer.dart';
-import 'package:dartsv/src/encoding/utils.dart';
-import 'package:dartsv/src/exceptions.dart';
-import 'package:dartsv/src/transaction/transaction.dart';
 import 'package:hex/hex.dart';
+import 'package:twostack/src/encoding/utils.dart';
+import 'package:twostack/src/exceptions.dart';
+import 'package:twostack/src/transaction/transaction.dart';
 import 'blockheader.dart';
 
 /// A block is the largest of the blockchain's building blocks.

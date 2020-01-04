@@ -1,4 +1,5 @@
-import 'package:dartsv/dartsv.dart';
+
+import 'package:twostack/src/publickey.dart';
 
 import 'encoding/base58check.dart' as bs58check;
 import 'package:hex/hex.dart';

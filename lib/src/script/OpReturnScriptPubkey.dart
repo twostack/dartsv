@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:dartsv/src/script/svscript.dart';
 import 'package:hex/hex.dart';
 import 'package:sprintf/sprintf.dart';
+import 'package:twostack/walletsdk.dart';
 
 import '../exceptions.dart';
 import 'opcodes.dart';

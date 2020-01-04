@@ -1,6 +1,8 @@
 
-import 'package:dartsv/dartsv.dart';
 import 'package:test/test.dart';
+import 'package:twostack/src/hdprivatekey.dart';
+import 'package:twostack/src/hdpublickey.dart';
+import 'package:twostack/src/networks.dart';
 
 void main() {
     // test vectors: https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki

@@ -1,8 +1,10 @@
-import 'package:dartsv/dartsv.dart';
 import 'package:test/test.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:hex/hex.dart';
+import 'package:twostack/src/script/svscript.dart';
+import 'package:twostack/src/sighash.dart';
+import 'package:twostack/src/transaction/transaction.dart';
 
 
 main() {

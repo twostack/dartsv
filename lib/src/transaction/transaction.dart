@@ -1,11 +1,5 @@
 import 'dart:collection';
 
-import 'package:dartsv/dartsv.dart';
-import 'package:dartsv/src/encoding/utils.dart';
-import 'package:dartsv/src/script/OpReturnScriptPubkey.dart';
-import 'package:dartsv/src/signature.dart';
-import 'package:dartsv/src/transaction/transaction_input.dart';
-import 'package:dartsv/src/transaction/transaction_output.dart';
 import 'package:hex/hex.dart';
 import 'package:pointycastle/api.dart';
 import 'package:pointycastle/digests/sha256.dart';
@@ -14,6 +8,16 @@ import 'package:pointycastle/macs/hmac.dart';
 import 'package:pointycastle/signers/ecdsa_signer.dart';
 import 'dart:typed_data';
 import 'package:buffer/buffer.dart';
+import 'package:twostack/src/address.dart';
+import 'package:twostack/src/encoding/utils.dart';
+import 'package:twostack/src/privatekey.dart';
+import 'package:twostack/src/publickey.dart';
+import 'package:twostack/src/script/OpReturnScriptPubkey.dart';
+import 'package:twostack/src/script/svscript.dart';
+import 'package:twostack/src/sighash.dart';
+import 'package:twostack/src/signature.dart';
+import 'package:twostack/src/transaction/transaction_input.dart';
+import 'package:twostack/src/transaction/transaction_output.dart';
 
 import '../exceptions.dart';
 import 'locking_script_builder.dart';

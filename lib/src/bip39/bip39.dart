@@ -5,7 +5,7 @@ import 'dart:async';
 
 import 'package:pointycastle/key_derivators/api.dart';
 import 'package:resource/resource.dart';
-import 'package:dartsv/src/encoding/utils.dart';
+import 'package:twostack/src/encoding/utils.dart';
 import 'package:unorm_dart/unorm_dart.dart';
 import 'package:pointycastle/api.dart';
 

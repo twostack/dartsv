@@ -1,8 +1,5 @@
 import 'dart:typed_data';
 
-import 'package:dartsv/dartsv.dart';
-import 'package:dartsv/src/privatekey.dart';
-import 'package:dartsv/src/publickey.dart';
 import 'package:pointycastle/api.dart';
 import 'package:pointycastle/digests/sha256.dart';
 import 'package:pointycastle/export.dart';
@@ -12,6 +9,9 @@ import 'package:pointycastle/signers/ecdsa_signer.dart';
 import 'package:pointycastle/pointycastle.dart';
 import 'package:asn1lib/asn1lib.dart';
 import 'package:hex/hex.dart';
+import 'package:twostack/src/privatekey.dart';
+import 'package:twostack/src/publickey.dart';
+import 'package:twostack/src/sighash.dart';
 
 import 'exceptions.dart';
 
