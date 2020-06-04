@@ -5,7 +5,7 @@ author: Stephan M. February <stephan@werkswinkel.com>
 homepage: https://github.com/twostack/dartsv
 
 environment:
-  sdk: '>=2.1.0 <3.0.0'
+  sdk: '>=2.8.0 <3.0.0'
 
 dependencies:
   hex: ^0.1.2

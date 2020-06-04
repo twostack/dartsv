@@ -28,9 +28,12 @@ class TransactionOutput {
 
     SVScript _script;
 
+
     /// The default constructor. Initializes a "clean slate" output.
     TransactionOutput();
 
+    // FIXME: This should be default constructor
+   // TransactionOutput(this._satoshis, this._script, this._outputIndex, this._transactionId);
 
     /// Constructs a new Transaction output from a ByteDataReader that
     /// has been initialized with the raw transaction output data.

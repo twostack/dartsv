@@ -72,11 +72,14 @@ enum TransactionOption {
 class Transaction {
     int _version = 1;
     int _nLockTime = 0;
-    final List<TransactionInput> _txnInputs = [];
-    final List<TransactionOutput> _txnOutputs = [];
+    final List<TransactionInput> _txnInputs = [];  //this transaction's inputs
+    final List<TransactionOutput> _txnOutputs = []; //this transaction's outputs
+    final List<TransactionOutput> _utxos = [];  //the UTXOs from spent Transaction
     Address _changeAddress;
     final Set<TransactionOption> _transactionOptions = Set<TransactionOption>();
 
+    List<int> _txHash;
+    String _txId;
 
     static final SHA256Digest _sha256Digest = SHA256Digest();
     final ECDSASigner _dsaSigner = ECDSASigner(null, HMac(_sha256Digest, 64));
@@ -185,6 +188,10 @@ class Transaction {
 
     /// Constructs a  transaction instance from the raw hexadecimal string.
     Transaction.fromHex(String txnHex) {
+
+        List<int> hash = sha256Twice(HEX.decode(txnHex));
+        _txHash = hash;
+        _txId = HEX.encode(_txHash);
         _parseTransactionHex(txnHex);
 
     }
@@ -206,14 +213,27 @@ class Transaction {
         };
     }
 
+    //The hash is the double-sha256 of the serialized transaction (reversed)
+    List<int> _getHash(){
+        List<int> hash = sha256Twice(HEX.decode(serialize(performChecks: false)));
+        return hash;
+    }
+
+    //The id is the hex encoded form of the hash
+    String _getId(){
+        var id = HEX.encode(_getHash().reversed.toList());
+        _txId = id;
+        return _txId;
+    }
+
     /// Returns the transaction ID.
     ///
     /// The transaction ID is the double-sha256 of the raw (hexadecimal) transaction.
-    String get id => HEX.encode(sha256Twice(HEX.decode(serialize(performChecks: false))).reversed.toList());
+    String get id => _getId();
 
     // transaction Hash - FIXME: I thought 'id' should be equal to 'hash' ? VALIDATE !
     /// Returns the double-sha256 of the raw (hexadecimal) transaction
-    List<int> get hash => sha256Twice(HEX.decode(serialize(performChecks: false)));
+    List<int> get hash => _getHash();
 
 
     /// Serialize the transaction object to it's raw hexadecimal representation, ready to be
@@ -302,9 +322,11 @@ class Transaction {
         return this;
     }
 
-    Transaction spendFromInputs(List<TransactionInput> inputs) {
-        inputs.forEach((input) => _txnInputs.add(input));
-
+    Transaction spendFromOutputs(List<TransactionOutput> outputs, int sequenceNumber){
+        outputs.forEach((utxo) {
+            var input = TransactionInput(utxo.transactionId, utxo.outputIndex, utxo.script, utxo.satoshis, sequenceNumber);
+            _txnInputs.add(input);
+        });
         _updateChangeOutput();
         return this;
     }
@@ -381,6 +403,8 @@ class Transaction {
     void signInput( int index, SVPrivateKey privateKey, {sighashType = 0}){
         if (_txnInputs.length > index + 1){
             throw TransactionException("Input index out of range. Max index is ${_txnInputs.length + 1}");
+        }else if (_txnInputs.length == 0) {
+            throw TransactionException( "No Inputs defined. Please add some Transaction Inputs");
         }
         _txnInputs[index].sign(_unlockingScriptBuilder, this, privateKey, sighashType: sighashType);
 
@@ -594,7 +618,7 @@ class Transaction {
 
     bool isCoinbase() {
         //if we have a Transaction with one input, and a prevTransactionId of zeroooos, it's a coinbase.
-        return (_txnInputs.length == 1 && _txnInputs[0].prevTxnOutput.transactionId.replaceAll('0', '').trim() == '');
+        return (_txnInputs.length == 1 && (_txnInputs[0].prevTxnOutput.transactionId == null || _txnInputs[0].prevTxnOutput.transactionId.replaceAll('0', '').trim() == ''));
     }
 
 
@@ -716,6 +740,8 @@ class Transaction {
         sizeTxOuts = readVarIntNum(reader);
         for (i = 0; i < sizeTxOuts; i++) {
             var output = TransactionOutput.fromReader(reader);
+            output.outputIndex = i;
+            output.transactionId = _txId;
             _txnOutputs.add(output);
         }
 

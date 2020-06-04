@@ -24,5 +24,8 @@ export 'src/transaction/transaction.dart';
 export 'src/transaction/transaction_output.dart';
 export 'src/transaction/transaction_input.dart';
 export 'src/encoding/base58check.dart';
+export 'src/transaction/p2pkh_locking_script_builder.dart';
+export 'src/transaction/p2pkh_unlocking_script_builder.dart';
+export 'src/encoding/utils.dart';
 
 
