@@ -4,19 +4,19 @@ import 'package:buffer/buffer.dart';
 import 'package:dartsv/src/address.dart';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/script/svscript.dart';
-import 'package:dartsv/src/transaction/p2pkh_locking_script_builder.dart';
 import 'package:hex/hex.dart';
+import '../../dartsv.dart';
 import 'transaction.dart';
 import 'package:sprintf/sprintf.dart';
 
 /// Class that represents the output (UTXO) of a transaction.
 ///
-/// When creating new transactions, the outputs are can be :
+/// When creating new transactions, the outputs can be :
 ///
 /// 1) Locked up for another recipient to spend
 /// 2) Locked up for ourselves to spend
 /// 3) Represented as a "data" transaction by using `OP_FALSE OP_RETURN <data>` in the script
-/// 4) Represent any arbitrary bitcoin script on the BSV network after the Genesis restoration
+/// 4) Represents any arbitrary bitcoin script on the BSV network after the Genesis restoration
 /// in February 2020.
 ///
 class TransactionOutput {

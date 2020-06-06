@@ -44,7 +44,7 @@ class Interpreter {
     int _flags = 0;
 
     SVScript _script;
-    Transaction _tx;
+    SignedTransaction _tx;
     int _nin;
     BigInt _satoshis;
 
@@ -193,9 +193,9 @@ class Interpreter {
     ///  `satoshis` - amount in satoshis of the input to be verified (when FORKID signhash is used)
     ///
     ///  __Translated from bitcoind's VerifyScript__
-    bool verifyScript(SVScript scriptSig, SVScript scriptPubkey, {Transaction tx, int nin = 0, int flags = 0, BigInt satoshis}) {
+    bool verifyScript(SVScript scriptSig, SVScript scriptPubkey, {SignedTransaction tx, int nin = 0, int flags = 0, BigInt satoshis}) {
         if (tx == null) {
-            tx =  Transaction();
+            //tx =  Transaction(P2PKHBuilder(P2PKHLocker(), P2PKHUnlocker()));
         }
 
 

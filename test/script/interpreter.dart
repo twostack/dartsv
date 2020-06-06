@@ -9,8 +9,7 @@ import 'package:dartsv/src/script/interpreter.dart';
 import 'package:dartsv/src/script/opcodes.dart';
 import 'package:dartsv/src/script/scriptflags.dart';
 import 'package:dartsv/src/script/svscript.dart';
-import 'package:dartsv/src/transaction/p2pkh_locking_script_builder.dart';
-import 'package:dartsv/src/transaction/p2pkh_unlocking_script_builder.dart';
+import 'package:dartsv/src/transaction/transaction_input.dart';
 import 'package:hex/hex.dart';
 import 'package:test/test.dart';
 
@@ -154,10 +153,9 @@ void main() {
                 "scriptPubKey": scriptPubkey.toString(),
                 "satoshis": BigInt.from(100000)
             };
-            var tx = new Transaction()
+            var tx = Transaction()
                 .spendFromMap(utxo)
-                .withUnLockingScriptBuilder(P2PKHUnlockBuilder())
-                .spendTo(toAddress, BigInt.from(100000));
+                .spendTo(toAddress, BigInt.from(100000), P2PKHLockBuilder(toAddress));
             tx.signInput( 0, privateKey, sighashType: 1);
 //                .signWith(privateKey, sighashType: 1);
 
@@ -167,7 +165,7 @@ void main() {
 
             var signature = tx.inputs[0].signature;
 
-            var scriptSig = P2PKHUnlockBuilder().getScriptSig(signature, publicKey);
+            var scriptSig = P2PKHUnlockBuilder(publicKey).getScriptSig();
             var flags = ScriptFlags.SCRIPT_VERIFY_P2SH | ScriptFlags.SCRIPT_VERIFY_STRICTENC;
             var interpreter = Interpreter();
 
