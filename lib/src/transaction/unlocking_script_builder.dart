@@ -5,5 +5,6 @@ import 'package:dartsv/src/signature.dart';
 
 abstract class UnlockingScriptBuilder {
     SVScript getScriptSig();
+    void deSerialize(SVScript script);
 }
 

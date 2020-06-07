@@ -1,7 +1,4 @@
 
-
-
-import 'package:dartsv/src/transaction/GScriptBuilder.dart';
 import 'package:dartsv/src/transaction/signed_unlock_builder.dart';
 import 'package:hex/hex.dart';
 import 'package:sprintf/sprintf.dart';
@@ -29,6 +26,11 @@ abstract class _P2PKLockBuilder implements LockingScriptBuilder{
 
   @override
   SVScript get scriptPubkey => getScriptPubkey();
+
+  @override
+  void deSerialize(SVScript script) {
+    throw UnimplementedError();
+  }
 
 }
 
@@ -59,6 +61,11 @@ abstract class _P2PKUnlockBuilder extends SignedUnlockBuilder implements Unlocki
 
   @override
   SVScript get scriptSig => getScriptSig();
+
+  @override
+  void deSerialize(SVScript script) {
+    throw UnimplementedError();
+  }
 
 }
 

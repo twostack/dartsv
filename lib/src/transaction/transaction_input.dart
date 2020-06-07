@@ -8,7 +8,6 @@ import 'package:dartsv/src/transaction/unlocking_script_builder.dart';
 import 'package:hex/hex.dart';
 import 'package:buffer/buffer.dart';
 
-import 'GScriptBuilder.dart';
 import 'transaction.dart';
 
 /// Class that represents the "input" to a transaction.
@@ -141,7 +140,7 @@ class TransactionInput {
     }
 
     /// Returns the scriptSig (Input Script / Unlocking Script)
-    SVScript get script => _scriptSig;
+    SVScript get script => _scriptSig; //FIXME: scriptBuilder needs to parse as well
 
     /// Set the script that represents the parent transaction's output (UTXO)
     set script(SVScript script) {
