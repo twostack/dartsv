@@ -21,7 +21,7 @@ import 'transaction.dart';
 ///
 class TransactionInput {
 
-    UnlockingScriptBuilder scriptBuilder;
+    UnlockingScriptBuilder _scriptBuilder;
 
     /// Maximum size an unsigned int can be. Used as value of [sequenceNumber] when we
     /// want to indicate that the transaction's [Transaction.nLockTime] should be ignored.
@@ -32,13 +32,15 @@ class TransactionInput {
 
     //SVSignature _signature;
 
-    SVScript _scriptSig;
+//    SVScript _scriptSig;
 
     int _prevTxnOutputIndex;
 
     String _prevTxnId;
 
     BigInt _spendingAmount;
+
+    SVScript _utxoScript;
 
     /// Constructs a new transaction input
     ///
@@ -52,14 +54,18 @@ class TransactionInput {
     /// broadcast to the network. At least, that was the original purpose. At present this is only used to
     /// indicate whether nLockTime should be honored or ignored. Set this value to [UINT_MAX] to indicate
     /// that transaction's [Transaction.nLockTime] should be ignored.
-    TransactionInput(String txId, int outputIndex, SVScript script, BigInt satoshis, int seqNumber) {
+    TransactionInput(String txId, int outputIndex, SVScript utxoScript, BigInt satoshis, int seqNumber, {UnlockingScriptBuilder scriptBuilder}) {
         _prevTxnId = txId;
         _prevTxnOutputIndex = outputIndex;
-        _scriptSig = script;
+//        _scriptSig = script;
+        _utxoScript = utxoScript;
         _sequenceNumber = seqNumber ??= UINT_MAX - 1;
         _spendingAmount = satoshis;
 
-        _isPubkeyHashInput = _scriptSig.isScriptHashOut();
+        //default to P2PKH
+        _scriptBuilder = scriptBuilder ??= P2PKHUnlockBuilder(null);
+
+        _isPubkeyHashInput = _scriptBuilder is P2PKHUnlockBuilder; //FIXME: Do this outside of here.
     }
 
 
@@ -69,17 +75,19 @@ class TransactionInput {
     /// This method is useful when iteratively reading the transaction
     /// inputs in a raw transaction, which is also how it is currently
     /// being used.
-    TransactionInput.fromReader(ByteDataReader reader) {
+    TransactionInput.fromReader(ByteDataReader reader, {UnlockingScriptBuilder scriptBuilder = null}) {
 
         _prevTxnId = HEX.encode(reader.read(32, copy: true).reversed.toList());
         _prevTxnOutputIndex = reader.readUint32(Endian.little);
 
         var len = readVarIntNum(reader);
-        _scriptSig = SVScript.fromBuffer(reader.read(len, copy: true));
+        var scriptSig = SVScript.fromBuffer(reader.read(len, copy: true));
+        _scriptBuilder = scriptBuilder ??= P2PKHUnlockBuilder(null);
+        _scriptBuilder.deSerialize(scriptSig);
 
         _sequenceNumber = reader.readUint32(Endian.little);
 
-        _isPubkeyHashInput = _scriptSig.isScriptHashOut();
+        _isPubkeyHashInput = scriptBuilder is P2PKHUnlockBuilder; //FIXME: do this elsewhere (also other constructor)
     }
 
     ///Returns a buffer containing the serialized bytearray for this TransactionInput
@@ -90,7 +98,7 @@ class TransactionInput {
         writer.write(HEX.decode(_prevTxnId).reversed.toList(), copy: true);
 
         writer.writeUint32(_prevTxnOutputIndex, Endian.little);
-        var scriptHex = HEX.decode(_scriptSig.toHex());
+        var scriptHex = HEX.decode(_scriptBuilder.getScriptSig().toHex());
 
         writer.write(varIntWriter(scriptHex.length).toList(), copy: true);
         writer.write(scriptHex, copy: true);
@@ -116,7 +124,7 @@ class TransactionInput {
             'prevTxId': _prevTxnId,
             'outputIndex': _prevTxnOutputIndex,
             'sequenceNumber': sequenceNumber,
-            'script': _scriptSig.toHex()
+            'script': _scriptBuilder.getScriptSig().toHex()
         };
     }
 
@@ -140,12 +148,15 @@ class TransactionInput {
     }
 
     /// Returns the scriptSig (Input Script / Unlocking Script)
-    SVScript get script => _scriptSig; //FIXME: scriptBuilder needs to parse as well
+    SVScript get script => _scriptBuilder.getScriptSig();
 
     /// Set the script that represents the parent transaction's output (UTXO)
     set script(SVScript script) {
-        _scriptSig = script;
+        _scriptBuilder.deSerialize(script);
     }
+
+    /// Returns the current instance of UnlockingScriptBuilder in use
+    UnlockingScriptBuilder get scriptBuilder => _scriptBuilder;
 
     /// Returns the index value of the transaction output (UTXO) that this input is spending from.
     int get prevTxnOutputIndex => _prevTxnOutputIndex;
@@ -180,3 +191,5 @@ class TransactionInput {
 
 
 }
+
+

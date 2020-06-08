@@ -8,8 +8,6 @@ import 'package:dartsv/src/exceptions.dart';
 import 'package:dartsv/src/script/opcodes.dart';
 import 'package:dartsv/src/transaction/transaction.dart';
 import 'package:dartsv/src/transaction/p2pkh_builder.dart';
-import 'package:dartsv/src/transaction/p2pkh_locking_script_builder.dart';
-import 'package:dartsv/src/transaction/p2pkh_unlocking_script_builder.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
 import 'package:test/test.dart';
 
@@ -62,13 +60,15 @@ main() {
     test('bootstrap test - should be able to add two outputs with short addresses', () {
 
         // var signature = SVSignature.fromPrivateKey(privateKey); //sig class. not actual sig.
-        var locker = P2PKHLocker(toAddress);
-        var unlocker = P2PKHUnlocker(privateKey.publicKey);
-        P2PKHTransaction tx = P2PKHTransaction(P2PKHBuilder(locker, unlocker));
+        var locker = P2PKHLockBuilder(toAddress);
+        var unlocker = P2PKHUnlockBuilder(privateKey.publicKey);
+        Transaction tx = Transaction();
 
-        tx.spendTo(Address('1DpLHif3FBFnckw7Fj653VCr5wYQa3Fiow'), BigInt.from(10000));
-        tx.spendTo(Address('1ArnPQhtRU3voDbLcTRRzBuJtiCPHnKuN'), BigInt.from(123445));
-        tx.spendTo(Address('1111111111111111111114oLvT2'), BigInt.from(123445));
+        tx.spendTo(Address('1DpLHif3FBFnckw7Fj653VCr5wYQa3Fiow'), BigInt.from(10000), P2PKHLockBuilder(Address('1DpLHif3FBFnckw7Fj653VCr5wYQa3Fiow')));
+        tx.spendTo(Address('1ArnPQhtRU3voDbLcTRRzBuJtiCPHnKuN'), BigInt.from(123445), P2PKHLockBuilder(Address('1ArnPQhtRU3voDbLcTRRzBuJtiCPHnKuN')));
+        tx.spendTo(Address('1111111111111111111114oLvT2'), BigInt.from(123445), P2PKHLockBuilder(Address('1111111111111111111114oLvT2')) );
+
+        //FIXME: What is the assertion!?
     });
 
     test('should serialize and deserialize correctly a given transaction', () {
@@ -87,21 +87,23 @@ main() {
     var testPrevTx = 'a477af6b2667c29670467e4e0728b685ee07b240235771862318e29ddbe58458';
     var testAmount = BigInt.from(1020000);
     // var signature = SVSignature.fromPrivateKey(privateKey); //sig class. not actual sig.
-    var locker = P2PKHLocker(toAddress);
-    var unlocker = P2PKHUnlocker(privateKey.publicKey);
+    var locker = P2PKHLockBuilder(toAddress);
+    var unlocker = P2PKHUnlockBuilder(privateKey.publicKey);
     //P2PKHTransaction tx = P2PKHTransaction(P2PKHBuilder(locker, unlocker));
-    var testTransaction = new P2PKHTransaction(P2PKHBuilder(locker, unlocker))
-        .spendFromMap({
-        'txId': testPrevTx,
-        'outputIndex': 0,
-        'scriptPubKey': testScript,
-        'satoshis': testAmount
-    })
-        .spendTo(Address('mrU9pEmAx26HcbKVrABvgL7AwA5fjNFoDc'), testAmount - BigInt.from(10000));
+    var testTransaction = new Transaction()
+            .spendFromMap({
+            'txId': testPrevTx,
+            'outputIndex': 0,
+            'scriptPubKey': testScript,
+            'satoshis': testAmount
+        })
+        .spendTo(Address('mrU9pEmAx26HcbKVrABvgL7AwA5fjNFoDc'),
+            testAmount - BigInt.from(10000),
+            P2PKHLockBuilder(Address('mrU9pEmAx26HcbKVrABvgL7AwA5fjNFoDc')));
 
     test('can perform serialization', () {
-        expect(testTransaction.inputs[0].prevTxnOutput.satoshis, equals(testAmount));
-//        expect(testTransaction.inputs[0].output.scriptHex, equals(testScriptHex));  //FIXME: SVScript does not properly process these human-readable script translations right now
+        expect(testTransaction.inputs[0].satoshis, equals(testAmount));
+       // expect(testTransaction.inputs[0].script.toHex(), equals(testScriptHex));  //FIXME: SVScript does not properly process these human-readable script translations right now
         expect(testTransaction.inputs[0].prevTxnId, equals(testPrevTx));
         expect(testTransaction.inputs[0].prevTxnOutputIndex, equals(0));
         expect(testTransaction.outputs[0].satoshis, equals(testAmount - BigInt.from(10000)));
@@ -110,11 +112,11 @@ main() {
     test("Amount you're spending must be a positive integer value", () {
 
         // var signature = SVSignature.fromPrivateKey(privateKey); //sig class. not actual sig.
-        var locker = P2PKHLocker(toAddress);
-        var unlocker = P2PKHUnlocker(privateKey.publicKey);
-        P2PKHTransaction txn = P2PKHTransaction(P2PKHBuilder(locker, unlocker));
+        var locker = P2PKHLockBuilder(toAddress);
+        var unlocker = P2PKHUnlockBuilder(privateKey.publicKey);
+        Transaction txn = Transaction();
         var destAddress = Address('mrU9pEmAx26HcbKVrABvgL7AwA5fjNFoDc');
-        expect(() => txn.spendTo(destAddress, BigInt.zero), throwsException);
+        expect(() => txn.spendTo(destAddress, BigInt.zero, P2PKHLockBuilder(destAddress)), throwsException);
     });
 
     test('returns the fee as value of unspent output', () {
@@ -155,12 +157,12 @@ main() {
       //the Transaction we are spending from.
       var utxo = txWithUTXO.outputs[0]; //looking at the decoded JSON we can see that our UTXO in at vout[0]
 
-      var locker = P2PKHLocker(recipientAddress);
-      var unlocker = P2PKHUnlocker(privateKey.publicKey);
-      P2PKHTransaction txn = P2PKHTransaction(P2PKHBuilder(locker, unlocker));
-          txn.spendFromOutputs([utxo], Transaction.NLOCKTIME_MAX_VALUE) //set global sequenceNumber/nLocktime time for each Input created
-          .spendTo(recipientAddress, BigInt.from(50000000)) //spend half of a bitcoin (we should have 1 in the UTXO)
-          .sendChangeTo(changeAddress) // spend change to myself
+      var locker = P2PKHLockBuilder(recipientAddress);
+      var unlocker = P2PKHUnlockBuilder(privateKey.publicKey);
+      var txn = Transaction();
+          txn.spendFromOutput(utxo, Transaction.NLOCKTIME_MAX_VALUE, unlocker) //set global sequenceNumber/nLocktime time for each Input created
+          .spendTo(recipientAddress, BigInt.from(50000000), locker) //spend half of a bitcoin (we should have 1 in the UTXO)
+          .sendChangeTo(changeAddress, locker) // spend change to myself
           .withFeePerKb(100000);
 
       //Sign the Transaction Input
@@ -171,9 +173,8 @@ main() {
     test('can calculate output amounts and correct change address', () {
         var transaction = new Transaction()
             .spendFromMap(simpleUtxoWith1000000Satoshis)
-            .spendTo(toAddress, BigInt.from(500000))
-            .withUnLockingScriptBuilder(P2PKHUnlockBuilder())
-            .sendChangeTo(changeAddress);
+            .spendTo(toAddress, BigInt.from(500000), P2PKHLockBuilder(toAddress))
+            .sendChangeTo(changeAddress, P2PKHLockBuilder(changeAddress));
 //        transaction.signWith(privateKey);
         transaction.withFeePerKb(100000);
 

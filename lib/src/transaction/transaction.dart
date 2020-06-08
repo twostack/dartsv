@@ -145,6 +145,7 @@ class Transaction{
     //Transaction();
 
     /// Creates a  Transaction instance from a JSON or MAP object.
+    /// The Transaction is implicitly treated as a P2PKH Transaction
     ///
     /// ### Expected JSON/Map Format
     /// ```
@@ -364,8 +365,7 @@ class Transaction{
 //    }
 
     Transaction spendFromOutput(TransactionOutput utxo, int sequenceNumber, UnlockingScriptBuilder scriptBuilder){
-        var input = TransactionInput(utxo.transactionId, utxo.outputIndex, utxo.script, utxo.satoshis, sequenceNumber);
-        input.scriptBuilder = scriptBuilder;
+        var input = TransactionInput(utxo.transactionId, utxo.outputIndex, utxo.script, utxo.satoshis, sequenceNumber, scriptBuilder: scriptBuilder);
 
         return addInput(input);
     }
@@ -376,6 +376,8 @@ class Transaction{
         return this;
     }
 
+    /// The Transaction Inputs are implicitly treated as P2PKH
+    //FIXME: We might want to generalize this for other ScriptBuilder types
     Transaction spendFromMap(Map<String, Object> map) {
         //FIXME: More robust validation / error handling needed here.
         if (map['satoshis'] == null || !(map['satoshis'] is BigInt)) {

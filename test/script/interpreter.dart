@@ -9,6 +9,7 @@ import 'package:dartsv/src/script/interpreter.dart';
 import 'package:dartsv/src/script/opcodes.dart';
 import 'package:dartsv/src/script/scriptflags.dart';
 import 'package:dartsv/src/script/svscript.dart';
+import 'package:dartsv/src/transaction/signed_unlock_builder.dart';
 import 'package:dartsv/src/transaction/transaction_input.dart';
 import 'package:hex/hex.dart';
 import 'package:test/test.dart';
@@ -163,7 +164,7 @@ void main() {
             var inputIndex = 0;
             print(HEX.encode(hash160(HEX.decode(publicKey.toString()))));
 
-            var signature = tx.inputs[0].signature;
+            var signature = (tx.inputs[0].scriptBuilder as SignedUnlockBuilder).signature;
 
             var scriptSig = P2PKHUnlockBuilder(publicKey).getScriptSig();
             var flags = ScriptFlags.SCRIPT_VERIFY_P2SH | ScriptFlags.SCRIPT_VERIFY_STRICTENC;

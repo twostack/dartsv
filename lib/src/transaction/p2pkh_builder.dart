@@ -120,9 +120,10 @@ abstract class _P2PKHUnlockBuilder extends SignedUnlockBuilder implements Unlock
         throw ScriptException("Wrong number of data elements for P2PKH ScriptSig");
       }
 
-      if (chunkList[0].len != 73 && chunkList[1].len != 65){
-        throw ScriptException("Signature and Public Key values are malformed");
-      }
+      //removing for now... we might have compressed pubkey
+      // if (chunkList[0].len != 73 && chunkList[1].len != 65){
+      //   throw ScriptException("Signature and Public Key values are malformed");
+      // }
 
       var sig = chunkList[0].buf;
       var pubKey = chunkList[1].buf;

@@ -26,11 +26,15 @@ class TransactionOutput {
     int _outputIndex;
     bool _isChangeOutput = false;
 
-    SVScript _script;
+    //SVScript _script;
+
+    LockingScriptBuilder _scriptBuilder;
 
 
     /// The default constructor. Initializes a "clean slate" output.
-    TransactionOutput();
+    TransactionOutput({LockingScriptBuilder scriptBuilder = null}){
+       _scriptBuilder = scriptBuilder ??= P2PKHLockBuilder(null);
+    }
 
     // FIXME: This should be default constructor
    // TransactionOutput(this._satoshis, this._script, this._outputIndex, this._transactionId);
@@ -41,13 +45,19 @@ class TransactionOutput {
     /// This method is useful when iteratively reading the transaction
     /// outputs in a raw transaction, which is also how it is currently
     /// being used.
-    TransactionOutput.fromReader(ByteDataReader reader) {
+    TransactionOutput.fromReader(ByteDataReader reader, {LockingScriptBuilder scriptBuilder = null}) {
+
+        _scriptBuilder = scriptBuilder ??= P2PKHLockBuilder(null);
+
         this.satoshis = BigInt.from(reader.readUint64(Endian.little));
         var size = readVarIntNum(reader);
         if (size != 0) {
-            this._script = SVScript.fromBuffer(reader.read(size, copy: true));
+            var script = SVScript.fromBuffer(reader.read(size, copy: true));
+            _scriptBuilder.deSerialize(script);
+
         } else {
-            this._script = SVScript.fromBuffer(Uint8List(0));
+            var script = SVScript.fromBuffer(Uint8List(0));
+            _scriptBuilder.deSerialize(script);
         }
     }
 
@@ -100,15 +110,15 @@ class TransactionOutput {
 
     /// Returns the output script in it's raw hexadecimal form
     String get scriptHex {
-        return this._script.toHex();
+        return this._scriptBuilder.getScriptPubkey().toHex();
     }
 
     /// Returns the output script as a [SVScript] instance
-    SVScript get script => _script;
+    SVScript get script => _scriptBuilder.getScriptPubkey();
 
     /// Sets the output script to the provided value
     set script(SVScript script) {
-        _script = script;
+        _scriptBuilder.deSerialize(script);
     }
 
     /// Returns the [Address] of the recipient in the case of a
@@ -117,8 +127,9 @@ class TransactionOutput {
 
     /// Sets the [Address] of the recipient in the case of a
     /// P2PKH output. This is only useful for generating "change outputs".
+    /// Implicitly creates a P2PKH output script
     set recipient(Address address) {
-        this._script = P2PKHLockBuilder(address).getScriptPubkey();
+        _scriptBuilder = P2PKHLockBuilder(address); //reset the scriptBuilder
         _recipient = address;
     }
 
@@ -156,6 +167,10 @@ class TransactionOutput {
     set isChangeOutput(bool value) {
         _isChangeOutput = value;
     }
+
+
+    /// Returns the current instance of LockingScriptBuilder in use by this instance
+    LockingScriptBuilder get scriptBuilder => _scriptBuilder;
 
 //FIXME: Swing back to this leaner implementation based on ByteDataWriter()
 //    List<int> serialize2(){
