@@ -129,7 +129,7 @@ abstract class _P2PKHUnlockBuilder extends SignedUnlockBuilder implements Unlock
       var pubKey = chunkList[1].buf;
 
       signerPubkey = SVPublicKey.fromHex(HEX.encode(pubKey));
-      signature = SVSignature.fromDER(HEX.encode(sig));
+      signature = SVSignature.fromTxFormat(HEX.encode(sig));
 
     }else{
       throw ScriptException("Invalid Script or Malformed Script.");

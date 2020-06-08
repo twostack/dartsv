@@ -6,6 +6,7 @@ import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/script/svscript.dart';
 import 'package:hex/hex.dart';
 import '../../dartsv.dart';
+import 'default_builder.dart';
 import 'transaction.dart';
 import 'package:sprintf/sprintf.dart';
 
@@ -33,7 +34,7 @@ class TransactionOutput {
 
     /// The default constructor. Initializes a "clean slate" output.
     TransactionOutput({LockingScriptBuilder scriptBuilder = null}){
-       _scriptBuilder = scriptBuilder ??= P2PKHLockBuilder(null);
+       _scriptBuilder = scriptBuilder ??= DefaultLockBuilder();
     }
 
     // FIXME: This should be default constructor
@@ -47,7 +48,7 @@ class TransactionOutput {
     /// being used.
     TransactionOutput.fromReader(ByteDataReader reader, {LockingScriptBuilder scriptBuilder = null}) {
 
-        _scriptBuilder = scriptBuilder ??= P2PKHLockBuilder(null);
+        _scriptBuilder = scriptBuilder ??= DefaultLockBuilder();
 
         this.satoshis = BigInt.from(reader.readUint64(Endian.little));
         var size = readVarIntNum(reader);

@@ -81,7 +81,7 @@ class Sighash {
 
     static const _DEFAULT_SIGN_FLAGS = ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID;
 
-    SignedTransaction _txn;
+    Transaction _txn;
     SVScript _subScript;
     int _sighashType = 0;
 

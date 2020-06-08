@@ -4,10 +4,10 @@ import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/script/svscript.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
-import 'package:dartsv/src/transaction/unlocking_script_builder.dart';
 import 'package:hex/hex.dart';
 import 'package:buffer/buffer.dart';
 
+import 'default_builder.dart';
 import 'transaction.dart';
 
 /// Class that represents the "input" to a transaction.
@@ -62,8 +62,8 @@ class TransactionInput {
         _sequenceNumber = seqNumber ??= UINT_MAX - 1;
         _spendingAmount = satoshis;
 
-        //default to P2PKH
-        _scriptBuilder = scriptBuilder ??= P2PKHUnlockBuilder(null);
+        _scriptBuilder = scriptBuilder ??= DefaultUnlockBuilder();
+//        scriptBuilder.deSerialize(script);
 
         _isPubkeyHashInput = _scriptBuilder is P2PKHUnlockBuilder; //FIXME: Do this outside of here.
     }
@@ -82,7 +82,7 @@ class TransactionInput {
 
         var len = readVarIntNum(reader);
         var scriptSig = SVScript.fromBuffer(reader.read(len, copy: true));
-        _scriptBuilder = scriptBuilder ??= P2PKHUnlockBuilder(null);
+        _scriptBuilder = scriptBuilder ??= DefaultUnlockBuilder();
         _scriptBuilder.deSerialize(scriptSig);
 
         _sequenceNumber = reader.readUint32(Endian.little);

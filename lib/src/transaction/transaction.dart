@@ -992,19 +992,19 @@ class Transaction{
 
 }
 
-mixin SignatureMixin on _SignedTransaction{
-
-
-}
-
-abstract class _SignedTransaction extends Transaction{
-    SVSignature signature;
-    _SignedTransaction(this.signature);
-
-}
-
-class SignedTransaction extends _SignedTransaction with SignatureMixin {
-    SignedTransaction(SVSignature signature) : super(signature);
-}
+//mixin SignatureMixin on _SignedTransaction{
+//
+//
+//}
+//
+//abstract class _SignedTransaction extends Transaction{
+//    SVSignature signature;
+//    _SignedTransaction(this.signature);
+//
+//}
+//
+//class SignedTransaction extends _SignedTransaction with SignatureMixin {
+//    SignedTransaction(SVSignature signature) : super(signature);
+//}
 
 
