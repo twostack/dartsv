@@ -156,7 +156,7 @@ void main() {
             };
             var tx = Transaction()
                 .spendFromMap(utxo)
-                .spendTo(toAddress, BigInt.from(100000), P2PKHLockBuilder(toAddress));
+                .spendTo(toAddress, BigInt.from(100000), scriptBuilder: P2PKHLockBuilder(toAddress));
             tx.signInput( 0, privateKey, sighashType: 1);
 //                .signWith(privateKey, sighashType: 1);
 

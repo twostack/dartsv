@@ -64,9 +64,9 @@ main() {
         var unlocker = P2PKHUnlockBuilder(privateKey.publicKey);
         Transaction tx = Transaction();
 
-        tx.spendTo(Address('1DpLHif3FBFnckw7Fj653VCr5wYQa3Fiow'), BigInt.from(10000), P2PKHLockBuilder(Address('1DpLHif3FBFnckw7Fj653VCr5wYQa3Fiow')));
-        tx.spendTo(Address('1ArnPQhtRU3voDbLcTRRzBuJtiCPHnKuN'), BigInt.from(123445), P2PKHLockBuilder(Address('1ArnPQhtRU3voDbLcTRRzBuJtiCPHnKuN')));
-        tx.spendTo(Address('1111111111111111111114oLvT2'), BigInt.from(123445), P2PKHLockBuilder(Address('1111111111111111111114oLvT2')) );
+        tx.spendTo(Address('1DpLHif3FBFnckw7Fj653VCr5wYQa3Fiow'), BigInt.from(10000),scriptBuilder: P2PKHLockBuilder(Address('1DpLHif3FBFnckw7Fj653VCr5wYQa3Fiow')));
+        tx.spendTo(Address('1ArnPQhtRU3voDbLcTRRzBuJtiCPHnKuN'), BigInt.from(123445),scriptBuilder: P2PKHLockBuilder(Address('1ArnPQhtRU3voDbLcTRRzBuJtiCPHnKuN')));
+        tx.spendTo(Address('1111111111111111111114oLvT2'), BigInt.from(123445),scriptBuilder: P2PKHLockBuilder(Address('1111111111111111111114oLvT2')) );
 
         //FIXME: What is the assertion!?
     });
@@ -95,11 +95,11 @@ main() {
             'txId': testPrevTx,
             'outputIndex': 0,
             'scriptPubKey': testScript,
-            'satoshis': testAmount
-        })
+            'satoshis': testAmount,
+        }, scriptBuilder: P2PKHUnlockBuilder(privateKey.publicKey))
         .spendTo(Address('mrU9pEmAx26HcbKVrABvgL7AwA5fjNFoDc'),
             testAmount - BigInt.from(10000),
-            P2PKHLockBuilder(Address('mrU9pEmAx26HcbKVrABvgL7AwA5fjNFoDc')));
+            scriptBuilder : P2PKHLockBuilder(Address('mrU9pEmAx26HcbKVrABvgL7AwA5fjNFoDc')));
 
     test('can perform serialization', () {
         expect(testTransaction.inputs[0].satoshis, equals(testAmount));
@@ -116,7 +116,7 @@ main() {
         var unlocker = P2PKHUnlockBuilder(privateKey.publicKey);
         Transaction txn = Transaction();
         var destAddress = Address('mrU9pEmAx26HcbKVrABvgL7AwA5fjNFoDc');
-        expect(() => txn.spendTo(destAddress, BigInt.zero, P2PKHLockBuilder(destAddress)), throwsException);
+        expect(() => txn.spendTo(destAddress, BigInt.zero,scriptBuilder: P2PKHLockBuilder(destAddress)), throwsException);
     });
 
     test('returns the fee as value of unspent output', () {
@@ -161,8 +161,8 @@ main() {
       var unlocker = P2PKHUnlockBuilder(privateKey.publicKey);
       var txn = Transaction();
           txn.spendFromOutput(utxo, Transaction.NLOCKTIME_MAX_VALUE, unlocker) //set global sequenceNumber/nLocktime time for each Input created
-          .spendTo(recipientAddress, BigInt.from(50000000), locker) //spend half of a bitcoin (we should have 1 in the UTXO)
-          .sendChangeTo(changeAddress, locker) // spend change to myself
+          .spendTo(recipientAddress, BigInt.from(50000000),scriptBuilder: locker) //spend half of a bitcoin (we should have 1 in the UTXO)
+          .sendChangeTo(changeAddress,scriptBuilder: locker) // spend change to myself
           .withFeePerKb(100000);
 
       //Sign the Transaction Input
@@ -173,8 +173,8 @@ main() {
     test('can calculate output amounts and correct change address', () {
         var transaction = new Transaction()
             .spendFromMap(simpleUtxoWith1000000Satoshis)
-            .spendTo(toAddress, BigInt.from(500000), P2PKHLockBuilder(toAddress))
-            .sendChangeTo(changeAddress, P2PKHLockBuilder(changeAddress));
+            .spendTo(toAddress, BigInt.from(500000),scriptBuilder: P2PKHLockBuilder(toAddress))
+            .sendChangeTo(changeAddress,scriptBuilder: P2PKHLockBuilder(changeAddress));
 //        transaction.signWith(privateKey);
         transaction.withFeePerKb(100000);
 
@@ -191,7 +191,6 @@ main() {
         expect(actual, equals(expected));
     });
 
-/*
 
     test('standard hash of transaction should be decoded correctly', () {
         var transaction = Transaction.fromHex(tx1hex);
@@ -214,20 +213,20 @@ main() {
             .readAsString()
             .then((contents) => jsonDecode(contents))
             .then((jsonData) {
+
             List.from(jsonData).forEach((item) {
+                var privKey = SVPrivateKey.fromWIF(item['sign'][0]);
                 var utxoMap = item['from'][0][0];
                 utxoMap['satoshis'] = BigInt.from(utxoMap['satoshis']);
-                var transaction = new Transaction()
-                    .withUnLockingScriptBuilder(P2PKHUnlockBuilder())
-                    .spendFromMap(utxoMap);
+                var transaction = Transaction().spendFromMap(utxoMap, scriptBuilder: P2PKHUnlockBuilder(privKey.publicKey));
 
                 for (var elem in item['to']) {
-                    transaction.spendTo(Address(elem[0]), BigInt.from(elem[1]));
+                    var addr = Address(elem[0]);
+                    transaction.spendTo(Address(elem[0]), BigInt.from(elem[1]), scriptBuilder: P2PKHLockBuilder(addr));
                 };
 
                 transaction.withFeePerKb(100000);
-//                transaction.signWith(SVPrivateKey.fromWIF(item['sign'][0]), sighashType: item['sign'][1]);
-                transaction.signInput(0, SVPrivateKey.fromWIF(item['sign'][0]), sighashType: item['sign'][1]);
+                transaction.signInput(0, privKey, sighashType: item['sign'][1]);
 
                 expect(transaction.serialize(performChecks: false), equals(item['serialize']));
             });
@@ -235,6 +234,7 @@ main() {
     });
 
 
+/*
     //The BIP references "data leaking" from the BitGo incident which can be solved by
     //generating new change addresses and not re-using them. WTF.
     group("BIP69 Sorting", () {

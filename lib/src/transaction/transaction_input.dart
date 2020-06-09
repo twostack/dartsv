@@ -30,10 +30,6 @@ class TransactionInput {
 
     int _sequenceNumber;
 
-    //SVSignature _signature;
-
-//    SVScript _scriptSig;
-
     int _prevTxnOutputIndex;
 
     String _prevTxnId;
@@ -94,7 +90,6 @@ class TransactionInput {
     List<int> serialize() {
         var writer = ByteDataWriter();
 
-
         writer.write(HEX.decode(_prevTxnId).reversed.toList(), copy: true);
 
         writer.writeUint32(_prevTxnOutputIndex, Endian.little);
@@ -149,6 +144,9 @@ class TransactionInput {
 
     /// Returns the scriptSig (Input Script / Unlocking Script)
     SVScript get script => _scriptBuilder.getScriptSig();
+
+    /// Returns the script from the previous transaction's output
+    SVScript get subScript => _utxoScript;
 
     /// Set the script that represents the parent transaction's output (UTXO)
     set script(SVScript script) {

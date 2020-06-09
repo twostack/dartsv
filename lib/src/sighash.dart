@@ -97,13 +97,12 @@ class Sighash {
     ///
     /// [flags] - The bitwise combination of [ScriptFlags] related to Sighash. Applies to BSV and BCH only,
     ///           and refers to `SCRIPT_ENABLE_SIGHASH_FORKID` and `SCRIPT_ENABLE_REPLAY_PROTECTION`
-    Sighash(Transaction txn){
-        this._txn = txn;
-    }
+    Sighash();
 
-    String hash(int sighashType, int inputNumber, SVScript subscript, BigInt satoshis, {flags = _DEFAULT_SIGN_FLAGS }) {
+    String hash(Transaction txn, int sighashType, int inputNumber, SVScript subscript, BigInt satoshis, {flags = _DEFAULT_SIGN_FLAGS }) {
 
-        var txnCopy = Transaction.fromHex(_txn.serialize(performChecks: false)); //make a copy
+        var txnCopy = Transaction.fromHex(txn.serialize(performChecks: false)); //make a copy
+        this._txn = txnCopy;
         var subscriptCopy = SVScript.fromHex(subscript.toHex()); //make a copy
 
         if (flags & ScriptFlags.SCRIPT_ENABLE_REPLAY_PROTECTION > 0) {

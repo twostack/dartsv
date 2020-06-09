@@ -4,6 +4,7 @@ import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/script/OpReturnScriptPubkey.dart';
 import 'package:dartsv/src/signature.dart';
+import 'package:dartsv/src/transaction/default_builder.dart';
 import 'package:dartsv/src/transaction/signed_unlock_builder.dart';
 import 'package:dartsv/src/transaction/transaction_input.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
@@ -121,8 +122,8 @@ class Transaction{
     static final MAXIMUM_EXTRA_SIZE = 4 + 9 + 9 + 4;
     static final SCRIPT_MAX_SIZE = 149;
 
-    LockingScriptBuilder _lockingScriptBuilder;
-    UnlockingScriptBuilder _unlockingScriptBuilder;
+    //LockingScriptBuilder _lockingScriptBuilder;
+    //UnlockingScriptBuilder _unlockingScriptBuilder;
 
     //Default, zero-argument constructor
     Transaction();
@@ -284,6 +285,7 @@ class Transaction{
 
         // write the locktime
         writer.writeUint32(nLockTime, Endian.little);
+
         return HEX.encode(writer.toBytes().toList());
     }
 
@@ -292,13 +294,15 @@ class Transaction{
     /// *Builder pattern*
     ///
     ///
-    Transaction spendTo(Address recipient, BigInt sats, LockingScriptBuilder scriptBuilder) {
+    Transaction spendTo(Address recipient, BigInt sats, {LockingScriptBuilder scriptBuilder = null}) {
         if (sats <= BigInt.zero) throw  TransactionAmountException('You can only spend a positive amount of satoshis');
 
-        var txnOutput = TransactionOutput();
+        scriptBuilder ??= P2PKHLockBuilder(recipient);
+
+        var txnOutput = TransactionOutput(scriptBuilder: scriptBuilder);
         txnOutput.recipient = recipient;
         txnOutput.satoshis = sats;
-        txnOutput.script = scriptBuilder.getScriptPubkey();
+//        txnOutput.script = scriptBuilder.getScriptPubkey();
 
         return addOutput(txnOutput);
     }
@@ -319,11 +323,9 @@ class Transaction{
     ///                   A null value results in a [P2PKHLockBuilder] being used by default, which will create a Pay-to-Public-Key-Hash output script.
     ///
     /// Returns an instance of the current Transaction as part of the builder pattern.
-    Transaction sendChangeTo(Address changeAddress, LockingScriptBuilder scriptBuilder ) {
+    Transaction sendChangeTo(Address changeAddress, {LockingScriptBuilder scriptBuilder = null}) {
 
-        if (scriptBuilder == null){
-            scriptBuilder =  P2PKHLockBuilder(changeAddress);
-        }
+        scriptBuilder ??= P2PKHLockBuilder(changeAddress);
 
         _changeScriptFlag = true;
         //get fee, and if there is not enough change to cover fee, remove change outputs
@@ -376,9 +378,23 @@ class Transaction{
         return this;
     }
 
-    /// The Transaction Inputs are implicitly treated as P2PKH
-    //FIXME: We might want to generalize this for other ScriptBuilder types
-    Transaction spendFromMap(Map<String, Object> map) {
+    /// Specify the UTXO to spend from as a Map
+    ///
+    /// This is a convenience method. It is primarily used by test vectors, but is
+    /// exposed as a public API here because it might be useful to devs.
+    ///
+    /// [map] - A map containing details of the UTXO we are spending from
+    ///         map['satoshis'] - Amount in satoshis
+    ///         map['txId'] - Transaction ID of the transaction containing the UTXO
+    ///         map['outputIndex'] - Output index of the UTXO in the TX we are spending from
+    ///         map['scriptPubKey'] - The UTXO Script
+    ///
+    /// [scriptBuilder] - A [LockingScriptBuilder] that will be used to create the locking script (scriptPubKey) for the [TransactionOutput].
+    ///                   A null value results in a [DefaultUnlockBuilder] being used by default, which will create a Pay-to-Public-Key-Hash output script.
+    ///
+    /// Returns an instance of the current Transaction as part of the builder pattern.
+    ///
+    Transaction spendFromMap(Map<String, Object> map, {UnlockingScriptBuilder scriptBuilder = null }) {
         //FIXME: More robust validation / error handling needed here.
         if (map['satoshis'] == null || !(map['satoshis'] is BigInt)) {
             throw UTXOException('An amount to spend is required in BigInt format');
@@ -401,21 +417,28 @@ class Transaction{
         int outputIndex = map['outputIndex'];
         String scriptPubKey = map['scriptPubKey'];
 
+        scriptBuilder ??= DefaultUnlockBuilder();
+
         //sometimes scriptPubKey from the test harness is HEX encoded
-        Uint8List script;
+        Uint8List scriptBuffer;
+        SVScript script;
         if (BigInt.tryParse(scriptPubKey, radix: 16) != null) {
             script = SVScript
-                .fromHex(scriptPubKey)
-                .buffer;
+                .fromHex(scriptPubKey);
         } else {
             script = SVScript
-                .fromString(scriptPubKey)
-                .buffer;
+                .fromString(scriptPubKey);
         }
 
         if (_inputExists(transactionId, outputIndex)) return this;
 
-        var txnInput = TransactionInput(transactionId, outputIndex, SVScript.fromBuffer(script), amountToSpend, TransactionInput.UINT_MAX);
+        var txnInput = TransactionInput(transactionId,
+                                        outputIndex,
+                                        script,
+                                        amountToSpend,
+                                        TransactionInput.UINT_MAX,
+                                        scriptBuilder: scriptBuilder
+                        );
 
         _txnInputs.add(txnInput);
 
@@ -442,11 +465,10 @@ class Transaction{
 
         //FIXME: This should account for ANYONECANPAY mask that limits outputs to sign over
         ///      NOTE: Stripping Subscript should be done inside SIGHASH class
-        var subscript = input.script; //scriptSig FIXME: WTF !? Sighash should fail on this
+        var subscript = input.subScript; //scriptSig FIXME: WTF !? Sighash should fail on this
         var inputIndex = inputs.indexOf(input);
-
-        var sigHash = Sighash(this);
-        var hash = sigHash.hash(sighashType, inputIndex, subscript, input.satoshis);
+        var sigHash = Sighash();
+        var hash = sigHash.hash(this,sighashType, inputIndex, subscript, input.satoshis);
 
         //FIXME: Revisit this issue surrounding the need to sign a reversed copy of the hash.
         ///      Right now I've factored this out of signature.dart because 'coupling' & 'seperation of concerns'.
@@ -473,8 +495,8 @@ class Transaction{
 
     //FIXME: Check under which circumstances this long list of params is actually required. Can be trimmed ?
     bool verifySignature(SVSignature sig, SVPublicKey pubKey, int inputNumber, SVScript subscript, BigInt satoshis, int flags){
-        var sigHash = Sighash(this);
-        var hash = sigHash.hash(sig.nhashtype, inputNumber, subscript, satoshis, flags: flags);
+        var sigHash = Sighash();
+        var hash = sigHash.hash(this, sig.nhashtype, inputNumber, subscript, satoshis, flags: flags);
 
         var publicKey =  ECPublicKey(pubKey.point, _domainParams);
 
