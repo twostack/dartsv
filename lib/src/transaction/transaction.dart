@@ -346,7 +346,7 @@ class Transaction{
 
     Transaction addData(String data) {
         var dataOut =  TransactionOutput();
-        dataOut.script = OpReturnScriptPubkey(data);
+        dataOut.script = OpReturnScriptPubkey(data); //FIXME: This needs to move into new ScriptBuilder interface
         dataOut.satoshis = BigInt.zero;
 
         _txnOutputs.add(dataOut);
@@ -354,19 +354,21 @@ class Transaction{
         return this;
     }
 
-// I don't think this makes sense anymore. Spending from multiple outputs is only useful
-// if all those outputs have homogenous spending semantics
-//
-//    Transaction spendFromOutputs(List<TransactionOutput> outputs, int sequenceNumber){
-//        outputs.forEach((utxo) {
-//            var input = TransactionInput(utxo.transactionId, utxo.outputIndex, utxo.script, utxo.satoshis, sequenceNumber);
-//            _txnInputs.add(input);
-//        });
-//        _updateChangeOutput();
-//        return this;
-//    }
+    // FIXME: What do we do with mixed output types? Do we continue with one-by-one spending ?
+    /*
+    Transaction spendFromOutputs(List<TransactionOutput> outputs, int sequenceNumber){
+        outputs.forEach((utxo) {
+            var input = TransactionInput(utxo.transactionId, utxo.outputIndex, utxo.script, utxo.satoshis, sequenceNumber);
+            _txnInputs.add(input);
+        });
+        _updateChangeOutput();
+        return this;
+    }*/
 
-    Transaction spendFromOutput(TransactionOutput utxo, int sequenceNumber, UnlockingScriptBuilder scriptBuilder){
+    Transaction spendFromOutput(TransactionOutput utxo, int sequenceNumber, {UnlockingScriptBuilder scriptBuilder = null}){
+
+        scriptBuilder ??= DefaultUnlockBuilder();
+
         var input = TransactionInput(utxo.transactionId, utxo.outputIndex, utxo.script, utxo.satoshis, sequenceNumber, scriptBuilder: scriptBuilder);
 
         return addInput(input);
@@ -505,34 +507,6 @@ class Transaction{
         var decodedMessage = Uint8List.fromList(HEX.decode(hash).reversed.toList()); //FIXME: More reversi !
         return _dsaSigner.verifySignature(decodedMessage,ECSignature(sig.r, sig.s));
     }
-
-
-    /// Specifies a custom way of generating the unlocking script when "spending" a UTXO with
-    /// this transaction.
-    ///
-    /// Transactions are composed of "locking" and "unlocking" scripts (also referred to as ScriptPubKey and ScriptSig respectively)
-    /// which determine the conditions under which a new transaction will be considered valid. Bitcoin is *Programmable Money*
-    /// because we can write programmatic scripts using Bitcoin's Forth-like programming language
-    /// to determine the rules under which a transaction can "spend" the output from a previous transaction.
-    ///
-    /// A [LockingScriptBuilder] instance is used by the Transaction class to generate the bitcoin
-    /// script that will set this transaction's spending rules/conditions. By default a [P2PKHLockBuilder], which
-    /// creates a P2PKH (Pay-to-Public-Key-Hash) output script will be created.
-    /*
-    Transaction withLockingScriptBuilder(LockingScriptBuilder scriptBuilder){
-        _lockingScriptBuilder = scriptBuilder;
-
-        return this;
-    }
-
-
-    Transaction withUnLockingScriptBuilder(UnlockingScriptBuilder scriptBuilder){
-        _unlockingScriptBuilder = scriptBuilder;
-
-        return this;
-    }
-
-     */
 
 
     Transaction withFee(BigInt value) {

@@ -83,6 +83,10 @@ class P2PKHLockBuilder extends _P2PKHLockBuilder with P2PKHLockMixin {
 mixin P2PKHUnlockMixin on _P2PKHUnlockBuilder implements UnlockingScriptBuilder{
 
 
+  /// The developer is required to perform their own error handling when
+  /// implementing this method. You should consider throwing an exception if
+  /// your Signature value is null, because that guards you against trying to
+  /// serialize an unsigned TX.
   @override
   SVScript getScriptSig() {
 

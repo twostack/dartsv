@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/script/svscript.dart';
+import 'package:dartsv/src/transaction/signed_unlock_builder.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
 import 'package:hex/hex.dart';
 import 'package:buffer/buffer.dart';
@@ -26,7 +27,7 @@ class TransactionInput {
     /// Maximum size an unsigned int can be. Used as value of [sequenceNumber] when we
     /// want to indicate that the transaction's [Transaction.nLockTime] should be ignored.
     static int UINT_MAX =  0xFFFFFFFF;
-    bool _isPubkeyHashInput = false;
+    bool _isSignedInput = false;
 
     int _sequenceNumber;
 
@@ -53,15 +54,13 @@ class TransactionInput {
     TransactionInput(String txId, int outputIndex, SVScript utxoScript, BigInt satoshis, int seqNumber, {UnlockingScriptBuilder scriptBuilder}) {
         _prevTxnId = txId;
         _prevTxnOutputIndex = outputIndex;
-//        _scriptSig = script;
         _utxoScript = utxoScript;
         _sequenceNumber = seqNumber ??= UINT_MAX - 1;
         _spendingAmount = satoshis;
 
         _scriptBuilder = scriptBuilder ??= DefaultUnlockBuilder();
-//        scriptBuilder.deSerialize(script);
 
-        _isPubkeyHashInput = _scriptBuilder is P2PKHUnlockBuilder; //FIXME: Do this outside of here.
+        _isSignedInput = _scriptBuilder is SignedUnlockBuilder; //FIXME: Do this outside of here.
     }
 
 
@@ -83,7 +82,7 @@ class TransactionInput {
 
         _sequenceNumber = reader.readUint32(Endian.little);
 
-        _isPubkeyHashInput = scriptBuilder is P2PKHUnlockBuilder; //FIXME: do this elsewhere (also other constructor)
+        _isSignedInput = scriptBuilder is SignedUnlockBuilder; //FIXME: do this elsewhere (also other constructor)
     }
 
     ///Returns a buffer containing the serialized bytearray for this TransactionInput
@@ -103,13 +102,14 @@ class TransactionInput {
         return writer.toBytes().toList();
     }
 
-    //This method only makes sense when working with P2PKH.
-    //The world on BSV is much larger than that.
     /// This is used by the Transaction during serialization checks.
     /// It is only used in the context of P2PKH transaction types and
     /// will likely be deprecated in future.
     bool isFullySigned() {
-        return _isPubkeyHashInput;
+        //FIXME: Perform stronger check than this. We should be able to
+        //validate the _scriptBuilder Signatures. At the moment this is more
+        //of a check on where a signature is required.
+        return _isSignedInput;
     }
 
     /// Returns the Transaction input as structured data to make
