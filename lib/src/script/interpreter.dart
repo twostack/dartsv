@@ -190,14 +190,11 @@ class Interpreter {
     ///
     ///  `flags` - evaluation flags. See Interpreter.SCRIPT_* constants
     ///
-    ///  `satoshis` - amount in satoshis of the input to be verified (when FORKID signhash is used)
+    ///  `satoshis` - amount in satoshis of the input to be verified (when FORKID sighash is used)
     ///
     ///  __Translated from bitcoind's VerifyScript__
     bool verifyScript(SVScript scriptSig, SVScript scriptPubkey, {Transaction tx, int nin = 0, int flags = 0, BigInt satoshis}) {
-        if (tx == null) {
-            tx =  Transaction();
-        }
-
+        tx ??= Transaction();
 
         // If FORKID is enabled, we also ensure strict encoding.
         if (flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID != 0) {

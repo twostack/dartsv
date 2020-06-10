@@ -4,6 +4,8 @@ import 'package:buffer/buffer.dart';
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/script/scriptflags.dart';
+import 'package:dartsv/src/transaction/transaction.dart';
+import 'package:dartsv/src/transaction/transaction_input.dart';
 
 //import 'package:dartsv/src/script/P2PKHScriptSig.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
@@ -83,8 +85,6 @@ class Sighash {
     SVScript _subScript;
     int _sighashType = 0;
 
-    Sighash();
-
     /// Calculates the hash value according to the Sighash flags specified in [sighashType]
     ///
     /// [txn] - The transaction to calculate the signature has for
@@ -93,10 +93,12 @@ class Sighash {
     ///
     /// [inputNumber] - The input index in [txn] that the hash applies to
     ///
-    /// [subscript] - The actual portion of [SVScript] in the [TransactionInput] that will be covered by the signature
+    /// [subscript] - The portion of [SVScript] in the [TransactionOutput] of Spent [Transaction] (after OP_CODESEPERATOR) that will be covered by the signature
     ///
     /// [flags] - The bitwise combination of [ScriptFlags] related to Sighash. Applies to BSV and BCH only,
     ///           and refers to `SCRIPT_ENABLE_SIGHASH_FORKID` and `SCRIPT_ENABLE_REPLAY_PROTECTION`
+    Sighash();
+
     String hash(Transaction txn, int sighashType, int inputNumber, SVScript subscript, BigInt satoshis, {flags = _DEFAULT_SIGN_FLAGS }) {
 
         var txnCopy = Transaction.fromHex(txn.serialize(performChecks: false)); //make a copy

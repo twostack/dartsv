@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/script/opcodes.dart';
-import 'package:dartsv/src/transaction/p2pkh_locking_script_builder.dart';
 import 'package:test/test.dart';
 
 main() {

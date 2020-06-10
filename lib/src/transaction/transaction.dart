@@ -4,6 +4,8 @@ import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/script/OpReturnScriptPubkey.dart';
 import 'package:dartsv/src/signature.dart';
+import 'package:dartsv/src/transaction/default_builder.dart';
+import 'package:dartsv/src/transaction/signed_unlock_builder.dart';
 import 'package:dartsv/src/transaction/transaction_input.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
 import 'package:hex/hex.dart';
@@ -16,8 +18,9 @@ import 'dart:typed_data';
 import 'package:buffer/buffer.dart';
 
 import '../exceptions.dart';
+import '../sighash.dart';
 import 'locking_script_builder.dart';
-import 'p2pkh_locking_script_builder.dart';
+import 'p2pkh_builder.dart';
 import 'unlocking_script_builder.dart';
 
 enum FeeMethod {
@@ -69,13 +72,14 @@ enum TransactionOption {
 ///
 /// `4 bytes` - A time (Unix epoch time) or block number. See the [nLockTime] parsing rules.
 ///
-class Transaction {
+class Transaction{
     int _version = 1;
     int _nLockTime = 0;
     final List<TransactionInput> _txnInputs = [];  //this transaction's inputs
     final List<TransactionOutput> _txnOutputs = []; //this transaction's outputs
     final List<TransactionOutput> _utxos = [];  //the UTXOs from spent Transaction
     Address _changeAddress;
+    LockingScriptBuilder _changeScriptBuilder;
     final Set<TransactionOption> _transactionOptions = Set<TransactionOption>();
 
     List<int> _txHash;
@@ -118,8 +122,11 @@ class Transaction {
     static final MAXIMUM_EXTRA_SIZE = 4 + 9 + 9 + 4;
     static final SCRIPT_MAX_SIZE = 149;
 
-    LockingScriptBuilder _lockingScriptBuilder;
-    UnlockingScriptBuilder _unlockingScriptBuilder;
+    //LockingScriptBuilder _lockingScriptBuilder;
+    //UnlockingScriptBuilder _unlockingScriptBuilder;
+
+    //Default, zero-argument constructor
+    Transaction();
 
     var _feePerKb = FEE_PER_KB;
 
@@ -136,9 +143,10 @@ class Transaction {
     ///     'satoshis': testAmount })
     ///     .spendTo(Address('mrU9pEmAx26HcbKVrABvgL7AwA5fjNFoDc'), testAmount - BigInt.from(10000));
     /// ```
-    Transaction();
+    //Transaction();
 
     /// Creates a  Transaction instance from a JSON or MAP object.
+    /// The Transaction is implicitly treated as a P2PKH Transaction
     ///
     /// ### Expected JSON/Map Format
     /// ```
@@ -174,8 +182,9 @@ class Transaction {
         _version = map['version'];
         _nLockTime = map['nLockTime'];
         (map['inputs'] as List).forEach((input) {
-            _txnInputs.add(
-                TransactionInput(input['prevTxId'], input['outputIndex'], SVScript.fromHex(input['script']), BigInt.zero, input['sequenceNumber']));
+            var tmpTx = TransactionInput(input['prevTxId'], input['outputIndex'], SVScript() , BigInt.zero, input['sequenceNumber']);
+            tmpTx.scriptBuilder.deSerialize(SVScript.fromHex(input['script']));
+            _txnInputs.add(tmpTx);
         });
 
         (map['outputs'] as List).forEach((output) {
@@ -277,6 +286,7 @@ class Transaction {
 
         // write the locktime
         writer.writeUint32(nLockTime, Endian.little);
+
         return HEX.encode(writer.toBytes().toList());
     }
 
@@ -285,26 +295,49 @@ class Transaction {
     /// *Builder pattern*
     ///
     ///
-    Transaction spendTo(Address recipient, BigInt sats) {
+    Transaction spendTo(Address recipient, BigInt sats, {LockingScriptBuilder scriptBuilder = null}) {
         if (sats <= BigInt.zero) throw  TransactionAmountException('You can only spend a positive amount of satoshis');
 
-        var txnOutput = TransactionOutput();
+        scriptBuilder ??= P2PKHLockBuilder(recipient);
+
+        var txnOutput = TransactionOutput(scriptBuilder: scriptBuilder);
         txnOutput.recipient = recipient;
         txnOutput.satoshis = sats;
-        //see if there are any outputs to join
-        //_txnOutputs.addInput(txnInput);
+//        txnOutput.script = scriptBuilder.getScriptPubkey();
 
-        _txnOutputs.add(txnOutput);
+        return addOutput(txnOutput);
+    }
 
+    /// Add a "change" output to this transaction
+    ///
+    /// When a new transaction is created to spend coins from an input transaction,
+    /// the entire *UTXO* needs to be consumed. I.e you cannot *partially* spend coins.
+    /// What needs to happen is :
+    ///   1) You consumer the entire UTXO in the new transaction input
+    ///   2) You subtract a *change* amount from the UTXO and the remainder will be sent to the receiving party
+    ///
+    /// The change amount is automatically calculated based on the fee rate that you set with [withFee()] or [withFeePerKb()]
+    ///
+    /// [changeAddress] - A bitcoin address where a standard P2PKH (Pay-To-Public-Key-Hash) output will be "sent"
+    ///
+    /// [scriptBuilder] - A [LockingScriptBuilder] that will be used to create the locking script (scriptPubKey) for the [TransactionOutput].
+    ///                   A null value results in a [P2PKHLockBuilder] being used by default, which will create a Pay-to-Public-Key-Hash output script.
+    ///
+    /// Returns an instance of the current Transaction as part of the builder pattern.
+    Transaction sendChangeTo(Address changeAddress, {LockingScriptBuilder scriptBuilder = null}) {
+
+        scriptBuilder ??= P2PKHLockBuilder(changeAddress);
+
+        _changeScriptFlag = true;
+        //get fee, and if there is not enough change to cover fee, remove change outputs
+
+        //delete previous change transaction if exists
+        _changeAddress = changeAddress;
+        _changeScriptBuilder = scriptBuilder;
         _updateChangeOutput();
         return this;
     }
 
-    Transaction addInput(TransactionInput input) {
-        _txnInputs.add(input);
-        _updateChangeOutput();
-        return this;
-    }
 
     Transaction addOutput(TransactionOutput txOutput) {
         outputs.add(txOutput);
@@ -314,7 +347,7 @@ class Transaction {
 
     Transaction addData(String data) {
         var dataOut =  TransactionOutput();
-        dataOut.script = OpReturnScriptPubkey(data);
+        dataOut.script = OpReturnScriptPubkey(data); //FIXME: This needs to move into new ScriptBuilder interface
         dataOut.satoshis = BigInt.zero;
 
         _txnOutputs.add(dataOut);
@@ -322,6 +355,8 @@ class Transaction {
         return this;
     }
 
+    // FIXME: What do we do with mixed output types? Do we continue with one-by-one spending ?
+    /*
     Transaction spendFromOutputs(List<TransactionOutput> outputs, int sequenceNumber){
         outputs.forEach((utxo) {
             var input = TransactionInput(utxo.transactionId, utxo.outputIndex, utxo.script, utxo.satoshis, sequenceNumber);
@@ -329,9 +364,40 @@ class Transaction {
         });
         _updateChangeOutput();
         return this;
+    }*/
+
+    Transaction spendFromOutput(TransactionOutput utxo, int sequenceNumber, {UnlockingScriptBuilder scriptBuilder = null}){
+
+        scriptBuilder ??= DefaultUnlockBuilder();
+
+        var input = TransactionInput(utxo.transactionId, utxo.outputIndex, utxo.script, utxo.satoshis, sequenceNumber, scriptBuilder: scriptBuilder);
+
+        return addInput(input);
     }
 
-    Transaction spendFromMap(Map<String, Object> map) {
+    Transaction addInput(TransactionInput input) {
+        _txnInputs.add(input);
+        _updateChangeOutput();
+        return this;
+    }
+
+    /// Specify the UTXO to spend from as a Map
+    ///
+    /// This is a convenience method. It is primarily used by test vectors, but is
+    /// exposed as a public API here because it might be useful to devs.
+    ///
+    /// [map] - A map containing details of the UTXO we are spending from
+    ///         map['satoshis'] - Amount in satoshis
+    ///         map['txId'] - Transaction ID of the transaction containing the UTXO
+    ///         map['outputIndex'] - Output index of the UTXO in the TX we are spending from
+    ///         map['scriptPubKey'] - The UTXO Script
+    ///
+    /// [scriptBuilder] - A [LockingScriptBuilder] that will be used to create the locking script (scriptPubKey) for the [TransactionOutput].
+    ///                   A null value results in a [DefaultUnlockBuilder] being used by default, which will create a Pay-to-Public-Key-Hash output script.
+    ///
+    /// Returns an instance of the current Transaction as part of the builder pattern.
+    ///
+    Transaction spendFromMap(Map<String, Object> map, {UnlockingScriptBuilder scriptBuilder = null }) {
         //FIXME: More robust validation / error handling needed here.
         if (map['satoshis'] == null || !(map['satoshis'] is BigInt)) {
             throw UTXOException('An amount to spend is required in BigInt format');
@@ -354,21 +420,28 @@ class Transaction {
         int outputIndex = map['outputIndex'];
         String scriptPubKey = map['scriptPubKey'];
 
+        scriptBuilder ??= DefaultUnlockBuilder();
+
         //sometimes scriptPubKey from the test harness is HEX encoded
-        Uint8List script;
+        Uint8List scriptBuffer;
+        SVScript script;
         if (BigInt.tryParse(scriptPubKey, radix: 16) != null) {
             script = SVScript
-                .fromHex(scriptPubKey)
-                .buffer;
+                .fromHex(scriptPubKey);
         } else {
             script = SVScript
-                .fromString(scriptPubKey)
-                .buffer;
+                .fromString(scriptPubKey);
         }
 
         if (_inputExists(transactionId, outputIndex)) return this;
 
-        var txnInput = TransactionInput(transactionId, outputIndex, SVScript.fromBuffer(script), amountToSpend, TransactionInput.UINT_MAX);
+        var txnInput = TransactionInput(transactionId,
+                                        outputIndex,
+                                        script,
+                                        amountToSpend,
+                                        TransactionInput.UINT_MAX,
+                                        scriptBuilder: scriptBuilder
+                        );
 
         _txnInputs.add(txnInput);
 
@@ -377,61 +450,63 @@ class Transaction {
     }
 
 
-    /// Add a "change" output to this transaction
-    ///
-    /// When a new transaction is created to spend coins from an input transaction,
-    /// the entire *UTXO* needs to be consumed. I.e you cannot *partially* spend coins.
-    /// What needs to happen is :
-    ///   1) You consumer the entire UTXO in the new transaction input
-    ///   2) You subtract a *change* amount from the UTXO and the remainder will be sent to the receiving party
-    ///
-    /// The change amount is automatically calculated based on the fee rate that you set with [withFee()] or [withFeePerKb()]
-    ///
-    /// [changeAddress] - A bitcoin address where a standard P2PKH (Pay-To-Public-Key-Hash) output will be "sent"
-    ///
-    /// Returns an instance of the current Transaction as part of the builder pattern.
-    Transaction sendChangeTo(Address changeAddress) {
-        _changeScriptFlag = true;
-        //get fee, and if there is not enough change to cover fee, remove change outputs
-
-        //delete previous change transaction if exists
-        _changeAddress = changeAddress;
-        _updateChangeOutput();
-        return this;
-    }
-
     void signInput( int index, SVPrivateKey privateKey, {sighashType = 0}){
         if (_txnInputs.length > index + 1){
             throw TransactionException("Input index out of range. Max index is ${_txnInputs.length + 1}");
         }else if (_txnInputs.length == 0) {
             throw TransactionException( "No Inputs defined. Please add some Transaction Inputs");
         }
-        _txnInputs[index].sign(_unlockingScriptBuilder, this, privateKey, sighashType: sighashType);
+
+        _sign(_txnInputs[index],  privateKey, sighashType: sighashType);
 
     }
 
-    /// Specifies a custom way of generating the unlocking script when "spending" a UTXO with
-    /// this transaction.
-    ///
-    /// Transactions are composed of "locking" and "unlocking" scripts (also referred to as ScriptPubKey and ScriptSig respectively)
-    /// which determine the conditions under which a new transaction will be considered valid. Bitcoin is *Programmable Money*
-    /// because we can write programmatic scripts using Bitcoin's Forth-like programming language
-    /// to determine the rules under which a transaction can "spend" the output from a previous transaction.
-    ///
-    /// A [LockingScriptBuilder] instance is used by the Transaction class to generate the bitcoin
-    /// script that will set this transaction's spending rules/conditions. By default a [P2PKHLockBuilder], which
-    /// creates a P2PKH (Pay-to-Public-Key-Hash) output script will be created.
-    Transaction withLockingScriptBuilder(LockingScriptBuilder scriptBuilder){
-        _lockingScriptBuilder = scriptBuilder;
+    void _sign(TransactionInput input, SVPrivateKey privateKey, {sighashType = SighashType.SIGHASH_ALL | SighashType.SIGHASH_FORKID}){
 
-        return this;
+        //FIXME: This is a test work-around for why I can't sign an unsigned raw txn
+        //FIXME: This assumes we're signing P2PKH
+
+        //FIXME: This should account for ANYONECANPAY mask that limits outputs to sign over
+        ///      NOTE: Stripping Subscript should be done inside SIGHASH class
+        var subscript = input.subScript; //scriptSig FIXME: WTF !? Sighash should fail on this
+        var inputIndex = inputs.indexOf(input);
+        var sigHash = Sighash();
+        var hash = sigHash.hash(this,sighashType, inputIndex, subscript, input.satoshis);
+
+        //FIXME: Revisit this issue surrounding the need to sign a reversed copy of the hash.
+        ///      Right now I've factored this out of signature.dart because 'coupling' & 'seperation of concerns'.
+        var reversedHash = HEX.encode(HEX
+            .decode(hash)
+            .reversed
+            .toList());
+
+        // generate a signature for the input
+        var sig = SVSignature.fromPrivateKey(privateKey);
+        sig.nhashtype = sighashType;
+        sig.sign(reversedHash);
+
+        if (input.scriptBuilder is SignedUnlockBuilder) {
+
+            //culminate in injecting the derived signature into the ScriptBuilder instance
+            (input.scriptBuilder as SignedUnlockBuilder).signature = sig;
+        }else{
+            throw TransactionException("Trying to sign a Transaction Input that is missing a SignedUnlockBuilder");
+        }
+
     }
 
 
-    Transaction withUnLockingScriptBuilder(UnlockingScriptBuilder scriptBuilder){
-        _unlockingScriptBuilder = scriptBuilder;
+    //FIXME: Check under which circumstances this long list of params is actually required. Can be trimmed ?
+    bool verifySignature(SVSignature sig, SVPublicKey pubKey, int inputNumber, SVScript subscript, BigInt satoshis, int flags){
+        var sigHash = Sighash();
+        var hash = sigHash.hash(this, sig.nhashtype, inputNumber, subscript, satoshis, flags: flags);
 
-        return this;
+        var publicKey =  ECPublicKey(pubKey.point, _domainParams);
+
+        _dsaSigner.init(false, PublicKeyParameter(publicKey));
+
+        var decodedMessage = Uint8List.fromList(HEX.decode(hash).reversed.toList()); //FIXME: More reversi !
+        return _dsaSigner.verifySignature(decodedMessage,ECSignature(sig.r, sig.s));
     }
 
 
@@ -590,16 +665,6 @@ class Transaction {
     }
 
 
-    bool verifySignature(SVSignature sig, SVPublicKey pubKey, int inputNumber, SVScript subscript, BigInt satoshis, int flags){
-        var hash = Sighash().hash(this, sig.nhashtype, inputNumber, subscript, satoshis, flags: flags);
-
-        var publicKey =  ECPublicKey(pubKey.point, _domainParams);
-
-        _dsaSigner.init(false, PublicKeyParameter(publicKey));
-
-        var decodedMessage = Uint8List.fromList(HEX.decode(hash).reversed.toList()); //FIXME: More reversi !
-        return _dsaSigner.verifySignature(decodedMessage,ECSignature(sig.r, sig.s));
-    }
 
 
     TransactionOutput getChangeOutput() {
@@ -618,7 +683,7 @@ class Transaction {
 
     bool isCoinbase() {
         //if we have a Transaction with one input, and a prevTransactionId of zeroooos, it's a coinbase.
-        return (_txnInputs.length == 1 && (_txnInputs[0].prevTxnOutput.transactionId == null || _txnInputs[0].prevTxnOutput.transactionId.replaceAll('0', '').trim() == ''));
+        return (_txnInputs.length == 1 && (_txnInputs[0].prevTxnId == null || _txnInputs[0].prevTxnId.replaceAll('0', '').trim() == ''));
     }
 
 
@@ -765,6 +830,8 @@ class Transaction {
     void _updateChangeOutput() {
         if (_changeAddress == null) return;
 
+        if (_changeScriptBuilder == null) return;
+
         _removeChangeOutputs();
 
         if (_nonChangeRecipientTotals() == _inputTotals()) return;
@@ -777,10 +844,7 @@ class Transaction {
         if (changeAmount > BigInt.zero) {
             txnOutput.recipient = _changeAddress;
             txnOutput.satoshis = changeAmount;
-            if (_lockingScriptBuilder == null) {
-                _lockingScriptBuilder =  P2PKHLockBuilder(_changeAddress); //For now we always generate change to a P2PKH address
-            }
-            txnOutput.script = _lockingScriptBuilder.getScriptPubkey();
+            txnOutput.script = _changeScriptBuilder.getScriptPubkey();
             txnOutput.isChangeOutput = true;
             _txnOutputs.add(txnOutput);
         }
@@ -924,3 +988,20 @@ class Transaction {
 
 
 }
+
+//mixin SignatureMixin on _SignedTransaction{
+//
+//
+//}
+//
+//abstract class _SignedTransaction extends Transaction{
+//    SVSignature signature;
+//    _SignedTransaction(this.signature);
+//
+//}
+//
+//class SignedTransaction extends _SignedTransaction with SignatureMixin {
+//    SignedTransaction(SVSignature signature) : super(signature);
+//}
+
+
