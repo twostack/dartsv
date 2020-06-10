@@ -9,6 +9,7 @@ import 'package:dartsv/src/script/interpreter.dart';
 import 'package:dartsv/src/script/opcodes.dart';
 import 'package:dartsv/src/script/scriptflags.dart';
 import 'package:dartsv/src/script/svscript.dart';
+import 'package:dartsv/src/transaction/default_builder.dart';
 import 'package:dartsv/src/transaction/signed_unlock_builder.dart';
 import 'package:dartsv/src/transaction/transaction_input.dart';
 import 'package:hex/hex.dart';
@@ -155,7 +156,7 @@ void main() {
                 "satoshis": BigInt.from(100000)
             };
             var tx = Transaction()
-                .spendFromMap(utxo)
+                .spendFromMap(utxo, scriptBuilder: P2PKHUnlockBuilder(publicKey))
                 .spendTo(toAddress, BigInt.from(100000), scriptBuilder: P2PKHLockBuilder(toAddress));
             tx.signInput( 0, privateKey, sighashType: 1);
 //                .signWith(privateKey, sighashType: 1);
@@ -166,7 +167,10 @@ void main() {
 
             var signature = (tx.inputs[0].scriptBuilder as SignedUnlockBuilder).signature;
 
-            var scriptSig = P2PKHUnlockBuilder(publicKey).getScriptSig();
+            var scriptBuilder = P2PKHUnlockBuilder(publicKey);
+            scriptBuilder.signature = signature;
+            var scriptSig = scriptBuilder.getScriptSig();
+
             var flags = ScriptFlags.SCRIPT_VERIFY_P2SH | ScriptFlags.SCRIPT_VERIFY_STRICTENC;
             var interpreter = Interpreter();
 
@@ -434,33 +438,44 @@ void main() {
         var hashbuf = List<int>(32);
         hashbuf.fillRange(0, hashbuf.length, 0);
         Transaction credtx = new Transaction();
+        var coinbaseUnlockBuilder = DefaultUnlockBuilder();
+        coinbaseUnlockBuilder.deSerialize(SVScript.fromString('OP_0 OP_0'));
         TransactionInput txCredInput = TransactionInput(
             '0000000000000000000000000000000000000000000000000000000000000000',
             0xffffffff,
-            SVScript.fromString('OP_0 OP_0'),
+            SVScript(),
             BigInt.zero,
-            0xffffffff
+            0xffffffff,
+            scriptBuilder: coinbaseUnlockBuilder
         );
         credtx.addInput(txCredInput);
         credtx.serialize(performChecks: false);
-        var txCredOut = TransactionOutput();
+
+        //add output to spent Transaction
+        var txOutLockBuilder = DefaultLockBuilder();
+        txOutLockBuilder.deSerialize(scriptPubkey);
+        var txCredOut = TransactionOutput(scriptBuilder: txOutLockBuilder);
         txCredOut.satoshis = BigInt.from(inputAmount);
         txCredOut.script = scriptPubkey;
         credtx.addOutput(txCredOut);
 
-        String idbuf = credtx.id;
+        //setup transaction ID of spent Transaction
+        String prevTxId = credtx.id;
 
+        var defaultUnlockBuilder = DefaultUnlockBuilder();
+        defaultUnlockBuilder.deSerialize(scriptSig);
         var spendtx = Transaction();
         var txSpendInput = TransactionInput(
-            idbuf,
+            prevTxId,
             0,
-            scriptSig,
+            scriptPubkey,
             BigInt.zero,
-            0xffffffff,
+            TransactionInput.UINT_MAX,
+            scriptBuilder: defaultUnlockBuilder
         );
         spendtx.addInput(txSpendInput);
-        var txSpendOutput = new TransactionOutput();
-        txSpendOutput.script = new SVScript();
+        var txSpendOutput = TransactionOutput();
+        txSpendOutput.script = SVScript();
         txSpendOutput.satoshis = BigInt.from(inputAmount);
         spendtx.addOutput(txSpendOutput);
 

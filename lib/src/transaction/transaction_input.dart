@@ -48,7 +48,8 @@ class TransactionInput {
     /// [script] - The "Unlocking Script" also knows as the ScriptSig [txId]
     ///
     /// [seqNumber] - The sequenceNumber is supposed to allow a transaction to be updated before being
-    /// broadcast to the network. At least, that was the original purpose. At present this is only used to
+    /// broadcast to the network ("offline", peer-to-peer modifications). At least, that was the original
+    /// purpose. At present this is only used to
     /// indicate whether nLockTime should be honored or ignored. Set this value to [UINT_MAX] to indicate
     /// that transaction's [Transaction.nLockTime] should be ignored.
     TransactionInput(String txId, int outputIndex, SVScript utxoScript, BigInt satoshis, int seqNumber, {UnlockingScriptBuilder scriptBuilder}) {
@@ -60,7 +61,7 @@ class TransactionInput {
 
         _scriptBuilder = scriptBuilder ??= DefaultUnlockBuilder();
 
-        _isSignedInput = _scriptBuilder is SignedUnlockBuilder; //FIXME: Do this outside of here.
+        _isSignedInput = _scriptBuilder is SignedUnlockBuilder;
     }
 
 
@@ -92,6 +93,7 @@ class TransactionInput {
         writer.write(HEX.decode(_prevTxnId).reversed.toList(), copy: true);
 
         writer.writeUint32(_prevTxnOutputIndex, Endian.little);
+
         var scriptHex = HEX.decode(_scriptBuilder.getScriptSig().toHex());
 
         writer.write(varIntWriter(scriptHex.length).toList(), copy: true);

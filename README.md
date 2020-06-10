@@ -50,10 +50,10 @@ Navigate to the root folder of this project, and pull the required supported Dar
 
 ### Running the Tests
 
-In the root folder of this project, run the shell script :
+In the root folder of this project, run the command:
 
 ```text
-> ./runtests.sh
+> pub run test
 ```
 
 ## Acknowledgement

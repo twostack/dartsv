@@ -153,7 +153,7 @@ class SVScript with ScriptBuilder {
                     .add(utf8.encode(tstr))
                     .buffer;
                 bw.write(tbuf);
-            } else if (OpCodes.opcodeMap.containsKey("OP_${token}")) {
+            } else if (OpCodes.opcodeMap.containsKey("OP_${token.toUpperCase()}")) {
                 opstr = 'OP_' + token;
                 opcodenum = OpCodes.opcodeMap[opstr];
                 bw.writeUint8(opcodenum);

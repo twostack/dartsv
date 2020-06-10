@@ -182,8 +182,9 @@ class Transaction{
         _version = map['version'];
         _nLockTime = map['nLockTime'];
         (map['inputs'] as List).forEach((input) {
-            _txnInputs.add(
-                TransactionInput(input['prevTxId'], input['outputIndex'], SVScript.fromHex(input['script']), BigInt.zero, input['sequenceNumber']));
+            var tmpTx = TransactionInput(input['prevTxId'], input['outputIndex'], SVScript() , BigInt.zero, input['sequenceNumber']);
+            tmpTx.scriptBuilder.deSerialize(SVScript.fromHex(input['script']));
+            _txnInputs.add(tmpTx);
         });
 
         (map['outputs'] as List).forEach((output) {

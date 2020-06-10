@@ -27,8 +27,6 @@ class TransactionOutput {
     int _outputIndex;
     bool _isChangeOutput = false;
 
-    //SVScript _script;
-
     LockingScriptBuilder _scriptBuilder;
 
 
@@ -62,7 +60,7 @@ class TransactionOutput {
         }
     }
 
-    ///Returns true is satoshi amount is outside of valid range
+    ///Returns true is satoshi amount if outside of valid range
     ///
     /// See [Transaction.MAX_MONEY]
     bool invalidSatoshis() {
@@ -105,7 +103,7 @@ class TransactionOutput {
     Map<String, dynamic> toObject() {
         return {
             "satoshis": this._satoshis.toInt(),
-            "script": this.script.toHex()
+            "script": _scriptBuilder.getScriptPubkey().toHex()
         };
     }
 

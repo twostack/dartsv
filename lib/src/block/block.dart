@@ -246,7 +246,6 @@ class Block {
 
         _header = BlockHeader.fromBuffer(headerBuf);
 
-
         var txCount = readVarIntNum(dataReader);
 
         for (var i = 0; i < txCount; i++) {
