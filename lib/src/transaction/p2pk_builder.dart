@@ -44,10 +44,10 @@ mixin P2PKUnlockMixin on _P2PKUnlockBuilder implements UnlockingScriptBuilder{
   @override
   SVScript getScriptSig() {
 
-    if (signature == null) return SVScript();
+    if (signatures.isEmpty) return SVScript();
 
-    var signatureSize = HEX.decode(signature.toTxFormat()).length;
-    var scriptString =sprintf("%s 0x%s", [signatureSize, signature.toTxFormat()]);
+    var signatureSize = HEX.decode(signatures[0].toTxFormat()).length;
+    var scriptString =sprintf("%s 0x%s", [signatureSize, signatures[0].toTxFormat()]);
 
     return SVScript.fromString(scriptString);
   }
@@ -55,9 +55,11 @@ mixin P2PKUnlockMixin on _P2PKUnlockBuilder implements UnlockingScriptBuilder{
 }
 
 abstract class _P2PKUnlockBuilder extends SignedUnlockBuilder implements UnlockingScriptBuilder{
-  SVSignature signature;
 
   _P2PKUnlockBuilder();
+
+  @override
+  List<SVSignature> signatures = <SVSignature>[];
 
   @override
   SVScript get scriptSig => getScriptSig();

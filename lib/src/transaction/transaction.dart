@@ -488,7 +488,7 @@ class Transaction{
         if (input.scriptBuilder is SignedUnlockBuilder) {
 
             //culminate in injecting the derived signature into the ScriptBuilder instance
-            (input.scriptBuilder as SignedUnlockBuilder).signature = sig;
+            (input.scriptBuilder as SignedUnlockBuilder).signatures.add(sig);
         }else{
             throw TransactionException("Trying to sign a Transaction Input that is missing a SignedUnlockBuilder");
         }

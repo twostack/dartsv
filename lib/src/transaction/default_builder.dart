@@ -45,10 +45,12 @@ mixin DefaultUnlockMixin on _DefaultUnlockBuilder implements UnlockingScriptBuil
 }
 
 abstract class _DefaultUnlockBuilder extends SignedUnlockBuilder implements UnlockingScriptBuilder{
-  SVSignature signature;
   SVScript _script = SVScript();
 
   _DefaultUnlockBuilder();
+
+  @override
+  List<SVSignature> signatures = <SVSignature>[];
 
   @override
   SVScript get scriptSig => getScriptSig();
@@ -64,5 +66,6 @@ abstract class _DefaultUnlockBuilder extends SignedUnlockBuilder implements Unlo
 
 class DefaultUnlockBuilder extends _DefaultUnlockBuilder with DefaultUnlockMixin{
   DefaultUnlockBuilder() : super();
+
 }
 

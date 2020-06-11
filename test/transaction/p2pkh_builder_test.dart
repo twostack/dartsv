@@ -43,10 +43,10 @@ void main() {
       var unlockBuilder = P2PKHUnlockBuilder(pubkey);
       unlockBuilder.fromScript(script);
 
-      expect(unlockBuilder.signature, isNotNull);
+      expect(unlockBuilder.signatures, isNotEmpty);
       expect(unlockBuilder.signerPubkey, isNotNull);
       expect(unlockBuilder.signerPubkey.toString(), equals(pubkey.toString()));
-      expect(unlockBuilder.signature.toString(), equals(signature.toString()));
+      expect(unlockBuilder.signatures[0].toString(), equals(signature.toString()));
 
     });
 
