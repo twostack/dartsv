@@ -13,7 +13,7 @@ mixin P2PKLockMixin on _P2PKLockBuilder implements LockingScriptBuilder {
     if (signerPubkey == null) return SVScript();
 
     var pubKeySize = HEX.decode(signerPubkey.toString()).length;
-    var scriptString = sprintf("%s 0x%s", [pubKeySize, signerPubkey.toString()]);
+    var scriptString = sprintf("%s 0x%s OP_CHECKSIG", [pubKeySize, signerPubkey.toString()]);
 
     return SVScript.fromString(scriptString);
   }
