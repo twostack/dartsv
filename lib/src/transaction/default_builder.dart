@@ -22,7 +22,7 @@ abstract class _DefaultLockBuilder implements LockingScriptBuilder{
   SVScript get scriptPubkey => getScriptPubkey();
 
   @override
-  void deSerialize(SVScript script) {
+  void fromScript(SVScript script) {
     _script = script;
   }
 
@@ -54,7 +54,7 @@ abstract class _DefaultUnlockBuilder extends SignedUnlockBuilder implements Unlo
   SVScript get scriptSig => getScriptSig();
 
   @override
-  void deSerialize(SVScript script) {
+  void fromScript(SVScript script) {
     _script = script;
   }
 

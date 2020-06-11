@@ -52,11 +52,11 @@ class TransactionOutput {
         var size = readVarIntNum(reader);
         if (size != 0) {
             var script = SVScript.fromBuffer(reader.read(size, copy: true));
-            _scriptBuilder.deSerialize(script);
+            _scriptBuilder.fromScript(script);
 
         } else {
             var script = SVScript.fromBuffer(Uint8List(0));
-            _scriptBuilder.deSerialize(script);
+            _scriptBuilder.fromScript(script);
         }
     }
 
@@ -117,7 +117,7 @@ class TransactionOutput {
 
     /// Sets the output script to the provided value
     set script(SVScript script) {
-        _scriptBuilder.deSerialize(script);
+        _scriptBuilder.fromScript(script);
     }
 
     /// Returns the [Address] of the recipient in the case of a
