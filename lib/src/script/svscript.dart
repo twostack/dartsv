@@ -162,10 +162,6 @@ class SVScript with ScriptBuilder {
                 opcodenum = OpCodes.opcodeMap[opstr];
                 bw.writeUint8(opcodenum);
             } else if (BigInt.tryParse(token) != null) {
-//                var script = Script().add( BN(token).toScriptNumBuffer())
-//                tbuf = script.toBuffer()
-//                bw.write(tbuf)
-
                 var script = SVScript()
                     ..add(Uint8List.fromList(toScriptNumBuffer(BigInt.parse(token))));
                 tbuf = script.buffer;
@@ -178,9 +174,50 @@ class SVScript with ScriptBuilder {
         _processBuffer(bw.toBytes());
     }
 
+  SVScript.fromASM(String str) {
+    var script = new SVScript();
+    _chunks = [];
 
+    var tokens = str.split(' ');
+    for (var i = 0; i < tokens.length; i++) {
+      var token = tokens[i];
+      var opcode = OpCodes.opcodeMap[token];
+      var opcodenum = opcode;
 
-    _convertChunksToByteArray() {
+      // we start with two special cases, 0 and -1, which are handled specially in
+      // toASM. see _chunkToString.
+      if (token == '0') {
+        opcodenum = 0;
+        _chunks.add(ScriptChunk([], 0, opcodenum));
+      } else if (token == '-1') {
+        opcodenum = OpCodes.OP_1NEGATE;
+        _chunks.add(ScriptChunk([], 0, opcodenum));
+      } else if (opcodenum == null) {
+//          var buf = Buffer.from(tokens[i], 'hex')
+        var buf = Uint8List.fromList(HEX.decode(tokens[i]));
+        if (HEX.encode(buf) != tokens[i]) {
+          throw ScriptException('invalid hex string in script');
+        }
+        var len = buf.length;
+        if (len >= 0 && len < OpCodes.OP_PUSHDATA1) {
+          opcodenum = len;
+        } else if (len < pow(2, 8)) {
+          opcodenum = OpCodes.OP_PUSHDATA1;
+        } else if (len < pow(2, 16)) {
+          opcodenum = OpCodes.OP_PUSHDATA2;
+        } else if (len < pow(2, 32)) {
+          opcodenum = OpCodes.OP_PUSHDATA4;
+        }
+
+        _chunks.add(ScriptChunk(buf, buf.length, opcodenum));
+      } else {
+        _chunks.add(ScriptChunk([], 0, opcodenum));
+      }
+    }
+
+  }
+
+  _convertChunksToByteArray() {
 //        String chunkString = _chunks.fold('', (prev, elem) => prev + _chunkToString(elem, type: 'asm'));
 //        _byteArray = Uint8List.fromList(HEX.decode(chunkString.replaceAll(' ', '')));
 
@@ -316,9 +353,14 @@ class SVScript with ScriptBuilder {
 
 
     /// Render this script in it's human-readable form
-    String toString() {
+    ///
+    /// Parameters:
+    ///
+    /// [type] - options are either 'hex' or 'asm'
+    ///
+    String toString({type='hex'}) {
         if (_chunks.isNotEmpty) {
-            return _chunks.fold('', (String prev, ScriptChunk chunk) => prev + _chunkToString(chunk)).trim();
+            return _chunks.fold('', (String prev, ScriptChunk chunk) => prev + _chunkToString(chunk, type: type)).trim();
         }
 
         return _script;
@@ -369,7 +411,7 @@ class SVScript with ScriptBuilder {
 
         if (buf.length == 0) {
             // Could have used OP_0.
-            return opcodenum == OpCodes.OP_0;
+            return (opcodenum == OpCodes.OP_0);
         } else if (buf.length == 1 && buf[0] >= 1 && buf[0] <= 16) {
             // Could have used OP_1 .. OP_16.
             return opcodenum == OpCodes.OP_1 + (buf[0] - 1);
@@ -469,6 +511,8 @@ class SVScript with ScriptBuilder {
         var asm = (type == 'asm');
         var str = '';
         if (chunk.buf.isEmpty) {
+            if (chunk.opcodenum == null) return "";
+
             // no data chunk
             if (OpCodes.opcodeMap.containsValue(opcodenum)) {
                 if (asm) {
@@ -481,7 +525,7 @@ class SVScript with ScriptBuilder {
                         // OP_1NEGATE -> 1
                         str = str + ' -1';
                     } else {
-                        str = str + ' ' + opcodenum.toRadixString(16);
+                        str = str + ' ' + OpCodes.fromNum(opcodenum);
                     }
                 } else {
                     str = str + ' ' + OpCodes.fromNum(opcodenum);
@@ -506,7 +550,7 @@ class SVScript with ScriptBuilder {
             }
             if (chunk.len > 0) {
                 if (asm) {
-                    str = str + ' ' + chunk.len.toRadixString(16) + ' ' + HEX.encode(chunk.buf);
+                    str = str + ' ' + HEX.encode(chunk.buf);
                 } else {
                     str = str + ' ' + chunk.len.toString() + ' ' + '0x' + HEX.encode(chunk.buf);
                 }
