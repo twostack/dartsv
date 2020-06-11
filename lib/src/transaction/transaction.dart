@@ -183,7 +183,7 @@ class Transaction{
         _nLockTime = map['nLockTime'];
         (map['inputs'] as List).forEach((input) {
             var tmpTx = TransactionInput(input['prevTxId'], input['outputIndex'], SVScript() , BigInt.zero, input['sequenceNumber']);
-            tmpTx.scriptBuilder.deSerialize(SVScript.fromHex(input['script']));
+            tmpTx.scriptBuilder.fromScript(SVScript.fromHex(input['script']));
             _txnInputs.add(tmpTx);
         });
 

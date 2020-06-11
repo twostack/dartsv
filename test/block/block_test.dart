@@ -56,7 +56,7 @@ void main() {
             transaction.nLockTime = tx["nLockTime"];
             (tx["inputs"] as List).forEach((input) {
                 var tmpTx = TransactionInput(input["prevTxId"], input["outputIndex"], SVScript(), BigInt.zero, input["sequenceNumber"]);
-                tmpTx.scriptBuilder.deSerialize(SVScript.fromHex(input["script"]));
+                tmpTx.scriptBuilder.fromScript(SVScript.fromHex(input["script"]));
                 transaction.inputs.add(tmpTx);
             });
 

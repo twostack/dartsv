@@ -79,7 +79,7 @@ class TransactionInput {
         var len = readVarIntNum(reader);
         var scriptSig = SVScript.fromBuffer(reader.read(len, copy: true));
         _scriptBuilder = scriptBuilder ??= DefaultUnlockBuilder();
-        _scriptBuilder.deSerialize(scriptSig);
+        _scriptBuilder.fromScript(scriptSig);
 
         _sequenceNumber = reader.readUint32(Endian.little);
 
@@ -152,7 +152,7 @@ class TransactionInput {
 
     /// Set the script that represents the parent transaction's output (UTXO)
     set script(SVScript script) {
-        _scriptBuilder.deSerialize(script);
+        _scriptBuilder.fromScript(script);
     }
 
     /// Returns the current instance of UnlockingScriptBuilder in use

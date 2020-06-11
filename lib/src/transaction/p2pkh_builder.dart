@@ -42,10 +42,16 @@ mixin P2PKHLockMixin on _P2PKHLockBuilder implements LockingScriptBuilder {
 abstract class _P2PKHLockBuilder implements LockingScriptBuilder {
   Address address;
   List<int> pubkeyHash;
+
   _P2PKHLockBuilder(this.address);
 
+  _P2PKHLockBuilder.fromPublicKey(SVPublicKey publicKey, {NetworkType networkType= NetworkType.MAIN}){
+    address = publicKey.toAddress(networkType);
+    pubkeyHash = HEX.decode(address.pubkeyHash160);
+  }
+
   @override
-  void deSerialize(SVScript script) {
+  void fromScript(SVScript script) {
 
     if (script != null && script.buffer != null) {
 
@@ -76,6 +82,8 @@ abstract class _P2PKHLockBuilder implements LockingScriptBuilder {
 
 class P2PKHLockBuilder extends _P2PKHLockBuilder with P2PKHLockMixin {
   P2PKHLockBuilder(Address address) : super(address);
+  P2PKHLockBuilder.fromPublicKey(SVPublicKey publicKey, {NetworkType networkType = NetworkType.MAIN})
+      : super.fromPublicKey(publicKey, networkType: networkType);
 }
 
 
@@ -115,7 +123,7 @@ abstract class _P2PKHUnlockBuilder extends SignedUnlockBuilder implements Unlock
   // Parse signature and signerPubkey
 
   @override
-  void deSerialize(SVScript script) {
+  void fromScript(SVScript script) {
     if (script != null && script.buffer != null) {
 
       var chunkList = script.chunks;

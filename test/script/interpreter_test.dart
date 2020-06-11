@@ -430,7 +430,7 @@ void main() {
         hashbuf.fillRange(0, hashbuf.length, 0);
         Transaction credtx = new Transaction();
         var coinbaseUnlockBuilder = DefaultUnlockBuilder();
-        coinbaseUnlockBuilder.deSerialize(SVScript.fromString('OP_0 OP_0'));
+        coinbaseUnlockBuilder.fromScript(SVScript.fromString('OP_0 OP_0'));
         TransactionInput txCredInput = TransactionInput(
             '0000000000000000000000000000000000000000000000000000000000000000',
             0xffffffff,
@@ -444,7 +444,7 @@ void main() {
 
         //add output to spent Transaction
         var txOutLockBuilder = DefaultLockBuilder();
-        txOutLockBuilder.deSerialize(scriptPubkey);
+        txOutLockBuilder.fromScript(scriptPubkey);
         var txCredOut = TransactionOutput(scriptBuilder: txOutLockBuilder);
         txCredOut.satoshis = BigInt.from(inputAmount);
         txCredOut.script = scriptPubkey;
@@ -454,7 +454,7 @@ void main() {
         String prevTxId = credtx.id;
 
         var defaultUnlockBuilder = DefaultUnlockBuilder();
-        defaultUnlockBuilder.deSerialize(scriptSig);
+        defaultUnlockBuilder.fromScript(scriptSig);
         var spendtx = Transaction();
         var txSpendInput = TransactionInput(
             prevTxId,

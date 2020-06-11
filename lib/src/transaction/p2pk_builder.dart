@@ -28,7 +28,7 @@ abstract class _P2PKLockBuilder implements LockingScriptBuilder{
   SVScript get scriptPubkey => getScriptPubkey();
 
   @override
-  void deSerialize(SVScript script) {
+  void fromScript(SVScript script) {
     throw UnimplementedError();
   }
 
@@ -63,7 +63,7 @@ abstract class _P2PKUnlockBuilder extends SignedUnlockBuilder implements Unlocki
   SVScript get scriptSig => getScriptSig();
 
   @override
-  void deSerialize(SVScript script) {
+  void fromScript(SVScript script) {
     throw UnimplementedError();
   }
 
