@@ -51,23 +51,57 @@ void main() {
       expect(lockBuilder.publicKeys[1].toHex(), equals('03e3818b65bcc73a7d64064106a859cc1a5a728c4345ff0b641209fba0d90de6e9'));
     });
   });
+
+
+  group('P2MS (multisig) - unlocking Script', () {
+    Address fromAddress = Address('mszYqVnqKoQx4jcTdJXxwKAissE3Jbrrc1');
+    Address toAddress = Address('mrU9pEmAx26HcbKVrABvgL7AwA5fjNFoDc');
+    Address changeAddress = Address('mgBCJAsvzgT2qNNeXsoECg2uPKrUsZ76up');
+
+    var private1 = SVPrivateKey.fromWIF( 'cSBnVM4xvxarwGQuAfQFwqDg9k5tErHUHzgWsEfD4zdwUasvqRVY');
+    var private2 = SVPrivateKey.fromWIF( "cVVvUsNHhbrgd7aW3gnuGo2qJM45LhHhTCVXrDSJDDcNGE6qmyCs");
+    var public1 = private1.publicKey;
+    var public2 = private2.publicKey;
+
+    var lockBuilder = P2MSLockBuilder([public1, public2], 2);
+
+    var simpleUtxoWith100000Satoshis = {
+      "address": fromAddress,
+      "txId": 'a477af6b2667c29670467e4e0728b685ee07b240235771862318e29ddbe58458',
+      "outputIndex": 0,
+      "scriptPubKey": lockBuilder.getScriptPubkey().toString(),
+      "satoshis": BigInt.from(100000)
+    };
+
+    test('can perform a multisig spend', () {
+      var unlockBuilder = P2MSUnlockBuilder();
+      var transaction = new Transaction()
+          .spendFromMap(simpleUtxoWith100000Satoshis, scriptBuilder: unlockBuilder)
+          .spendTo(toAddress, BigInt.from(500000), scriptBuilder: P2PKHLockBuilder(toAddress))
+          .sendChangeTo(changeAddress, scriptBuilder: P2PKHLockBuilder(changeAddress));
+
+      transaction.withFeePerKb(100000);
+
+      transaction.signInput(0, private1);
+      transaction.signInput(0, private2);
+
+      expect(unlockBuilder.signatures.length, equals(2));
+      expect(unlockBuilder.getScriptSig().toString(), equals('OP_0 71 0x30440220506a721a4aca80943146700333be6f5f0abd96798b4b5e21d14a45f6f3e1c96d022074be7308c17a86d327ad6f9b59116f45edff218187e5a6bcff6c58150ec94f9700 71 0x304402205133d18807f1261bd0712a6d334cf85a286fe3aaec08efbce824a31efe60c0a9022048d52308728a602a046adceb990188062955a0f20f390895066325406b41644700'));
+
+      //Interpreter().verifyScript(scriptSig, scriptPubkey) FIXME: for another day
+    });
+
+    test('can reconstruct P2MS unlocking script', (){
+
+      var script = SVScript.fromString('OP_0 0x47 0x3044022002a27769ee33db258bdf7a3792e7da4143ec4001b551f73e6a190b8d1bde449d02206742c56ccd94a7a2e16ca52fc1ae4a0aa122b0014a867a80de104f9cb18e472c01 0x48 0x30450220357011fd3b3ad2b8f2f2d01e05dc6108b51d2a245b4ef40c112d6004596f0475022100a8208c93a39e0c366b983f9a80bfaf89237fcd64ca543568badd2d18ee2e1d7501');
+      var unlockBuilder = P2MSUnlockBuilder();
+      unlockBuilder.fromScript(script);
+
+      expect(unlockBuilder.signatures.length, equals(2));
+      expect(unlockBuilder.signatures[0].toTxFormat(), equals('3044022002a27769ee33db258bdf7a3792e7da4143ec4001b551f73e6a190b8d1bde449d02206742c56ccd94a7a2e16ca52fc1ae4a0aa122b0014a867a80de104f9cb18e472c01'));
+      expect(unlockBuilder.signatures[1].toTxFormat(), equals('30450220357011fd3b3ad2b8f2f2d01e05dc6108b51d2a245b4ef40c112d6004596f0475022100a8208c93a39e0c366b983f9a80bfaf89237fcd64ca543568badd2d18ee2e1d7501'));
+
+    });
+  });
+
 }
-/*
-
-
-
-  describe('#isMultisigIn', function () {
-    it('should identify multisig in 1', function () {
-      Script('OP_0 0x47 0x3044022002a27769ee33db258bdf7a3792e7da4143ec4001b551f73e6a190b8d1bde449d02206742c56ccd94a7a2e16ca52fc1ae4a0aa122b0014a867a80de104f9cb18e472c01').isMultisigIn().should.equal(true)
-    })
-    it('should identify multisig in 2', function () {
-      Script('OP_0 0x47 0x3044022002a27769ee33db258bdf7a3792e7da4143ec4001b551f73e6a190b8d1bde449d02206742c56ccd94a7a2e16ca52fc1ae4a0aa122b0014a867a80de104f9cb18e472c01 0x48 0x30450220357011fd3b3ad2b8f2f2d01e05dc6108b51d2a245b4ef40c112d6004596f0475022100a8208c93a39e0c366b983f9a80bfaf89237fcd64ca543568badd2d18ee2e1d7501').isMultisigIn().should.equal(true)
-    })
-    it('should identify non-multisig in 1', function () {
-      Script('0x47 0x3044022002a27769ee33db258bdf7a3792e7da4143ec4001b551f73e6a190b8d1bde449d02206742c56ccd94a7a2e16ca52fc1ae4a0aa122b0014a867a80de104f9cb18e472c01').isMultisigIn().should.equal(false)
-    })
-    it('should identify non-multisig in 2', function () {
-      Script('OP_0 0x47 0x3044022002a27769ee33db258bdf7a3792e7da4143ec4001b551f73e6a190b8d1bde449d02206742c56ccd94a7a2e16ca52fc1ae4a0aa122b0014a867a80de104f9cb18e472c01 OP_0').isMultisigIn().should.equal(false)
-    })
-  })
- */

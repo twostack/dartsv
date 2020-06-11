@@ -156,10 +156,10 @@ void main() {
             var inputIndex = 0;
             print(HEX.encode(hash160(HEX.decode(publicKey.toString()))));
 
-            var signature = (tx.inputs[0].scriptBuilder as SignedUnlockBuilder).signature;
+            var signature = (tx.inputs[0].scriptBuilder as SignedUnlockBuilder).signatures[0];
 
             var scriptBuilder = P2PKHUnlockBuilder(publicKey);
-            scriptBuilder.signature = signature;
+            scriptBuilder.signatures.add(signature);
             var scriptSig = scriptBuilder.getScriptSig();
 
             var flags = ScriptFlags.SCRIPT_VERIFY_P2SH | ScriptFlags.SCRIPT_VERIFY_STRICTENC;

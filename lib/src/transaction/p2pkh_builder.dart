@@ -98,11 +98,11 @@ mixin P2PKHUnlockMixin on _P2PKHUnlockBuilder implements UnlockingScriptBuilder{
   @override
   SVScript getScriptSig() {
 
-    if (signature == null || signerPubkey == null) return SVScript();
+    if (signatures == null || signatures.isEmpty || signerPubkey == null) return SVScript();
 
     var pubKeySize = HEX.decode(signerPubkey.toString()).length;
-    var signatureSize = HEX.decode(signature.toTxFormat()).length;
-    var scriptString =sprintf("%s 0x%s %s 0x%s", [signatureSize, signature.toTxFormat(), pubKeySize, signerPubkey.toString()]);
+    var signatureSize = HEX.decode(signatures[0].toTxFormat()).length;
+    var scriptString =sprintf("%s 0x%s %s 0x%s", [signatureSize, signatures[0].toTxFormat(), pubKeySize, signerPubkey.toString()]);
 
     return SVScript.fromString(scriptString);
   }
@@ -113,7 +113,7 @@ abstract class _P2PKHUnlockBuilder extends SignedUnlockBuilder implements Unlock
   SVPublicKey signerPubkey;
 
   @override
-  SVSignature signature;
+  List<SVSignature> signatures = <SVSignature>[];
 
   //The signature *must* be injected later, because of the way SIGHASH works
   //Hence the contract enforced by SignedUnlockBuilder
@@ -141,7 +141,7 @@ abstract class _P2PKHUnlockBuilder extends SignedUnlockBuilder implements Unlock
       var pubKey = chunkList[1].buf;
 
       signerPubkey = SVPublicKey.fromHex(HEX.encode(pubKey));
-      signature = SVSignature.fromTxFormat(HEX.encode(sig));
+      signatures.add(SVSignature.fromTxFormat(HEX.encode(sig)));
 
     }else{
       throw ScriptException("Invalid Script or Malformed Script.");

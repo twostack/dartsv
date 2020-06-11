@@ -2,6 +2,6 @@
 import '../../dartsv.dart';
 
 abstract class SignedUnlockBuilder {
-  SVSignature get signature;
-  set signature(SVSignature value);
+  List<SVSignature> get signatures;
+  set signatures(List<SVSignature> value);
 }

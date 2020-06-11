@@ -81,8 +81,10 @@ mixin P2MSUnlockMixin on _P2MSUnlockBuilder implements UnlockingScriptBuilder{
 
   @override
   SVScript getScriptSig() {
-    //   OP_1 <sig1> <sig2> <sig4>
-    return SVScript();
+
+    var multiSigs = signatures.fold('', (prev, elem) => prev + sprintf(' %s 0x%s', [HEX.decode(elem.toTxFormat()).length, elem.toTxFormat()]));
+
+    return SVScript.fromString('OP_0 ${multiSigs}');
   }
 
 }
@@ -90,13 +92,19 @@ mixin P2MSUnlockMixin on _P2MSUnlockBuilder implements UnlockingScriptBuilder{
 abstract class _P2MSUnlockBuilder extends SignedUnlockBuilder implements UnlockingScriptBuilder {
 
   @override
-  SVSignature signature;
+  List<SVSignature> signatures = <SVSignature>[];
 
   _P2MSUnlockBuilder();
 
   @override
   void fromScript(SVScript script) {
     if (script != null && script.buffer != null) {
+      var chunkList = script.chunks;
+
+      //skip first chunk. typically OP_O
+      for (var i = 1; i < chunkList.length; i++){
+        signatures.add(SVSignature.fromTxFormat(HEX.encode(chunkList[i].buf)));
+      }
 
     }else{
       throw ScriptException("Invalid Script or Malformed Script.");
