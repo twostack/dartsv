@@ -304,7 +304,8 @@ class SVScript with ScriptBuilder {
                 if (tokenList[index + 2].substring(0, 2) != '0x') {
                     throw  ScriptException('Pushdata data must start with 0x');
                 }
-                _chunks.add(ScriptChunk(HEX.decode(tokenList[index + 2].substring(2)), int.parse(tokenList[index + 1], radix: 16), opcodenum));
+                var data = HEX.decode(tokenList[index + 2].substring(2));
+                _chunks.add(ScriptChunk(data, data.length, opcodenum));
                 index = index + 3; //step by three
             } else {
                 _chunks.add(ScriptChunk([], 0, opcodenum));
