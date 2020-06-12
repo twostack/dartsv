@@ -11,6 +11,10 @@ This library therefore lacks , and will not implement :
 
 Current Supported features are :
 * P2PKH Transactions \(building and spending from\)
+* P2SH Transactions 
+* P2MS Transactions (naked multisig)
+* P2PK Transactions
+* Custom Transaction Builder Interface
 * Data-only Transactions
 * HD Key Derivation \(BIP32\)
 * Original Bitcoin Address format 
@@ -18,23 +22,19 @@ Current Supported features are :
 * Bip39 Mnemonic Support (BIP39)
 * A built-in Bitcoin Script Interpreter
 
-Pending Features :
-* P2SH support \(low priority since it will be deprecated in BitcoinSV\)
-
 #### Sample of the Transaction API:
 
 ```dart
-String createWalletTxn(Address address, List<TransactionInput> utxosToSpendFrom, BigInt amount ){
+  var unlockBuilder = P2PKHUnlockBuilder(privateKey.publicKey);
+  var transaction = new Transaction()
+      .spendFromOutput(utxo, Transaction.NLOCKTIME_MAX_VALUE, scriptBuilder: unlockBuilder) 
+      .spendTo(recipientAddress, BigInt.from(50000000), scriptBuilder: P2PKHLockBuilder(recipientAddress)) 
+      .sendChangeTo(changeAddress, scriptBuilder: P2PKHLockBuilder(changeAddress)) 
+      .withFeePerKb(1000); 
 
-    var transaction = new Transaction()
-        .spendFromInputs(utxosToSpendFrom)
-        .spendTo(address, amount)
-        .sendChangeTo(_receivingAddress) // spend change to myself
-        .withFeePerKb(100000)
-        .signWith(this._walletPrivKey, sighashType: SighashType.SIGHASH_ALL | SighashType.SIGHASH_FORKID);
+  //Sign the Transaction Input
+  transaction.signInput(0, privateKey, sighashType: SighashType.SIGHASH_ALL | SighashType.SIGHASH_FORKID);
 
-    return transaction.serialize();
-}
 ```
 
 ### Installation
