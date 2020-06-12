@@ -27,6 +27,8 @@ export 'src/transaction/locking_script_builder.dart';
 export 'src/transaction/unlocking_script_builder.dart';
 export 'src/transaction/p2pk_builder.dart';
 export 'src/transaction/p2pkh_builder.dart';
+export 'src/transaction/p2ms_builder.dart';
+export 'src/transaction/p2sh_builder.dart';
 export 'src/encoding/utils.dart';
 
 
