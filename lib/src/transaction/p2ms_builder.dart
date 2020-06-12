@@ -89,6 +89,10 @@ mixin P2MSUnlockMixin on _P2MSUnlockBuilder implements UnlockingScriptBuilder{
 
 }
 
+/// Signatures are injected by the framework when you call Transaction().signInput()
+/// Make consecutive calls to the signInput() function to had the signatures
+/// added to the [SignedUnlockBuilder] instance associated with the [Transaction].
+///
 abstract class _P2MSUnlockBuilder extends SignedUnlockBuilder implements UnlockingScriptBuilder {
 
   @override

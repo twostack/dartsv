@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dartsv/dartsv.dart';
 
 import 'encoding/base58check.dart' as bs58check;
@@ -6,9 +8,6 @@ import 'encoding/utils.dart';
 import 'dart:convert';
 import 'networks.dart';
 import 'exceptions.dart';
-
-//TODO: No support P2SH addresses at the moment. I'll add when I need it.
-
 
 /// This class abstracts away the internals of address encoding and provides
 /// a convenient means to both encode and decode information from a bitcoin address.
@@ -54,6 +53,15 @@ class Address {
   /// Also see [NetworkType]
   Address.fromHex(String hexPubKey, NetworkType networkType){
       _createFromHex(hexPubKey, networkType);
+  }
+
+  /// Constructs a new P2SH Address object from a script
+  ///
+  /// [script] - The script to use to create the address from
+  ///
+  /// [networkType] - is used to distinguish between MAINNET and TESTNET.
+  Address.fromScript(SVScript script, NetworkType networkType) {
+    _createFromScript(script, networkType);
   }
 
   /// Constructs a new Address object from the public key
@@ -109,7 +117,7 @@ class Address {
   String toBase58() {
       // A stringified buffer is:
       //   1 byte version + data bytes + 4 bytes check code (a truncated hash)
-      var rawHash = HEX.decode(_publicKeyHash).map((elem) => elem.toSigned(8)).toList();
+      var rawHash = Uint8List.fromList(HEX.decode(_publicKeyHash));
 
       return _getEncoded(rawHash);
   }
@@ -162,6 +170,24 @@ class Address {
       _networkType = Networks.getNetworkTypes(_version)[0];
       var stripVersion = versionAndDataBytes.sublist(1, versionAndDataBytes.length);
       _publicKeyHash = HEX.encode(stripVersion.map((elem) => elem.toUnsigned(8)).toList());
+  }
+
+  void _createFromScript(SVScript script, NetworkType networkType) {
+    var scriptHash = hash160(HEX.decode(script.toHex()));
+
+    var versionByte;
+    if (networkType == NetworkType.MAIN) {
+      versionByte = Networks.getNetworkVersion(NetworkAddressType.MAIN_P2SH);
+    }
+    else {
+      versionByte = Networks.getNetworkVersion(NetworkAddressType.TEST_P2SH);
+    }
+
+    _version = versionByte & 0XFF;
+    _publicKeyHash = HEX.encode(scriptHash);
+    _addressType = Networks.getAddressType(_version);
+    _networkType = networkType;
+
   }
 
   void _createFromHex(String hexPubKey, NetworkType networkType){
@@ -219,6 +245,8 @@ class Address {
   ///
   /// See documentation for [Transaction]
   AddressType get addressType => _addressType;
+
+
 
 
 }
