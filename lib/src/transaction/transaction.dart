@@ -198,7 +198,7 @@ class Transaction{
     /// Constructs a  transaction instance from the raw hexadecimal string.
     Transaction.fromHex(String txnHex) {
 
-        List<int> hash = sha256Twice(HEX.decode(txnHex));
+        List<int> hash = sha256Twice(HEX.decode(txnHex)).reversed.toList();
         _txHash = hash;
         _txId = HEX.encode(_txHash);
         _parseTransactionHex(txnHex);
@@ -301,7 +301,7 @@ class Transaction{
         scriptBuilder ??= P2PKHLockBuilder(recipient);
 
         var txnOutput = TransactionOutput(scriptBuilder: scriptBuilder);
-        txnOutput.recipient = recipient;
+//        txnOutput.recipient = recipient;
         txnOutput.satoshis = sats;
 //        txnOutput.script = scriptBuilder.getScriptPubkey();
 
@@ -661,17 +661,17 @@ class Transaction{
                 }
             }
         }
-        return '';
+        return ''; //FIXME: Return a boolean value like a real programmer FFS !
     }
 
 
 
 
-    TransactionOutput getChangeOutput() {
+    TransactionOutput getChangeOutput(LockingScriptBuilder changeBuilder) {
         var outputs = _txnOutputs.where((elem) => elem.isChangeOutput);
 
         if (outputs.isEmpty) {
-            var out = TransactionOutput();
+            var out = TransactionOutput(scriptBuilder: changeBuilder);
             out.isChangeOutput = true;
 //            _txnOutputs.add(out);
             return out;
@@ -836,13 +836,12 @@ class Transaction{
 
         if (_nonChangeRecipientTotals() == _inputTotals()) return;
 
-        var txnOutput = getChangeOutput();
+        var txnOutput = getChangeOutput(_changeScriptBuilder);
 
         var changeAmount = _recalculateChange();
 
         //can't spend negative amount of change :/
         if (changeAmount > BigInt.zero) {
-            txnOutput.recipient = _changeAddress;
             txnOutput.satoshis = changeAmount;
             txnOutput.script = _changeScriptBuilder.getScriptPubkey();
             txnOutput.isChangeOutput = true;

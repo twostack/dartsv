@@ -184,11 +184,15 @@ main() {
         expect(transaction.outputs.length, equals(2));
         expect(transaction.outputs[1].satoshis, equals(BigInt.from(472899)));
         expect(transaction.outputs[1].script.toString(), equals(P2PKHLockBuilder(changeAddress).getScriptPubkey().toString()));
+        var changeLocker = P2PKHLockBuilder(changeAddress);
+
+        //FIXME: I'm not entirely certain this test is valuable. We are baiscally
+        //passing in a changeLocker, and checking if it was correctly passed
         var actual = transaction
-            .getChangeOutput()
+            .getChangeOutput(changeLocker)
             .script
             .toString();
-        var expected = P2PKHLockBuilder(changeAddress).getScriptPubkey().toString();
+        var expected = changeLocker.getScriptPubkey().toString();
         expect(actual, equals(expected));
     });
 
@@ -308,8 +312,9 @@ main() {
 //            .signWith(privateKey);
         transaction.signInput( 0, privateKey);
 
+        var changeLocker = P2PKHLockBuilder(changeAddress);
         expect(transaction
-            .getChangeOutput()
+            .getChangeOutput(changeLocker)
             .satoshis, equals(BigInt.from(50000)));
 
         transaction = transaction
@@ -319,7 +324,7 @@ main() {
 
         expect(transaction.outputs.length, equals(3));
         expect(transaction.outputs[2].satoshis, equals(BigInt.from(30000)));
-        expect(transaction.outputs[2].script.toString(), equals(P2PKHLockBuilder(changeAddress).getScriptPubkey().toString()));
+        expect(transaction.outputs[2].script.toString(), equals(changeLocker.getScriptPubkey().toString()));
     });
 
 

@@ -21,7 +21,6 @@ import 'package:sprintf/sprintf.dart';
 /// in February 2020.
 ///
 class TransactionOutput {
-    Address _recipient;
     BigInt _satoshis = BigInt.zero;
     String _transactionId;
     int _outputIndex;
@@ -118,18 +117,6 @@ class TransactionOutput {
     /// Sets the output script to the provided value
     set script(SVScript script) {
         _scriptBuilder.fromScript(script);
-    }
-
-    /// Returns the [Address] of the recipient in the case of a
-    /// P2PKH output. This is only useful for generating "change outputs".
-    Address get recipient => _recipient;
-
-    /// Sets the [Address] of the recipient in the case of a
-    /// P2PKH output. This is only useful for generating "change outputs".
-    /// Implicitly creates a P2PKH output script
-    set recipient(Address address) {
-        _scriptBuilder = P2PKHLockBuilder(address); //reset the scriptBuilder
-        _recipient = address;
     }
 
     /// Returns the number of satoshis the output is sending
