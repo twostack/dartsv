@@ -14,7 +14,7 @@ dependencies:
   collection: ^1.14.11
   sprintf: ^4.0.2
   http: ^0.12.0+2
-  dartsv: ^0.2.4-RC1
+  dartsv: ^0.3.0
   bip39: ^1.0.3
 
 

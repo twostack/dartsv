@@ -73,8 +73,7 @@ https://api.bitindex.network/api/v3/test/addr/{address}/utxo
 //        print(body);
 
         List<TransactionOutput> utxos = utxoList.map((utxo){
-            var txOut = TransactionOutput();
-            txOut.recipient = Address(utxo["address"]);
+            var txOut = TransactionOutput(scriptBuilder: P2PKHLockBuilder(null));
             txOut.satoshis = BigInt.from(utxo["satoshis"]);
             txOut.transactionId = utxo["txid"];
             txOut.outputIndex = utxo["vout"];
