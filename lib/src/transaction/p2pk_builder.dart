@@ -1,4 +1,5 @@
 
+import 'package:dartsv/src/exceptions.dart';
 import 'package:dartsv/src/transaction/signed_unlock_builder.dart';
 import 'package:hex/hex.dart';
 import 'package:sprintf/sprintf.dart';
@@ -24,12 +25,24 @@ abstract class _P2PKLockBuilder implements LockingScriptBuilder{
 
   _P2PKLockBuilder(this.signerPubkey);
 
-  @override
-  SVScript get scriptPubkey => getScriptPubkey();
+  //SVScript get scriptPubkey => getScriptPubkey();
 
   @override
   void fromScript(SVScript script) {
-    throw UnimplementedError();
+
+    if (script != null && script.buffer != null) {
+
+      var chunkList = script.chunks;
+
+      if (chunkList.length != 2){
+        throw ScriptException("Wrong number of data elements for P2PK ScriptPubkey");
+      }
+
+      signerPubkey = SVPublicKey.fromDER(chunkList[0].buf);
+
+    }else{
+      throw ScriptException("Invalid Script or Malformed Script.");
+    }
   }
 
 }

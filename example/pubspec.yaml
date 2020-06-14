@@ -1,11 +1,11 @@
 name: cli_example
 description: DartSV CLI Demo Application
-version: 0.1.0
+version: 0.3.0
 homepage: https://github.com/twostack/cli-example
 author: Stephan M. February <stephan@werkswinkel.com>
 
 environment:
-  sdk: '>=2.1.0 <3.0.0'
+  sdk: '>=2.8.0 <3.0.0'
 
 dependencies:
   hex: ^0.1.2
