@@ -56,15 +56,22 @@ class MyWallet {
     }
 
 
-    String createWalletTxn(Address address, List<TransactionInput> utxosToSpendFrom, BigInt amount ){
+    String createWalletTxn(Address address, List<TransactionOutput> utxosToSpendFrom, BigInt amount ){
 
 
-        var transaction = new Transaction()
-            .spendFromInputs(utxosToSpendFrom)
-            .spendTo(address, amount)
-            .sendChangeTo(_receivingAddress) // spend change to myself
-            .withFeePerKb(100000)
-            .signWith(this._walletPrivKey, sighashType: SighashType.SIGHASH_ALL | SighashType.SIGHASH_FORKID);
+        var transaction = new Transaction();
+
+        var unlockBuilder = P2PKHUnlockBuilder(this._walletPrivKey.publicKey);
+        utxosToSpendFrom.forEach((utxo) => transaction.spendFromOutput(utxo, Transaction.NLOCKTIME_MAX_VALUE, scriptBuilder: unlockBuilder));
+
+        var receiveLlockBuilder = P2PKHLockBuilder(address);
+        var changeLockBuilder = P2PKHLockBuilder(_receivingAddress);
+        transaction
+            .spendTo(address, amount, scriptBuilder: receiveLlockBuilder)
+            .sendChangeTo(_receivingAddress, scriptBuilder: changeLockBuilder) // spend change to myself
+            .withFeePerKb(1000);
+
+        transaction.signInput(0, this._walletPrivKey, sighashType: SighashType.SIGHASH_ALL | SighashType.SIGHASH_FORKID);
 
         return transaction.serialize();
 
@@ -85,7 +92,7 @@ class MyWallet {
         //query the BitIndex API for UTXOs matching our testnet faucet receiving address
         Future<List<TransactionOutput>> futureOutputs = bi.getUTXOs(this._receivingAddress);
 
-        List<TransactionInput> inputs = List<TransactionInput>();
+        List<TransactionOutput> spendFromUtxos = <TransactionOutput>[];
         Future<String> res = futureOutputs.then((List<TransactionOutput> outputs){
 
             //sort the UTXOs according to amount of satoshis they contain
@@ -95,10 +102,9 @@ class MyWallet {
             //find minimum viable spending-set of UTXOs
             for (var output in outputs) {
                 total = total + output.satoshis;
-                var txout = TransactionInput(output.transactionId, output.outputIndex, output.script, output.satoshis, Transaction.NLOCKTIME_MAX_VALUE);
-                inputs.add(txout);
+                spendFromUtxos.add(output);
                 if (total >= amount){
-                    var txn = createWalletTxn(address, inputs, amount);
+                    var txn = createWalletTxn(address, spendFromUtxos, amount);
                     bi.sendTransaction(txn);
                     return txn;
                 }

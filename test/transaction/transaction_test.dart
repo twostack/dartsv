@@ -58,6 +58,9 @@ main() {
         "satoshis": BigInt.from(1e8)
     };
 
+    //FIXME: Create a test which asserts that the TransactionID in the TransactionOutput
+    //of a parsed transaction actually matches the transactionId of the UTXO we are spending from
+
     test('bootstrap test - should be able to add two outputs with short addresses', () {
 
         // var signature = SVSignature.fromPrivateKey(privateKey); //sig class. not actual sig.
