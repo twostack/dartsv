@@ -451,7 +451,7 @@ class Transaction{
 
 
     void signInput( int index, SVPrivateKey privateKey, {sighashType = 0}){
-        if (_txnInputs.length > index + 1){
+        if (index +1 > _txnInputs.length){
             throw TransactionException("Input index out of range. Max index is ${_txnInputs.length + 1}");
         }else if (_txnInputs.length == 0) {
             throw TransactionException( "No Inputs defined. Please add some Transaction Inputs");
