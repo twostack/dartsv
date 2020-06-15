@@ -1046,6 +1046,41 @@ main() {
    });
 
 
+  test('cannot sign input index beyond number of inputs', (){
+      var addr = privateKey.toAddress();
+      var from1 = {
+          "txId": '0000000000000000000000000000000000000000000000000000000000000000',
+          "outputIndex": 0,
+          "scriptPubKey": P2PKHLockBuilder(addr).getScriptPubkey().toString(),
+          "satoshis": BigInt.from(100000)
+      };
+      var from2 = {
+          "txId": '0000000000000000000000000000000000000000000000000000000000000001',
+          "outputIndex": 1,
+          "scriptPubKey": P2PKHLockBuilder(addr).getScriptPubkey().toString(),
+          "satoshis": BigInt.from(100000)
+      };
+      var from3 = {
+          "txId": '0000000000000000000000000000000000000000000000000000000000000001',
+          "outputIndex": 2,
+          "scriptPubKey": P2PKHLockBuilder(addr).getScriptPubkey().toString(),
+          "satoshis": BigInt.from(100000)
+      };
+      var tx = new Transaction()
+          .spendFromMap(from3, scriptBuilder: P2PKHUnlockBuilder(privateKey.publicKey))
+          .spendFromMap(from2, scriptBuilder: P2PKHUnlockBuilder(privateKey.publicKey))
+          .spendFromMap(from1, scriptBuilder: P2PKHUnlockBuilder(privateKey.publicKey));
+      // tx.sort();
+      
+      tx.signInput(0, privateKey);
+      tx.signInput(1, privateKey);
+      tx.signInput(2, privateKey);
+
+      expect(tx.inputs[0].script.toHex(), equals('47304402206c7ae0a256e5dc87f8b1d29f44111ba1b3ab4a6ab189912bb5b259a803b90ccc022030295ae8d683c81cea732f222616353f30dc3bbccbf24221a470d0a45abc552700210223078d2942df62c45621d209fab84ea9a7a23346201b7727b9b45a29c4e76f5e'));
+      expect(tx.inputs[1].script.toHex(), equals('483045022100bfc8ed8db89583aad697dc648e8f601bf3ec0a3e94e0bb4407f01d82dad413a302202ca7de4e2b7714287c9c01733009ef08213e822d7bb6bcf253cc44f1324b4d5c00210223078d2942df62c45621d209fab84ea9a7a23346201b7727b9b45a29c4e76f5e'));
+      expect(tx.inputs[2].script.toHex(), equals('473044022066c7337601ec3ef61cddc915c0ca56f543c2d708ca464e00a2b894f82160879f022045151d45f57f9c15bea1dcfe8edb0a0703fcac410c206a59bfb755250828d67300210223078d2942df62c45621d209fab84ea9a7a23346201b7727b9b45a29c4e76f5e'));
+  });
+
 }
 /*
 'use strict'
