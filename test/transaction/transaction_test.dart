@@ -459,7 +459,7 @@ main() {
         test("doesn't fail if a dust output is an op_return", () {
             var transaction = new Transaction()
                 .spendFromMap(simpleUtxoWith1BTC, scriptBuilder: P2PKHUnlockBuilder(privateKey.publicKey))
-                .addData('not dust!')
+                .addData(utf8.encode('not dust!'))
                 .sendChangeTo(changeAddress, scriptBuilder: P2PKHLockBuilder(changeAddress));
 
             transaction.signInput(0, privateKey);

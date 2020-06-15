@@ -2,8 +2,8 @@ import 'dart:collection';
 
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
-import 'package:dartsv/src/script/OpReturnScriptPubkey.dart';
 import 'package:dartsv/src/signature.dart';
+import 'package:dartsv/src/transaction/data_builder.dart';
 import 'package:dartsv/src/transaction/default_builder.dart';
 import 'package:dartsv/src/transaction/signed_unlock_builder.dart';
 import 'package:dartsv/src/transaction/transaction_input.dart';
@@ -345,9 +345,12 @@ class Transaction{
         return this;
     }
 
-    Transaction addData(String data) {
-        var dataOut =  TransactionOutput();
-        dataOut.script = OpReturnScriptPubkey(data); //FIXME: This needs to move into new ScriptBuilder interface
+    Transaction addData(List<int> data, {DataLockBuilder scriptBuilder = null}) {
+
+        scriptBuilder ??= DataLockBuilder(data) ;
+
+        var dataOut =  TransactionOutput(scriptBuilder: scriptBuilder);
+        dataOut.script = scriptBuilder.getScriptPubkey(); //FIXME: This needs to move into new ScriptBuilder interface
         dataOut.satoshis = BigInt.zero;
 
         _txnOutputs.add(dataOut);
@@ -750,7 +753,7 @@ class Transaction{
         }
 
         for (var output in _txnOutputs) {
-            if (output.satoshis < Transaction.DUST_AMOUNT && !(output.script is OpReturnScriptPubkey)) {
+            if (output.satoshis < Transaction.DUST_AMOUNT && !(output.scriptBuilder is DataLockBuilder) ) {
                 throw  TransactionAmountException('You have outputs with spending values below the dust limit');
             }
         }
