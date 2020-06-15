@@ -1,3 +1,10 @@
+## 0.3.1
+New Feature
+- Added DataLockBuilder to allow composing a simple data output script
+
+Bug Fixes
+- Bug fix submited by chen610620 for index bug on signing Transaction Inputs. The bug prevented signing of inputs other than the first one. 
+
 ## 0.3.0
 This represents a rather major refactor of the way in which the Script Builder   
 interface works. I have completely decoupled the creation of Custom Scripts   
@@ -10,7 +17,7 @@ of the SDK, and contains breaking changes. Please see below.
 - P2PKHUnlockBuilder, P2PKHLockBuilder
 - P2MSUnlockBuilder, P2MSLockBuilder
 - P2SHUnlockBuilder, P2SHLockBuilder
--P2PKLockBuilder, P2PKUnlockBuilder
+- P2PKLockBuilder, P2PKUnlockBuilder
 - Deep refactor of the way that TransactionInput processes scriptSig
 - Bugfix related to script serialization
 - New API on SVScript to parse and serialize to ASM format
