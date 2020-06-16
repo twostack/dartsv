@@ -1,5 +1,7 @@
 # Introduction
 
+![Dart CI](https://github.com/twostack/dartsv/workflows/Dart%20CI/badge.svg)
+
 ## Overview
 
 TwoStack WalletSDK is a Bitcoin library for the Dart Language \( [dartlang.org](https://dartlang.org) \), loosely based on the [Moneybutton/BSV](https://github.com/moneybutton/bsv) Javascript library. This library has been built in line with the ideals espoused by BitcoinSV, i.e. massive on-chain scaling, protocol stability and original-bitcoin-protocol implementation.
