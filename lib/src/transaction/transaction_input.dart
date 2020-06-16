@@ -155,6 +155,16 @@ class TransactionInput {
         _scriptBuilder.fromScript(script);
     }
 
+    /// Set the script that represents the UTXO's scriptPubKey
+    set subScript(SVScript script) {
+        _utxoScript = script;
+    }
+
+  /// Set the builder that represents the real builder
+    set scriptBuilder(UnlockingScriptBuilder builder) {
+        _scriptBuilder = builder;
+    }
+
     /// Returns the current instance of UnlockingScriptBuilder in use
     UnlockingScriptBuilder get scriptBuilder => _scriptBuilder;
 
