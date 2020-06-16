@@ -12,6 +12,7 @@ import 'package:dartsv/src/transaction/transaction_input.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
 import 'package:test/test.dart';
 
+
 main() {
     var tx1hex = '01000000015884e5db9de218238671572340b207ee85b628074e7e467096c267266baf77a4000000006a473044022013fa3089327b50263029265572ae1b022a91d10ac80eb4f32f291c914533670b02200d8a5ed5f62634a7e1a0dc9188a3cc460a986267ae4d58faf50c79105431327501210223078d2942df62c45621d209fab84ea9a7a23346201b7727b9b45a29c4e76f5effffffff0150690f00000000001976a9147821c0a3768aa9d1a37e16cf76002aef5373f1a888ac00000000';
     var tx1id = '779a3e5b3c2c452c85333d8521f804c1a52800e60f4b7c3bbe36f4bab350b72c';
@@ -1070,7 +1071,6 @@ main() {
           .spendFromMap(from3, scriptBuilder: P2PKHUnlockBuilder(privateKey.publicKey))
           .spendFromMap(from2, scriptBuilder: P2PKHUnlockBuilder(privateKey.publicKey))
           .spendFromMap(from1, scriptBuilder: P2PKHUnlockBuilder(privateKey.publicKey));
-      // tx.sort();
       
       tx.signInput(0, privateKey);
       tx.signInput(1, privateKey);
@@ -1079,6 +1079,61 @@ main() {
       expect(tx.inputs[0].script.toHex(), equals('47304402206c7ae0a256e5dc87f8b1d29f44111ba1b3ab4a6ab189912bb5b259a803b90ccc022030295ae8d683c81cea732f222616353f30dc3bbccbf24221a470d0a45abc552700210223078d2942df62c45621d209fab84ea9a7a23346201b7727b9b45a29c4e76f5e'));
       expect(tx.inputs[1].script.toHex(), equals('483045022100bfc8ed8db89583aad697dc648e8f601bf3ec0a3e94e0bb4407f01d82dad413a302202ca7de4e2b7714287c9c01733009ef08213e822d7bb6bcf253cc44f1324b4d5c00210223078d2942df62c45621d209fab84ea9a7a23346201b7727b9b45a29c4e76f5e'));
       expect(tx.inputs[2].script.toHex(), equals('473044022066c7337601ec3ef61cddc915c0ca56f543c2d708ca464e00a2b894f82160879f022045151d45f57f9c15bea1dcfe8edb0a0703fcac410c206a59bfb755250828d67300210223078d2942df62c45621d209fab84ea9a7a23346201b7727b9b45a29c4e76f5e'));
+  });
+
+  test('sign rawtransaction', (){
+      var rawtx;
+      var signedTx;
+      var addr = privateKey.toAddress();
+      {
+          var from1 = {
+              "txId": '0000000000000000000000000000000000000000000000000000000000000000',
+              "outputIndex": 0,
+              "scriptPubKey": P2PKHLockBuilder(addr).getScriptPubkey().toString(),
+              "satoshis": BigInt.from(100000)
+          };
+          var from2 = {
+              "txId": '0000000000000000000000000000000000000000000000000000000000000001',
+              "outputIndex": 1,
+              "scriptPubKey": P2PKHLockBuilder(addr).getScriptPubkey().toString(),
+              "satoshis": BigInt.from(100000)
+          };
+          var from3 = {
+              "txId": '0000000000000000000000000000000000000000000000000000000000000001',
+              "outputIndex": 2,
+              "scriptPubKey": P2PKHLockBuilder(addr).getScriptPubkey().toString(),
+              "satoshis": BigInt.from(100000)
+          };
+          var tx = new Transaction()
+              .spendFromMap(from3, scriptBuilder: P2PKHUnlockBuilder(privateKey.publicKey))
+              .spendFromMap(from2, scriptBuilder: P2PKHUnlockBuilder(privateKey.publicKey))
+              .spendFromMap(from1, scriptBuilder: P2PKHUnlockBuilder(privateKey.publicKey));
+          rawtx = tx.uncheckedSerialize();
+
+          tx.signInput(0, privateKey);
+          tx.signInput(1, privateKey);
+          tx.signInput(2, privateKey);
+          signedTx = tx.uncheckedSerialize();
+      }
+     
+      var tmpTx = Transaction.fromHex(rawtx);
+
+      // for sign input, you must add [satoshis] [scriptPubkey]
+      // and update [UnlockingScriptBuilder]
+      tmpTx.inputs[0].satoshis = BigInt.from(100000);
+      tmpTx.inputs[0].subScript = P2PKHLockBuilder(addr).getScriptPubkey();
+      tmpTx.inputs[0].scriptBuilder = P2PKHUnlockBuilder(privateKey.publicKey);
+      tmpTx.inputs[1].satoshis = BigInt.from(100000);
+      tmpTx.inputs[1].subScript = P2PKHLockBuilder(addr).getScriptPubkey();
+      tmpTx.inputs[1].scriptBuilder = P2PKHUnlockBuilder(privateKey.publicKey);
+      tmpTx.inputs[2].satoshis = BigInt.from(100000);
+      tmpTx.inputs[2].subScript = P2PKHLockBuilder(addr).getScriptPubkey();
+      tmpTx.inputs[2].scriptBuilder = P2PKHUnlockBuilder(privateKey.publicKey);
+
+      tmpTx.signInput(0, privateKey);
+      tmpTx.signInput(1, privateKey);
+      tmpTx.signInput(2, privateKey);
+      expect(tmpTx.uncheckedSerialize(), equals(signedTx));
   });
 
 }
