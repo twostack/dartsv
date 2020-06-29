@@ -409,7 +409,7 @@ class SVScript with ScriptBuilder {
         var buf = chunk.buf;
         var opcodenum = chunk.opcodenum;
 
-        if (buf.length == 0) {
+        if (buf.isEmpty) {
             // Could have used OP_0.
             return (opcodenum == OpCodes.OP_0);
         } else if (buf.length == 1 && buf[0] >= 1 && buf[0] <= 16) {

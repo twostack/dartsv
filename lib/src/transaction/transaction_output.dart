@@ -144,6 +144,24 @@ class TransactionOutput {
         _outputIndex = value;
     }
 
+    /// Convenience property to check if this output has been made unspendable
+    /// using either an OP_RETURN or "OP_FALSE OP_RETURN" in first positions of
+    /// the script.
+    ///
+    ///
+    bool get isDataOut {
+        var scriptChunks = scriptBuilder.getScriptPubkey().chunks;
+        if (scriptChunks.isNotEmpty && scriptChunks[0].opcodenum == OpCodes.OP_FALSE){
+            //safe data out
+           return scriptChunks.length >= 2 && scriptChunks[1].opcodenum == OpCodes.OP_RETURN;
+        }else if (scriptChunks[0].opcodenum == OpCodes.OP_RETURN){
+           //older unsafe data output
+            return true;
+        }
+
+        return false;
+    }
+
     /// Returns true if this output is meant to generate change back
     /// the person creating the transaction this output will belong to.
     bool get isChangeOutput => _isChangeOutput;

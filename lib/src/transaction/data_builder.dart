@@ -1,5 +1,7 @@
 
 
+import 'dart:convert';
+
 import 'package:dartsv/src/exceptions.dart';
 import 'package:dartsv/src/script/opcodes.dart';
 import 'package:dartsv/src/script/svscript.dart';
@@ -13,32 +15,41 @@ mixin DataLockMixin on _DataLockBuilder implements LockingScriptBuilder {
   @override
   SVScript getScriptPubkey(){
 
-    if (dataBuffer == null || dataBuffer.length == 0) {
+    if (dataStack == null || dataStack.isEmpty) {
       return SVScript.fromString("OP_FALSE OP_RETURN");
     }
 
-    var opcodenum;
-    var len = dataBuffer.length;
+    var scriptPubkey = 'OP_FALSE OP_RETURN';
 
-    if (len >= 0 && len < OpCodes.OP_PUSHDATA1) {
-      opcodenum = len;
-    } else if (len < pow(2, 8)) {
-      opcodenum = OpCodes.OP_PUSHDATA1;
-    } else if (len < pow(2, 16)) {
-      opcodenum = OpCodes.OP_PUSHDATA2;
-    } else if (len < pow(2, 32)) {
-      opcodenum = OpCodes.OP_PUSHDATA4;
-    } else {
-      throw new ScriptException("You can't push that much data");
-    }
+    dataStack.forEach((entry) {
 
-    var scriptPubkey;
-    var encodedData = HEX.encode(dataBuffer);
+      if (entry != null && HEX.encode(entry).isNotEmpty){
 
-    if (len < OpCodes.OP_PUSHDATA1)
-      scriptPubkey = sprintf('OP_FALSE OP_RETURN %s 0x%s', [len, encodedData]);
-    else
-      scriptPubkey = sprintf("OP_FALSE OP_RETURN %s %s 0x%s", [opcodenum, len, encodedData]);
+        var opcodenum;
+        var len = entry.length;
+
+        if (len >= 0 && len < OpCodes.OP_PUSHDATA1) {
+          opcodenum = len;
+        } else if (len < pow(2, 8)) {
+          opcodenum = OpCodes.OP_PUSHDATA1;
+        } else if (len < pow(2, 16)) {
+          opcodenum = OpCodes.OP_PUSHDATA2;
+        } else if (len < pow(2, 32)) {
+          opcodenum = OpCodes.OP_PUSHDATA4;
+        } else {
+          throw new ScriptException("You can't push that much data");
+        }
+
+        var encodedData = HEX.encode(entry);
+
+        if (len < OpCodes.OP_PUSHDATA1) {
+          scriptPubkey = scriptPubkey + sprintf(' %s 0x%s', [len, encodedData]);
+        } else {
+          scriptPubkey = scriptPubkey + sprintf(' %s %s 0x%s', [opcodenum, len, encodedData]);
+        }
+      }
+
+    });
 
     return SVScript.fromString(scriptPubkey);
   }
@@ -52,14 +63,16 @@ mixin DataLockMixin on _DataLockBuilder implements LockingScriptBuilder {
 ///    `OP_FALSE OP_RETURN <pushdata block>`
 ///
 abstract class _DataLockBuilder implements LockingScriptBuilder{
-  List<int> dataBuffer;
+  List<List<int>> dataStack = [];
 
-  _DataLockBuilder(this.dataBuffer);
+  _DataLockBuilder(List<int> dataBuffer){
+    dataStack.add(dataBuffer);
+  }
 
   /// Deserializes a Data Output from the provided Script
   ///
   /// The Data Output is expected to have the format :
-  ///    `OP_FALSE OP_RETURN <pushdata block>`
+  ///    `OP_FALSE OP_RETURN <data 1> <data 2> <data n>`
   ///
   @override
   void fromScript(SVScript script) {
@@ -70,14 +83,31 @@ abstract class _DataLockBuilder implements LockingScriptBuilder{
 
       var chunks = script.chunks;
 
+      //strip OP_FALSE OP_RETURN and add all data blocks to the stack
       if (chunks[0].opcodenum == OpCodes.OP_FALSE
           && chunks[1].opcodenum == OpCodes.OP_RETURN ) {
-          dataBuffer = chunks[2].buf;
+          for (var i = 2; i < chunks.length ; i++) {
+
+            if(chunks[i].opcodenum > OpCodes.OP_PUSHDATA4){
+              throw ScriptException('Only data pushes allowed. Consider doing ' +
+                  'a custom LockBuilder if you have a niche use case for data. ');
+            }
+
+            dataStack.add(chunks[i].buf);
+          }
       }
 
     }else{
       throw ScriptException("Invalid Script or Malformed Data Script.");
     }
+  }
+
+  void addText(String text){
+    dataStack.add(utf8.encode(text));
+  }
+
+  void addBuffer(List<int> buffer){
+    dataStack.add(buffer);
   }
 
 }

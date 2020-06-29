@@ -97,11 +97,12 @@ class Address {
   /// you would use to instantiate an [Address] object for use with [Transaction] objects.
   ///
   Address.fromBase58(String base58Address) {
-      if (base58Address.length != 25){
-          throw AddressFormatException('Address should be 25 bytes long. Only [${base58Address.length}] bytes long.');
+      if (base58Address.length == 25 || base58Address.length == 34){
+        _fromBase58(base58Address);
+      }else {
+        throw AddressFormatException( 'Address should be 25 bytes long. Only [${base58Address.length}] bytes long.');
       }
 
-      _fromBase58(base58Address);
   }
 
 

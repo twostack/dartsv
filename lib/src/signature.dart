@@ -48,6 +48,7 @@ class SVSignature {
     ///
     /// [buffer] - A hexadecimal string containing the signature from a bitcoin transaction.
     SVSignature.fromTxFormat(String buffer) {
+        //FIXME: Add guards to assert TxFormat
         var decoded = HEX.decode(buffer);
         var nhashtype = decoded[decoded.length - 1];
 
@@ -62,7 +63,8 @@ class SVSignature {
     /// Constructs a signature from it's DER-encoded form
     ///
     /// [derBuffer] - Hex-encoded DER string containing the signature
-    SVSignature.fromDER(String derBuffer) {
+    SVSignature.fromDER(String derBuffer, {SVPublicKey publicKey = null}) {
+        _publicKey = publicKey;
         _parseDER(derBuffer);
     }
 
@@ -160,7 +162,8 @@ class SVSignature {
     ///
     /// [message] - The message to verify as a hexadecimal string
     bool verify(String message) {
-
+//expecting a String here is confusing. Make it a List<int> so the caller
+//can be forced to do hex encoding via HEX.encode(utf8.encode())
         if (_signature == null) {
             throw SignatureException('Signature is not initialized');
         }

@@ -28,10 +28,13 @@ void main() {
 
     test('should create script from some data', () {
       var data = HEX.decode('bacacafe0102030405');
+
       var lockBuilder = DataLockBuilder(data);
       var scriptPubkey = lockBuilder.getScriptPubkey();
       expect(scriptPubkey.toString(), equals('OP_0 OP_RETURN 9 0xbacacafe0102030405'));
     });
+
+    //TODO: Add tests for other pushdata sizes
 
   });
 }
