@@ -1,3 +1,10 @@
+## 0.3.2
+- API Exports
+- Bug fix on testnet address encoding length
+- DataBuilder modifications
+- Added detection to TransactionOutput for P2PKH output
+- Downgraded the required SDK version to 2.7.0. Aqueduct chokes on Dart 2.8+
+
 ## 0.3.1
 New Feature
 - Added DataLockBuilder to allow composing a simple data output script
