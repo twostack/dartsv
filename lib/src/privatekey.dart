@@ -213,7 +213,7 @@ class SVPrivateKey {
     //convenience method to retrieve an address
     /// Convenience method that jumps through the hoops of generating and [Address] from this
     /// Private Key's corresponding [SVPublicKey].
-    Address toAddress({networkType = NetworkType.MAIN}) {
+    Address toAddress({NetworkType networkType = NetworkType.MAIN}) {
         //FIXME: set network type to default parameter unless explicitly specified ?
         return _svPublicKey.toAddress(_networkType);
     }

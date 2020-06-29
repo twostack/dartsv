@@ -753,7 +753,7 @@ class Transaction{
         }
 
         for (var output in _txnOutputs) {
-            if (output.satoshis < Transaction.DUST_AMOUNT && !(output.scriptBuilder is DataLockBuilder) ) {
+            if (output.satoshis < Transaction.DUST_AMOUNT && !(output.isDataOut) ) {
                 throw  TransactionAmountException('You have outputs with spending values below the dust limit');
             }
         }
