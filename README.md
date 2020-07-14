@@ -23,6 +23,7 @@ Current Supported features are :
 * Bitcoin Signed Messages
 * Mnemonic Seed Support (BIP39)
 * A built-in Bitcoin Script Interpreter
+* ECIES Encryption / Decryption (Supports Electrum ECIES / BIE1 )
 
 #### Sample of the Transaction API:
 
