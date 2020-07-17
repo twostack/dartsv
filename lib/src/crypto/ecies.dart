@@ -23,11 +23,10 @@ class Ecies {
   /// [messageBuffer] - The buffer to encrypt. Note that the buffer in this instance has a very specific
   /// encoding format called "BIE1" or "Electrum ECIES". It is in essence a serialization format with a
   /// built-in checksum.
-  ///
-  ///   cipherText:
   ///   - bytes [0 - 4] : Magic value. Literally "BIE1".
   ///   - bytes [4 - 37] : Compressed Public Key
-  ///   - bytes [37 - end ] : Actual cipherText
+  ///   - bytes [37 - (length - 32) ] : Actual cipherText
+  ///   - bytes [ length - 32 ] : (last 32 bytes) Checksum value
   ///
   /// [senderPrivateKey] - Private Key of the sending party
   ///
@@ -79,14 +78,13 @@ class Ecies {
 
   /// Perform an ECIES decryption using AES for the symmetric cipher.
   ///
-  /// [messageBuffer] - The buffer to encrypt. Note that the buffer in this instance has a very specific
+  /// [cipherText] -  The buffer to decrypt. Note that the buffer in this instance has a very specific
   /// encoding format called "BIE1" or "Electrum ECIES". It is in essence a serialization format with a
   /// built-in checksum.
-  ///
-  ///   cipherText:
   ///   - bytes [0 - 4] : Magic value. Literally "BIE1".
   ///   - bytes [4 - 37] : Compressed Public Key
-  ///   - bytes [37 - end ] : Actual cipherText
+  ///   - bytes [37 - (length - 32) ] : Actual cipherText
+  ///   - bytes [ length - 32 ] : (last 32 bytes) Checksum valu
   ///
   /// [recipientPrivateKey] - Private Key of the receiving party
   ///
