@@ -1,3 +1,6 @@
+## 0.3.3
+- Added Electrum-style ECIES (elliptic curve integrated encryption scheme) support
+
 ## 0.3.2
 - API Exports
 - Bug fix on testnet address encoding length
