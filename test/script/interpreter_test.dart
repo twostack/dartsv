@@ -645,7 +645,7 @@ void main() {
         test('Empty buffer should have value 0x00 in script', () {
             var s = SVScript().add(<int>[]);
             // script does not render anything so it appears invisible
-            expect(s.toHex(), equals(''));
+            expect(s.toHex(), equals('00'));
             // yet there is a script chunk there
             expect(s.chunks.length, equals(1));
             expect(s.chunks[0].opcodenum, equals(0));

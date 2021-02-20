@@ -241,6 +241,7 @@ class SVScript with ScriptBuilder {
                     bw.write(chunk.buf);
                 }
             }
+
         }
 
         _byteArray = bw.toBytes();
@@ -368,6 +369,7 @@ class SVScript with ScriptBuilder {
 
     /// Renders this script in it's hexadecimal form as a String
     String toHex() {
+        _convertChunksToByteArray();
         return HEX.encode(_byteArray);
     }
 
@@ -580,6 +582,7 @@ class SVScript with ScriptBuilder {
 
 
     void _addBuffer(List<int> buf, prepend) {
+
         var opcodenum;
         var len = buf.length;
         if (len >= 0 && len < OpCodes.OP_PUSHDATA1) {
