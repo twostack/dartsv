@@ -173,6 +173,7 @@ main() {
       //Sign the Transaction Input
       txn.signInput(0, privateKey, sighashType: SighashType.SIGHASH_ALL | SighashType.SIGHASH_FORKID);
 
+      //FIXME: Where's the assertion ?
 
     });
     test('can calculate output amounts and correct change address', () {

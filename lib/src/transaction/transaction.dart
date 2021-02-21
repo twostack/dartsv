@@ -345,9 +345,52 @@ class Transaction{
         return this;
     }
 
+
+    /// Add a DataLockBuilder that creates an unspendable, zero-satoshi output
+    /// with associated data attached.
+    ///
+    /// This method can be called more than once to add multiple data outputs.
+    ///
+    /// [data] - The data to add to the output transaction
+    ///
+    /// [scriptBuilder] - An instance (or subclass) of [DataLockBuilder] that
+    /// will provide the scriptPubKey. The base [DataLockBuilder] will be used
+    /// by default, and that results in a very simple data output that has the form
+    ///    `OP_FALSE OP_RETURN <data>`
+    ///
+    /// Returns an instance of the current Transaction as part of the builder pattern.
+    ///
     Transaction addData(List<int> data, {DataLockBuilder scriptBuilder = null}) {
 
         scriptBuilder ??= DataLockBuilder(data) ;
+
+        var dataOut =  TransactionOutput(scriptBuilder: scriptBuilder);
+        dataOut.script = scriptBuilder.getScriptPubkey(); //FIXME: This needs to move into new ScriptBuilder interface
+        dataOut.satoshis = BigInt.zero;
+
+        _txnOutputs.add(dataOut);
+
+        return this;
+    }
+
+    /// Add a Locking script builder that creates an unspendable zero-satoshi output
+    ///
+    /// It is up to the developer to make this transaction unspendable by
+    /// prepending "OP_FALSE OP_RETURN" to the script. This method only adds
+    /// an output transaction and sets the associated satoshi amount to zero.
+    ///
+    /// This method can be called more than once to add multiple data outputs.
+    ///
+    /// [scriptBuilder] - A [LockingScriptBuilder] that will be used to create the locking script (scriptPubKey) for the [TransactionOutput].
+    ///                   A null value results in a TransactionException() being thrown.
+    ///
+    /// Returns an instance of the current Transaction as part of the builder pattern.
+    ///
+    Transaction addDataBuilder(LockingScriptBuilder scriptBuilder) {
+
+        if (scriptBuilder == null){
+            throw TransactionException("Data builder can't be null");
+        }
 
         var dataOut =  TransactionOutput(scriptBuilder: scriptBuilder);
         dataOut.script = scriptBuilder.getScriptPubkey(); //FIXME: This needs to move into new ScriptBuilder interface
