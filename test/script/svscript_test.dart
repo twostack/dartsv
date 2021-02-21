@@ -380,6 +380,13 @@ main() {
     });
   });
 
+    test('should add to existing script', (){
+      var buf = Uint8List(1);
+      var script = SVScript.fromString('OP_FALSE');
+      expect(script.add(buf).toString(), equals('OP_0 1 0x00'));
+      expect(script.add(buf).toHex(), equals('0001000100'));
+    });
+
     test('should add these push data', () {
       var buf = Uint8List(1);
       expect(SVScript().add(buf).toString(), equals('1 0x00'));
