@@ -9,12 +9,10 @@ environment:
 
 dependencies:
   hex: ^0.1.2
-  asn1lib: ^0.5.8
-  pointycastle: ^1.0.1
   collection: ^1.14.11
   sprintf: ^4.0.2
   http: ^0.12.0+2
-  dartsv: ^0.3.0
+  dartsv: ^0.3.3
   bip39: ^1.0.3
 
 

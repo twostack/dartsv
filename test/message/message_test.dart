@@ -26,16 +26,6 @@ main() {
     var badSignature = badSignatureString;
     var publicKey = privateKey.publicKey;
 
-    var random = new Random.secure();
-    final _secureRandom = new FortunaRandom();
-
-
-    Uint8List _seed() {
-        var random = Random.secure();
-        var seed = List<int>.generate(32, (_) => random.nextInt(256));
-        return Uint8List.fromList(seed);
-    }
-
     test('can sign a message', () {
         var message2 = new Message(utf8.encode(text));
         var signature2 = message2.sign(privateKey);

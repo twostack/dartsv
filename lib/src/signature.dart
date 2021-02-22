@@ -6,11 +6,9 @@ import 'package:dartsv/src/publickey.dart';
 import 'package:pointycastle/api.dart';
 import 'package:pointycastle/digests/sha256.dart';
 import 'package:pointycastle/export.dart';
-import 'package:pointycastle/src/utils.dart' as utils;
 import 'package:pointycastle/macs/hmac.dart';
 import 'package:pointycastle/signers/ecdsa_signer.dart';
 import 'package:pointycastle/pointycastle.dart';
-import 'package:asn1lib/asn1lib.dart';
 import 'package:hex/hex.dart';
 
 import 'exceptions.dart';
@@ -122,9 +120,11 @@ class SVSignature {
 
         _compressed = compressed;
         _i = i;
-        _r = utils.decodeBigInt(b2);
-        _s = utils.decodeBigInt(b3);
 
+        var tmp = HEX.encode(b2);
+        _r = BigInt.parse(tmp, radix: 16);
+        tmp = HEX.encode(b3);
+        _s = BigInt.parse(tmp, radix: 16);
 
         _rHex = _r.toRadixString(16);
         _sHex = _s.toRadixString(16);
@@ -152,8 +152,8 @@ class SVSignature {
         }
 
         var b1 = [val];
-        var b2 = utils.encodeBigInt(_r);
-        var b3 = utils.encodeBigInt(_s);
+        var b2 = HEX.decode(_r.toRadixString(16));
+        var b3 = HEX.decode(_s.toRadixString(16));
         return b1 + b2 + b3;
     }
 
@@ -186,6 +186,7 @@ class SVSignature {
         if (_privateKey == null){
             throw SignatureException('Missing private key. Initialise this signature instance using fromPrivateKey()');
         }
+
 
         //sign it
         List<int> decodedMessage = Uint8List.fromList(HEX.decode(message).toList());
@@ -237,7 +238,7 @@ class SVSignature {
         seq.add(ASN1Integer(_r));
         seq.add(ASN1Integer(_s));
 
-        return seq.encodedBytes;
+        return seq.encode();
     }
 
     /// [ported from moneybutton/bsv]
@@ -394,7 +395,9 @@ class SVSignature {
             throw  SignatureException('i must be equal to 0, 1, 2, or 3');
         }
 
-        var e = utils.decodeBigInt(hashBuffer);
+        var tmp = HEX.encode(hashBuffer);
+        var e = BigInt.parse(tmp, radix: 16);
+
         var r = this.r;
         var s = this.s;
 
@@ -453,8 +456,8 @@ class SVSignature {
             var rVal = seq.elements[0] as ASN1Integer;
             var sVal = seq.elements[1] as ASN1Integer;
 
-            _rHex = HEX.encode(rVal.valueBytes());
-            _sHex = HEX.encode(sVal.valueBytes());
+            _rHex = HEX.encode(rVal.valueBytes);
+            _sHex = HEX.encode(sVal.valueBytes);
 
             _r = BigInt.parse(_rHex, radix: 16);
             _s = BigInt.parse(_sHex, radix: 16);
