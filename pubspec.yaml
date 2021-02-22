@@ -8,9 +8,8 @@ environment:
 
 dependencies:
   hex: ^0.1.2
-  asn1lib: ^0.5.15
   resource: ^2.1.5
-  pointycastle: ^1.0.1
+  pointycastle: ^2.0.1
   collection: ^1.14.11
   sprintf: ^4.0.2
   unorm_dart: ^0.1.1
