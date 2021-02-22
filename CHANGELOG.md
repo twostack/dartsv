@@ -1,3 +1,10 @@
+## 0.4.0
+- Fixed a script behaviour bug. When using "add()" to update the SVScript's 
+  contents the "toHex()" method failed to serialize the additional content. 
+- Added a method to support generic data-only Locking Script Builders. 
+- Upgraded the cryptographic library dependency to the new PointyCastle 2.0.1 
+
+
 ## 0.3.3
 - Added Electrum-style ECIES (elliptic curve integrated encryption scheme) support
 
