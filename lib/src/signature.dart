@@ -10,6 +10,7 @@ import 'package:pointycastle/macs/hmac.dart';
 import 'package:pointycastle/signers/ecdsa_signer.dart';
 import 'package:pointycastle/pointycastle.dart';
 import 'package:hex/hex.dart';
+import 'package:sprintf/sprintf.dart';
 
 import 'exceptions.dart';
 
@@ -152,7 +153,11 @@ class SVSignature {
         }
 
         var b1 = [val];
-        var b2 = HEX.decode(_r.toRadixString(16));
+
+        //This is a hack around the problem of having r-values of length 31. This causes invalid sigs
+        //see: https://github.com/twostack/dartsv/issues/35
+        var b2Padded= sprintf("%064s", [_r.toRadixString(16)]).replaceAll(' ', '0');
+        var b2 = HEX.decode(b2Padded);
         var b3 = HEX.decode(_s.toRadixString(16));
         return b1 + b2 + b3;
     }
