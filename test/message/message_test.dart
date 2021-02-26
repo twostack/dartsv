@@ -42,6 +42,21 @@ main() {
         expect(messageBuf.verifyFromAddress(addr, signatureBuffer1), isTrue);
     });
 
+    test('Signature get padded r-value to produce correct length', (){
+
+        String message = '/ipfs/QmdwwGaAujZ2gkPPAfQZJ9jUKRBB7d67ttD6phwU8BmfGS';
+        String wifKey = 'L4TAY9FYkGzwnZ77WRXZzYXsViKjVN31LzNenYfLLrEiFxoZbmSn';
+
+        SVPrivateKey privateKey = SVPrivateKey.fromWIF(wifKey);
+        Message messageSigner = Message(utf8.encode(message));
+        String signature = messageSigner.sign(privateKey);
+
+        var signatureLength = base64Decode(signature).length;
+
+        expect(signatureLength, equals(65));
+        expect(messageSigner.verifyFromPublicKey(privateKey.publicKey, signature), isTrue);
+    });
+
 
     test('can sign a message (buffer representation of arbitrary data)', () {
         Message messageBuf = new Message(base64Decode(bufferData));
