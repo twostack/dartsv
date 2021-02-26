@@ -1,3 +1,6 @@
+## 0.4.1
+- Bugfix: Bitcoin-Signed-Messages sometimes generate Signatures with short r-values of only 62 bytes length. This causes compact signatures to fail verification. This is now fixed. 
+
 ## 0.4.0
 - Fixed a script behaviour bug. When using "add()" to update the SVScript's 
   contents the "toHex()" method failed to serialize the additional content. 
