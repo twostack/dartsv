@@ -1,3 +1,6 @@
+## 0.4.2
+- Bugfix: DataBuilder has script construction error for PUSHDATA transactions. 
+
 ## 0.4.1
 - Bugfix: Bitcoin-Signed-Messages sometimes generate Signatures with short r-values of only 62 bytes length. This causes compact signatures to fail verification. This is now fixed. 
 
