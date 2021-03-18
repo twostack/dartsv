@@ -18,6 +18,13 @@ void main() {
       expect(lockBuilder.getScriptPubkey().toString(), equals('OP_0 OP_RETURN'));
     });
 
+    test('can handle larger data pushes', (){
+      var data = "3046022100bb3c194a30e460d81d34be0a230179c043a656f67e3c5c8bf47eceae7c4042ee0221008bf54ca11b2985285be0fd7a212873d243e6e73f5fad57e8eb14c4f39728b8c601";
+
+      var lockBuilder = DataLockBuilder(utf8.encode(data));
+      expect(() => lockBuilder.getScriptPubkey(), returnsNormally);
+    });
+
 
     test('fails if old-style OP_RETURN', () {
       var lockBuilder = DataLockBuilder(null);
