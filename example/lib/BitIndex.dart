@@ -5,7 +5,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:dartsv/dartsv.dart';
 
-
 /* URI and Response for Address API call to BitIndex
 https://api.bitindex.network/api/v3/test/addr/{address}
 {
