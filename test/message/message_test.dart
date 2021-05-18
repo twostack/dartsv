@@ -57,6 +57,35 @@ main() {
         expect(messageSigner.verifyFromPublicKey(privateKey.publicKey, signature), isTrue);
     });
 
+    test('Signature with messages that are known to produce bad s-values', (){
+        String wifKey = 'KyAfciPXnXgy4Ao3BrTfW6A8BErr5xN846S7cCqoFNbbeGVmc3Sn';
+        SVPrivateKey privateKey = SVPrivateKey.fromWIF(wifKey);
+
+        var badMessages = <String>[
+            'rnyxGweL7ZXCkJlBp1Lk',
+            're73QPHgNV0L1aULrIje',
+            'BGWbnBocGTUxzaAf6B2E',
+            '7pNAWvS9J6O6crIK4m2j',
+            'yVlKCLHv0DD5FE8EOGMG',
+            'RonPIcSXc6gO6fpISDhb',
+            '83o3HReuc1eN7LXfxXcV',
+            'rt4tUatPi2MhPrrrB6QU',
+        ];
+
+        for(var i=0; i<badMessages.length; i++){
+
+            String message = badMessages[i];
+            Message messageSigner = Message(Utf8Codec().encode(message));
+            String signature = messageSigner.sign(privateKey);
+
+            var signatureLength = base64Decode(signature).length;
+
+            expect(signatureLength, equals(65));
+            expect(messageSigner.verifyFromPublicKey(privateKey.publicKey, signature), isTrue);
+        }
+
+    });
+
 
     test('can sign a message (buffer representation of arbitrary data)', () {
         Message messageBuf = new Message(base64Decode(bufferData));

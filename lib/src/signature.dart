@@ -154,11 +154,12 @@ class SVSignature {
 
         var b1 = [val];
 
-        //This is a hack around the problem of having r-values of length 31. This causes invalid sigs
+        //This is a hack around the problem of having r-values or s-values of length 31. This causes invalid sigs
         //see: https://github.com/twostack/dartsv/issues/35
         var b2Padded= sprintf("%064s", [_r.toRadixString(16)]).replaceAll(' ', '0');
         var b2 = HEX.decode(b2Padded);
-        var b3 = HEX.decode(_s.toRadixString(16));
+        var b3Padded= sprintf("%064s", [_s.toRadixString(16)]).replaceAll(' ', '0');
+        var b3 = HEX.decode(b3Padded);
         return b1 + b2 + b3;
     }
 
