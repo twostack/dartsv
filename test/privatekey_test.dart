@@ -97,6 +97,16 @@ main(){
     });
 
 
+    test('Assert that our private keys are 256bit', () {
+      final _domainParams =  ECDomainParameters('secp256k1');
+
+      for (int i = 0; i < 100; i++) {
+        SVPrivateKey privKey = SVPrivateKey(networkType: NetworkType.MAIN);
+        expect(privKey.privateKey < _domainParams.n, isTrue);
+        expect(privKey.privateKey.bitLength, equals(256));
+      }
+    });
+
     test('should output this known livenet address correctly', (){
         SVPrivateKey privateKey = SVPrivateKey.fromWIF('L3T1s1TYP9oyhHpXgkyLoJFGniEgkv2Jhi138d7R2yJ9F4QdDU2m');
         Address address = privateKey.toAddress();
@@ -331,17 +341,6 @@ describe('PrivateKey', function () {
 
 
   describe('#getValidationError', function () {
-    it('should get an error because private key greater than N', function () {
-      var n = Point.getN()
-      var a = PrivateKey.getValidationError(n)
-      a.message.should.equal('Number must be less than N')
-    })
-
-    it('should validate as false because private key greater than N', function () {
-      var n = Point.getN()
-      var a = PrivateKey.isValid(n)
-      a.should.equal(false)
-    })
 
     it('should recognize that undefined is an invalid private key', function () {
       PrivateKey.isValid().should.equal(false)

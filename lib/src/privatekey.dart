@@ -52,13 +52,27 @@ class SVPrivateKey {
         var generator = ECKeyGenerator();
         generator.init(ParametersWithRandom(keyParams, _secureRandom));
 
-        var keypair = generator.generateKeyPair();
+        var retry = 100; //100 retries to get correct bitLength. Problem in PointyCastle lib ?
+        AsymmetricKeyPair keypair;
+        while (retry > 0 ) {
+          keypair = generator.generateKeyPair();
+          ECPrivateKey key = keypair.privateKey;
+          if (key.d.bitLength == 256) {
+            break;
+          }else{
+            retry--;
+          }
+        }
 
         _hasCompressedPubKey = true;
         _networkType = networkType;
-
         _ecPrivateKey = keypair.privateKey;
         _d = _ecPrivateKey.d;
+
+        if (_d.bitLength != 256) {
+          throw InvalidKeyException("Failed to generate a valid private key after 100 tries. Try again. ");
+        }
+
         _svPublicKey = SVPublicKey.fromPrivateKey(this);
     }
 
@@ -89,6 +103,52 @@ class SVPrivateKey {
         _svPublicKey = SVPublicKey.fromPrivateKey(this);
     }
 
+    void _decodeKeyType(String wifKey){
+
+      switch (wifKey[0]){
+        case '5' : {
+          if (wifKey.length != 51) {
+            throw InvalidKeyException('Uncompressed private keys have a length of 51 bytes');
+          }
+
+          _hasCompressedPubKey = false;
+          _networkType = NetworkType.MAIN;
+          break;
+        }
+        case '9' : {
+          if (wifKey.length != 51) {
+            throw InvalidKeyException('Uncompressed private keys have a length of 51 bytes');
+          }
+
+          _hasCompressedPubKey = false;
+          _networkType = NetworkType.TEST;
+          break;
+        }
+        case 'L' : case 'K' : {
+        if (wifKey.length != 52) {
+          throw InvalidKeyException('Compressed private keys have a length of 52 bytes');
+        }
+
+        _networkType = NetworkType.MAIN;
+        _hasCompressedPubKey = true;
+        break;
+      }
+        case 'c' : {
+          if (wifKey.length != 52) {
+            throw InvalidKeyException('Compressed private keys have a length of 52 bytes');
+          }
+
+          _networkType = NetworkType.TEST;
+          _hasCompressedPubKey = true;
+          break;
+        }
+        default : {
+          throw  InvalidNetworkException('Address WIF format must start with either [5] or [9]');
+        }
+
+      }
+    }
+
     /// Construct a  Private Key from the WIF encoded format.
     ///
     /// WIF is an abbreviation for Wallet Import Format. It is a format based on base58-encoding
@@ -106,50 +166,7 @@ class SVPrivateKey {
        //decode from base58
         var versionAndDataBytes = bs58check.decodeChecked(wifKey);
 
-
-        switch (wifKey[0]){
-            case '5' : {
-                if (wifKey.length != 51) {
-                    throw InvalidKeyException('Uncompressed private keys have a length of 51 bytes');
-                }
-
-                _hasCompressedPubKey = false;
-                _networkType = NetworkType.MAIN;
-                break;
-            }
-            case '9' : {
-                if (wifKey.length != 51) {
-                    throw InvalidKeyException('Uncompressed private keys have a length of 51 bytes');
-                }
-
-                _hasCompressedPubKey = false;
-                _networkType = NetworkType.TEST;
-                break;
-            }
-            case 'L' : case 'K' : {
-                if (wifKey.length != 52) {
-                    throw InvalidKeyException('Compressed private keys have a length of 52 bytes');
-                }
-
-                _networkType = NetworkType.MAIN;
-                _hasCompressedPubKey = true;
-                break;
-            }
-            case 'c' : {
-                if (wifKey.length != 52) {
-                    throw InvalidKeyException('Compressed private keys have a length of 52 bytes');
-                }
-
-                _networkType = NetworkType.TEST;
-                _hasCompressedPubKey = true;
-                break;
-            }
-            default : {
-                throw  InvalidNetworkException('Address WIF format must start with either [5] or [9]');
-            }
-
-        }
-
+        _decodeKeyType(wifKey);
 
         //strip first byte
         var versionStripped = versionAndDataBytes.sublist(1, versionAndDataBytes.length);
@@ -183,11 +200,14 @@ class SVPrivateKey {
     String toWIF() {
         //convert private key _d to a hex string
         var wifKey = _d.toRadixString(16);
+        var versionByte;
 
         if (_networkType == NetworkType.MAIN) {
-            wifKey = HEX.encode([0x80]) + wifKey;
+            versionByte = 0x80;
+            wifKey = HEX.encode([versionByte]) + wifKey;
         } else if (_networkType == NetworkType.TEST || _networkType == NetworkType.REGTEST) {
-            wifKey = HEX.encode([0xef]) + wifKey;
+          versionByte = 0xef;
+          wifKey = HEX.encode([versionByte]) + wifKey;
         }
 
         if (_hasCompressedPubKey){
@@ -201,7 +221,16 @@ class SVPrivateKey {
 
         var finalWif = bs58check.encode(HEX.decode(wifKey));
 
-        return utf8.decode(finalWif);
+        if (finalWif.length != 51 && finalWif.length != 52){
+          throw  InvalidKeyException('Valid keys are either 51 or 52 bytes in length');
+        }
+
+        final utfWIF = utf8.decode(finalWif);
+
+        //sanity checks so we don't return bad WIF keys
+        _decodeKeyType(utfWIF);
+
+        return utfWIF;
     }
 
 
