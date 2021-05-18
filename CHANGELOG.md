@@ -1,3 +1,8 @@
+## 0.4.3
+- Bugfix: Padded s-values to prevent invalid signatures
+- Bugfix: Force 256-bit Private Keys to prevent invalid WIF exports
+- Update: Updated example code to import latest major version of lib
+
 ## 0.4.2
 - Bugfix: DataBuilder has script construction error for PUSHDATA transactions. 
 
