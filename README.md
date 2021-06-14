@@ -69,5 +69,5 @@ You can reach the author at :
 
 * @beardpappa on Twitter
 * beardpappa@moneybutton.com \(PayMail to buy me a beer\)
-* stephan@werkswinkel.com
+* stephan@twostack.org
 
