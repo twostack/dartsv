@@ -1,3 +1,10 @@
+## 1.0.1
+Resolved Null-safety warnings on project build
+
+Building an example project threw up some warnings related to the  
+pointycastle primitives and null-safety. I've made modifications to library  
+implementation to resolve these compiler warnings.
+
 ## 1.0.0
 - Null-Safety Update
 - All dependencies have been upgraded or replaced with null-safe equivalents. 
