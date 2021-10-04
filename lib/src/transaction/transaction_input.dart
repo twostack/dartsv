@@ -52,7 +52,7 @@ class TransactionInput {
     /// purpose. At present this is only used to
     /// indicate whether nLockTime should be honored or ignored. Set this value to [UINT_MAX] to indicate
     /// that transaction's [Transaction.nLockTime] should be ignored.
-    TransactionInput(String? txId, int outputIndex, SVScript utxoScript, BigInt satoshis, int seqNumber, {UnlockingScriptBuilder? scriptBuilder}) {
+    TransactionInput(String? txId, int outputIndex, SVScript utxoScript, BigInt satoshis, int? seqNumber, {UnlockingScriptBuilder? scriptBuilder}) {
         _prevTxnId = txId;
         _prevTxnOutputIndex = outputIndex;
         _utxoScript = utxoScript;

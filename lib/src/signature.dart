@@ -459,11 +459,11 @@ class SVSignature {
 
             var seq = parser.nextObject() as ASN1Sequence;
 
-            var rVal = seq.elements![0] as ASN1Integer;
-            var sVal = seq.elements![1] as ASN1Integer;
+            var rVal = (seq.elements?[0] as ASN1Integer?)!;
+            var sVal = (seq.elements?[1] as ASN1Integer?)!;
 
             _rHex = HEX.encode(rVal.valueBytes!);
-            _sHex = HEX.encode(sVal!.valueBytes!);
+            _sHex = HEX.encode(sVal.valueBytes!);
 
             _r = BigInt.parse(_rHex!, radix: 16);
             _s = BigInt.parse(_sHex!, radix: 16);

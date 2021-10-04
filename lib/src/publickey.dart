@@ -33,8 +33,8 @@ class SVPublicKey {
         var hexPrivKey = HEX.encode(decodedPrivKey);
 
         var actualKey = hexPrivKey;
-        var point = _domainParams.G * BigInt.parse(actualKey, radix: 16);
-        if (point!.x == null && point!.y == null) {
+        var point = (_domainParams.G * BigInt.parse(actualKey, radix: 16))!;
+        if (point.x == null && point.y == null) {
             throw InvalidPointException('Cannot generate point from private key. Private key greater than N ?');
         }
 
@@ -292,8 +292,8 @@ class SVPublicKey {
 
         //slight-of-hand. Create compressed point, reconstruct and check Y value.
         var compressedPoint = _compressPoint(point);
-        var checkPoint = _domainParams.curve.decodePoint(HEX.decode(compressedPoint));
-        if (checkPoint!.y!.toBigInteger() != point!.y!.toBigInteger()) {
+        var checkPoint = (_domainParams.curve.decodePoint(HEX.decode(compressedPoint)))!;
+        if (checkPoint.y!.toBigInteger() != point.y!.toBigInteger()) {
             throw InvalidPointException('This point is not on the curve');
         }
 

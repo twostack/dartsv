@@ -41,7 +41,7 @@ class Ecies {
     //     k = Bob's private key;
     //     Qa = Alice's public key;
 
-    final S = (recipientPublicKey.point! * senderPrivateKey.privateKey)!; //point multiplication
+    final ECPoint S = (recipientPublicKey.point * senderPrivateKey.privateKey)!; //point multiplication
     final pubkeyS = SVPublicKey.fromXY(S.x!.toBigInteger()!, S.y!.toBigInteger()!);
     final pubkeyBuffer = HEX.decode(pubkeyS.getEncoded(true));
     final pubkeyHash = SHA512Digest().process(pubkeyBuffer as Uint8List);
@@ -108,7 +108,7 @@ class Ecies {
     final senderPublicKey = SVPublicKey.fromHex(HEX.encode(senderPubkeyBuffer));
 
     //calculate S = recipientPrivateKey o senderPublicKey
-    final S = (senderPublicKey.point! * recipientPrivateKey.privateKey)!; //point multiplication
+    final S = (senderPublicKey.point * recipientPrivateKey.privateKey)!; //point multiplication
     final cipher = S.x;
 
     if (cipherText.length - tagLength <= 37 ){
