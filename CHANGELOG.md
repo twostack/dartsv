@@ -1,3 +1,8 @@
+## 1.0.0
+- Null-Safety Update
+- All dependencies have been upgraded or replaced with null-safe equivalents. 
+- Minimum Dart version is now 2.12.2 
+
 ## 0.4.3
 - Bugfix: Padded s-values to prevent invalid signatures
 - Bugfix: Force 256-bit Private Keys to prevent invalid WIF exports

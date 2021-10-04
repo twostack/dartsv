@@ -6,6 +6,7 @@
 
 TwoStack WalletSDK is a Bitcoin library for the Dart Language \( [dartlang.org](https://dartlang.org) \), loosely based on the [Moneybutton/BSV](https://github.com/moneybutton/bsv) Javascript library. This library has been built in line with the ideals espoused by BitcoinSV, i.e. massive on-chain scaling, protocol stability and original-bitcoin-protocol implementation.
 
+
 This library therefore lacks , and will not implement :
 * Segregated Witness \(Segwit\) Transaction support
 * Schnorr Signature support 
@@ -41,9 +42,10 @@ Current Supported features are :
 ```
 
 ### Installation
+**Note**: Version 1.0.0 is a major version update to support Dart Null-Safety.
 
-This library was built using version \(2.8.2\) of the Dart SDK [https://dart.dev/tools/sdk](https://dart.dev/tools/sdk), but should work with _Dart SDK 2.1.x_ onwards.  
-Therefore, as a pre-requisite ensure that you have at least that version of the Dart SDK installed before proceeding.
+This library was built using version _2.14.3_ of the Dart SDK( [https://dart.dev/tools/sdk](https://dart.dev/tools/sdk) ).  
+As of Version 1.0.0 this library supports Dart Null Safety, and will therefore require a minimum SDK Version of 2.12.2.
 
 Navigate to the root folder of this project, and pull the required supported Dart libraries using the `pub` package manager.
 
@@ -67,7 +69,7 @@ A debt of gratitude is owed to the developers acknowledged in the LICENSE file. 
 
 You can reach the author at :
 
-* @beardpappa on Twitter
+* @twostack_org on Twitter
 * beardpappa@moneybutton.com \(PayMail to buy me a beer\)
 * stephan@twostack.org
 
