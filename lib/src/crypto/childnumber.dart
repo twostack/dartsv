@@ -62,7 +62,7 @@ class ChildNumber implements Comparable<ChildNumber> {
         if (otherChild == null || runtimeType != otherChild.runtimeType)
             return false;
 
-        return this._i == otherChild.i;
+        return this._i == (otherChild as ChildNumber).i;
     }
 
     get hashCode {
