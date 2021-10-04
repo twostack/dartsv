@@ -74,7 +74,7 @@ class HDPrivateKey extends CKDSerializer{
 
 
         //I = HMAC-SHA512(Key = "Bitcoin seed", Data = S)
-        var I = HDUtils.hmacSha512WithKey(utf8.encode("Bitcoin seed"), HEX.decode(seed) );
+        var I = HDUtils.hmacSha512WithKey(utf8.encode("Bitcoin seed") as Uint8List, HEX.decode(seed) as Uint8List);
 
         var masterKey = I.sublist(0, 32);
         var masterChainCode = I.sublist(32,64);
@@ -90,8 +90,8 @@ class HDPrivateKey extends CKDSerializer{
         dk = this._copyParams(dk);
 
         this.nodeDepth         = 0;
-        this.parentFingerprint = List<int>(4)..fillRange(0, 4, 0);
-        this.childNumber       = List<int>(4)..fillRange(0, 4, 0);
+        this.parentFingerprint = List<int>.filled(4, 0);
+        this.childNumber       = List<int>.filled(4, 0);
         this.chainCode         = masterChainCode;
         this.networkType       = networkType;
         this.keyType           = KeyType.PRIVATE;
@@ -117,7 +117,7 @@ class HDPrivateKey extends CKDSerializer{
 
         var elem = ChildNumber(index, false);
         var fingerprint = _calculateFingerprint();
-        return _deriveChildPrivateKey(this.nodeDepth + 1, Uint8List.fromList(this.keyBuffer), elem, fingerprint, this.chainCode, this.publicKey.getEncoded(true));
+        return _deriveChildPrivateKey(this.nodeDepth! + 1, Uint8List.fromList(this.keyBuffer), elem, fingerprint, this.chainCode, this.publicKey.getEncoded(true));
 
     }
 
@@ -168,7 +168,7 @@ class HDPrivateKey extends CKDSerializer{
 
     List<int> _calculateFingerprint(){
         var normalisedKey = this.keyBuffer.map((elem) => elem.toUnsigned(8));
-        var privKey = SVPrivateKey.fromHex(HEX.encode(normalisedKey.toList()), this.networkType);
+        var privKey = SVPrivateKey.fromHex(HEX.encode(normalisedKey.toList()), this.networkType!);
         var pubKey = SVPublicKey.fromPrivateKey(privKey);
         var encoded = pubKey.getEncoded(true);
 
@@ -179,8 +179,7 @@ class HDPrivateKey extends CKDSerializer{
     HDPrivateKey _deriveChildPrivateKey(int nd, List<int> privateKey, ChildNumber cn, List<int> fingerprint, List<int> parentChainCode, String pubkey) {
 
         //TODO: This hoopjumping is irritating. What's the better way ?
-        var seriList = List<int>(4);
-        seriList.fillRange(0, 4, 0);
+        var seriList = List<int>.filled(4, 0);
         var seriHexVal = HEX.decode(cn.i.toRadixString(16).padLeft(8, "0"));
         seriList.setRange(0, seriHexVal.length, seriHexVal);
 
@@ -212,7 +211,7 @@ class HDPrivateKey extends CKDSerializer{
 
 
     HDPublicKey _generatePubKey(){
-        HDPublicKey hdPublicKey = HDPublicKey(publicKey, networkType, nodeDepth, parentFingerprint, childNumber, chainCode, versionBytes);
+        HDPublicKey hdPublicKey = HDPublicKey(publicKey, networkType!, nodeDepth!, parentFingerprint, childNumber, chainCode, versionBytes);
         return hdPublicKey;
     }
 
@@ -245,14 +244,14 @@ class HDPrivateKey extends CKDSerializer{
         var pk = this.keyBuffer;
 
         var normalisedPK = pk.map((elem) => elem.toUnsigned(8)).toList();
-        return SVPrivateKey.fromHex(HEX.encode(normalisedPK), this.networkType);
+        return SVPrivateKey.fromHex(HEX.encode(normalisedPK), this.networkType!);
     }
 
     /// Returns the public key associated with this private key as a [SVPublicKey]
     SVPublicKey get publicKey {
         List<int> buffer = this.keyBuffer;
 
-        SVPrivateKey privateKey = SVPrivateKey.fromHex(HEX.encode(Uint8List.fromList(buffer)), this.networkType);
+        SVPrivateKey privateKey = SVPrivateKey.fromHex(HEX.encode(Uint8List.fromList(buffer)), this.networkType!);
 
         return privateKey.publicKey;
     }
