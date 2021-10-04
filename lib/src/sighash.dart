@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 import 'package:buffer/buffer.dart';
 import 'package:dartsv/dartsv.dart';
@@ -7,12 +6,8 @@ import 'package:dartsv/src/script/scriptflags.dart';
 import 'package:dartsv/src/transaction/transaction.dart';
 import 'package:dartsv/src/transaction/transaction_input.dart';
 
-//import 'package:dartsv/src/script/P2PKHScriptSig.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
-import 'package:sprintf/sprintf.dart';
 import 'package:hex/hex.dart';
-import 'dart:convert';
-
 import 'exceptions.dart';
 import 'script/opcodes.dart';
 
@@ -74,15 +69,14 @@ class SighashType {
 /// 3) Calculate the double-sha256 of the serialized [Transaction]
 ///
 class Sighash {
-    String _rawHex;
 
     static const _SIGHASH_SINGLE_BUG = '0000000000000000000000000000000000000000000000000000000000000001';
     static const _BITS_64_ON = 'ffffffffffffffff';
 
     static const _DEFAULT_SIGN_FLAGS = ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID;
 
-    Transaction _txn;
-    SVScript _subScript;
+    Transaction? _txn;
+    SVScript? _subScript;
     int _sighashType = 0;
 
     /// Calculates the hash value according to the Sighash flags specified in [sighashType]
@@ -140,7 +134,7 @@ class Sighash {
 //        txcopy.inputs[inputNumber] = new Input(txcopy.inputs[inputNumber]).setScript(subscript)
         var tmpInput = txnCopy.inputs[inputNumber];
         tmpInput = TransactionInput(tmpInput.prevTxnId, tmpInput.prevTxnOutputIndex, tmpInput.script, tmpInput.satoshis, tmpInput.sequenceNumber);
-        tmpInput.script = this._subScript;
+        tmpInput.script = this._subScript!;
         txnCopy.inputs[inputNumber] = tmpInput;
 //        txnCopy.inputs[inputNumber].script = this._subScript;
 
@@ -193,7 +187,7 @@ class Sighash {
 
 
         if (this._sighashType & SighashType.SIGHASH_ANYONECANPAY > 0) {
-            var keepTxn = this._txn.inputs[inputNumber];
+            var keepTxn = this._txn!.inputs[inputNumber];
             txnCopy.inputs.removeWhere((elem) => true); //delete all inputs
             txnCopy.inputs.add(keepTxn);
         }
@@ -211,7 +205,7 @@ class Sighash {
 
     //by the time this function is called, all _prepare* scripts should have been run
     List<int> getHash() {
-        String txnHex = this._txn.serialize(performChecks: false);
+        String txnHex = this._txn!.serialize(performChecks: false);
 
         var writer = ByteDataWriter();
         writer.write(HEX.decode(txnHex));
@@ -262,7 +256,7 @@ class Sighash {
             return sha256Twice(buf.toList());
         }
 
-        List<int> GetOutputsHash(Transaction tx, { int n = null}) {
+        List<int> GetOutputsHash(Transaction tx, { int? n = null}) {
             var writer = ByteDataWriter();
 
             if (n == null) {
@@ -277,9 +271,9 @@ class Sighash {
             return sha256Twice(buf.toList());
         }
 
-        var hashPrevouts = List<int>(32)..fillRange(0, 32, 0);
-        var hashSequence = List<int>(32)..fillRange(0, 32, 0);
-        var hashOutputs = List<int>(32)..fillRange(0, 32, 0);
+        var hashPrevouts = List<int>.filled(32, 0);
+        var hashSequence = List<int>.filled(32, 0);
+        var hashOutputs = List<int>.filled(32, 0);
 
         if (!(sighashType & SighashType.SIGHASH_ANYONECANPAY > 0)) {
             hashPrevouts = GetPrevoutHash(txn);
