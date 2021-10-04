@@ -67,8 +67,8 @@ main(){
             return result;
     }
 
-    List<String> ENGLISH_WORDS;
-    List<String> SPANISH_WORDS;
+    late List<String> ENGLISH_WORDS;
+    late List<String> SPANISH_WORDS;
 
     setUp(() async {
 
@@ -97,51 +97,51 @@ main(){
     test('english wordlist is complete', () async {
         var wordList = await new Mnemonic().getWordList(Wordlist.ENGLISH);
 
-        expect(wordList.length, equals(2048));
+        expect(wordList!.length, equals(2048));
     });
 
     test('spanish wordlist is complete', () async {
         var wordList = await new Mnemonic().getWordList(Wordlist.SPANISH);
 
-        expect(wordList.length, equals(2048));
+        expect(wordList!.length, equals(2048));
     });
 
     test('japanese wordlist is complete', () async {
         var wordList = await new Mnemonic().getWordList(Wordlist.JAPANESE);
 
-        expect(wordList.length, equals(2048));
+        expect(wordList!.length, equals(2048));
     });
 
 
     test('simplified chinese wordlist is complete', () async {
         var wordList = await new Mnemonic().getWordList(Wordlist.CHINESE_SIMPLIFIED);
 
-        expect(wordList.length, equals(2048));
+        expect(wordList?.length, equals(2048));
     });
 
     test('traditional chinese wordlist is complete', () async {
         var wordList = await new Mnemonic().getWordList(Wordlist.CHINESE_TRADITIONAL);
 
-        expect(wordList.length, equals(2048));
+        expect(wordList?.length, equals(2048));
     });
 
     test('french wordlist is complete', () async {
         var wordList = await new Mnemonic().getWordList(Wordlist.FRENCH);
 
-        expect(wordList.length, equals(2048));
+        expect(wordList?.length, equals(2048));
     });
 
 
     test('italian wordlist is complete', () async {
         var wordList = await new Mnemonic().getWordList(Wordlist.ITALIAN);
 
-        expect(wordList.length, equals(2048));
+        expect(wordList?.length, equals(2048));
     });
 
     test('korean wordlist is complete', () async {
         var wordList = await new Mnemonic().getWordList(Wordlist.KOREAN);
 
-        expect(wordList.length, equals(2048));
+        expect(wordList?.length, equals(2048));
     });
 
     test('it allows use of different phrase lengths', () async {
@@ -214,7 +214,7 @@ main(){
                 var hashMap = HashMap.from(jsonData);
             await Future.forEach(hashMap.keys, (key) async {
 
-                var wordList = getWordlist(key);
+                var wordList = getWordlist(key as String);
                 Mnemonic mnemonic = Mnemonic(wordList: wordList);
                 for (List<dynamic> vector in hashMap[key])  {
                     var code = vector[1] ;

@@ -84,7 +84,7 @@ class Interpreter {
     int get flags => _flags;
 
     /// Returns the internal representation of the script
-    SVScript? get script => _script;
+    SVScript get script => _script!;
 
     /// The default constructor. No setup is performed internally.
     Interpreter();
@@ -213,7 +213,7 @@ class Interpreter {
         _flags = flags;
         _satoshis = satoshis;
 
-        InterpreterStack? stackCopy;
+        late InterpreterStack stackCopy;
 
         if ((flags & ScriptFlags.SCRIPT_VERIFY_SIGPUSHONLY) != 0 && !scriptSig.isPushOnly()) {
             _errStr = 'SCRIPT_ERR_SIG_PUSHONLY';
@@ -267,13 +267,13 @@ class Interpreter {
             // stackCopy cannot be empty here, because if it was the
             // P2SH  HASH <> EQUAL  scriptPubKey would be evaluated with
             // an empty stack and the EvalScript above would return false.
-            if (stackCopy?.length == 0) {
+            if (stackCopy.length == 0) {
                 throw  InterpreterException('internal error - stack copy empty');
             }
 
-            var redeemScriptSerialized = stackCopy?.peek(); // [stackCopy.length - 1];
-            var redeemScript = SVScript.fromByteArray(Uint8List.fromList(redeemScriptSerialized!));
-            stackCopy?.pop();
+            var redeemScriptSerialized = stackCopy.peek(); // [stackCopy.length - 1];
+            var redeemScript = SVScript.fromByteArray(Uint8List.fromList(redeemScriptSerialized));
+            stackCopy.pop();
 
             _initialize();
             _set({
@@ -290,12 +290,12 @@ class Interpreter {
                 return false;
             }
 
-            if (stackCopy?.length == 0) {
+            if (stackCopy.length == 0) {
                 _errStr = 'SCRIPT_ERR_EVAL_FALSE_NO_P2SH_STACK';
                 return false;
             }
 
-            if (!castToBool(stackCopy!.peek())) {
+            if (!castToBool(stackCopy.peek())) {
                 _errStr = 'SCRIPT_ERR_EVAL_FALSE_IN_P2SH_STACK';
                 return false;
             }
@@ -313,7 +313,7 @@ class Interpreter {
                 throw  InterpreterException('internal error - CLEANSTACK without P2SH');
             }
 
-            if (stackCopy?.length != 1) {
+            if (stackCopy.length != 1) {
                 _errStr = 'SCRIPT_ERR_CLEANSTACK';
                 return false;
             }
@@ -917,9 +917,9 @@ class Interpreter {
                         _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-                    buf = _stack!.peek(index: -n - 1);
+                    buf = _stack.peek(index: -n - 1);
                     if (opcodenum == OpCodes.OP_ROLL) {
-                        _stack!.splice(_stack!.length - n - 1 as int, 1);
+                        _stack.splice(_stack.length - n - 1 as int, 1);
                     }
                     _stack.push(buf);
                     break;
@@ -1058,7 +1058,6 @@ class Interpreter {
                         _stack.pop();
                         _stack.pop();
                         late BigInt shifted;
-
 
                         // bitcoin client implementation of l/rshift is unconventional, therefore this implementation is a bit unconventional
                         // bn library has shift functions however it expands the carried bits into a  byte
@@ -1379,7 +1378,7 @@ class Interpreter {
                         pubkey = SVPublicKey.fromHex(HEX.encode(bufPubkey), strict: false);
                         sig = SVSignature.fromTxFormat(HEX.encode(bufSig)); //FIXME: Why can't I construct a SVSignature that properly verifies from TxFormat ???
 
-                        fSuccess = _tx!.verifySignature(sig, pubkey, _nin!, subscript, _satoshis!, _flags);
+                        fSuccess = _tx!.verifySignature(sig, pubkey, _nin!, subscript, _satoshis, _flags);
                     } catch (e) {
                         // invalid sig or pubkey
                         fSuccess = false;
@@ -1481,7 +1480,7 @@ class Interpreter {
                             pubkey = SVPublicKey.fromHex(HEX.encode(bufPubkey), strict: false);
                             sig = SVSignature.fromTxFormat(HEX.encode(bufSig));
 
-                            fOk = _tx!.verifySignature(sig, pubkey, _nin!, subscript, _satoshis!, _flags);
+                            fOk = _tx!.verifySignature(sig, pubkey, _nin!, subscript, _satoshis, _flags);
                         } catch (e) {
                             // invalid sig or pubkey
                             fOk = false;
@@ -1638,7 +1637,6 @@ class Interpreter {
                     }
 
                     var num = List<int>.filled(size, 0);
-
                     if (rawnum.isNotEmpty) {
                         num[0] = rawnum[0];
                     }

@@ -7,14 +7,6 @@ import 'dart:convert';
 main() {
     var derBuffer = '3044022075fc517e541bd54769c080b64397e32161c850f6c1b2b67a5c433affbb3e62770220729e85cc46ffab881065ec07694220e71d4df9b2b8c8fd12c3122cf3a5efbcf2';
 
-    test('should work with conveniently setting r, s', () {
-        BigInt r;
-        BigInt s;
-        var sig = SVSignature.fromECParams(r, s);
-        expect(sig, isNotNull);
-        expect(sig.r.toString(), equals(r.toString()));
-        expect(sig.s.toString(), equals(s.toString()));
-    });
 
     test('should parse this DER format signature', () {
         var sig = SVSignature.fromDER(derBuffer);
@@ -183,7 +175,6 @@ main() {
 
       expect(sig.hasDefinedHashtype(), isFalse);
       var testCases = [
-        [null, false],
         [0, false],
         [-1, false],
         [SighashType.SIGHASH_ANYONECANPAY, false],

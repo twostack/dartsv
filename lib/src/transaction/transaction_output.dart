@@ -128,11 +128,11 @@ class TransactionOutput {
     }
 
     /// Returns the transactionId of the transaction this output belongs to
-    String get transactionId => _transactionId!;
+    String? get transactionId => _transactionId;
 
 
     /// Sets the transactionId of the transaction this output belongs to
-    set transactionId(String value) {
+    set transactionId(String? value) {
         _transactionId = value;
     }
 

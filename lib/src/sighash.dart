@@ -93,7 +93,7 @@ class Sighash {
     ///           and refers to `SCRIPT_ENABLE_SIGHASH_FORKID` and `SCRIPT_ENABLE_REPLAY_PROTECTION`
     Sighash();
 
-    String hash(Transaction txn, int sighashType, int inputNumber, SVScript subscript, BigInt satoshis, {flags = _DEFAULT_SIGN_FLAGS }) {
+    String hash(Transaction txn, int sighashType, int inputNumber, SVScript subscript, BigInt? satoshis, {flags = _DEFAULT_SIGN_FLAGS }) {
 
         var txnCopy = Transaction.fromHex(txn.serialize(performChecks: false)); //make a copy
         this._txn = txnCopy;
@@ -225,7 +225,7 @@ class Sighash {
     }
 
 
-    List<int> _sigHashForForkid(Transaction txn, int sighashType, int inputNumber, SVScript subscript, BigInt satoshis, {flags = _DEFAULT_SIGN_FLAGS }) {
+    List<int> _sigHashForForkid(Transaction txn, int sighashType, int inputNumber, SVScript subscript, BigInt? satoshis, {flags = _DEFAULT_SIGN_FLAGS }) {
 
         if (satoshis == null){
             throw BadParameterException("For ForkId=0 signatures, satoshis or complete input must be provided");

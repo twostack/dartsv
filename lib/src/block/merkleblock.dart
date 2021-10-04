@@ -193,7 +193,7 @@ class MerkleBlock {
         int depth,
         int pos,
         {
-            List<String?>? txs,
+            List<String>? txs,
             int? hashesUsed = 0,
             int flagBitsUsed = 0,
             bool checkForTxs = false

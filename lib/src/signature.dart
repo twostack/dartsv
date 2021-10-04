@@ -23,8 +23,8 @@ class SVSignature {
     final ECDSASigner _dsaSigner =  ECDSASigner(null, HMac(_sha256Digest, 64));
 
     ECSignature? _signature;
-    BigInt? _r;
-    BigInt? _s;
+    BigInt? _r = null;
+    BigInt? _s = null;
     String? _rHex;
     String? _sHex;
     int _nhashtype = 0;
@@ -40,7 +40,7 @@ class SVSignature {
     ///
     /// [s] - The s component of the signature
     SVSignature.fromECParams(this._r, this._s) {
-        _signature = ECSignature(_r!, _s!);
+        _signature = ECSignature(_r! , _s!);
     }
 
     /// Constructs a signature for it's bitcoin-transaction-encoded form.

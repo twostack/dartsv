@@ -95,15 +95,15 @@ void main() {
                 var b = MerkleBlock.fromObject(MerkleData.JSON[0]);
                 // Add too many hashes
                 var i = 0;
-                while (i <= b.numTransactions) {
-                    b.hashes.add('bad' + (i++).toString());
+                while (i <= b.numTransactions!) {
+                    b.hashes!.add('bad' + (i++).toString());
                 }
                 expect(b.validMerkleTree(), isFalse);
             });
 
             test('should not validate merkleblocks with too few bit flags', () {
                 var b = MerkleBlock.fromObject(jsonDecode(blockJSON));
-                b.flags.removeLast();
+                b.flags!.removeLast();
                 expect(b.validMerkleTree(), isFalse);
             });
         });
@@ -119,15 +119,15 @@ void main() {
                 var b = MerkleBlock.fromObject(MerkleData.JSON[0]);
                 // Add too many hashes
                 var i = 0;
-                while (i <= b.numTransactions) {
-                    b.hashes.add('bad' + (i++).toString());
+                while (i <= b.numTransactions!) {
+                    b.hashes!.add('bad' + (i++).toString());
                 }
                 expect(() => b.filteredTxsHash(), throwsException);
             });
 
             test('should fail with merkleblocks with too few bit flags', () {
                 var b = MerkleBlock.fromJSON(blockJSON);
-                b.flags.removeLast();
+                b.flags!.removeLast();
                 expect(() => b.filteredTxsHash(), throwsException);
             });
         });
@@ -169,7 +169,7 @@ void main() {
                 ];
 
                 hashData.forEach((d) {
-                    expect(b.hasTransactionId(d[0]), equals(d[1]));
+                    expect(b.hasTransactionId(d[0] as String), equals(d[1]));
                 });
             });
         });

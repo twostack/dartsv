@@ -609,15 +609,19 @@ class SVScript with ScriptBuilder {
     }
 
     void _addOpcode(opcode, prepend) {
-        late int op;
+        int op;
         if (opcode is num) {
             op = opcode as int;
         } else if (opcode is String && OpCodes.opcodeMap.containsKey(opcode)) {
             op = OpCodes.opcodeMap[opcode]!;
+        }else{
+            op = OpCodes.OP_INVALIDOPCODE;
         }
 
-        ScriptChunk chunk = ScriptChunk([], 0, op);
-        _insertAtPosition(chunk, prepend);
+        if (op != OpCodes.OP_INVALIDOPCODE) {
+          ScriptChunk chunk = ScriptChunk([], 0, op);
+          _insertAtPosition(chunk, prepend);
+        }
     }
 
     /// Currently used by subclasses. A more elegant way is needed to build specialised Script subclasses.

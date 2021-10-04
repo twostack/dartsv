@@ -443,7 +443,7 @@ class Transaction{
     ///
     /// Returns an instance of the current Transaction as part of the builder pattern.
     ///
-    Transaction spendFromMap(Map<String, Object> map, {UnlockingScriptBuilder? scriptBuilder = null }) {
+    Transaction spendFromMap(Map<String, dynamic> map, {UnlockingScriptBuilder? scriptBuilder = null }) {
         //FIXME: More robust validation / error handling needed here.
         if (map['satoshis'] == null || !(map['satoshis'] is BigInt)) {
             throw UTXOException('An amount to spend is required in BigInt format');
@@ -543,7 +543,7 @@ class Transaction{
 
 
     //FIXME: Check under which circumstances this long list of params is actually required. Can be trimmed ?
-    bool verifySignature(SVSignature sig, SVPublicKey pubKey, int inputNumber, SVScript subscript, BigInt satoshis, int flags){
+    bool verifySignature(SVSignature sig, SVPublicKey pubKey, int inputNumber, SVScript subscript, BigInt? satoshis, int flags){
         var sigHash = Sighash();
         var hash = sigHash.hash(this, sig.nhashtype, inputNumber, subscript, satoshis, flags: flags);
 
@@ -852,7 +852,7 @@ class Transaction{
         for (i = 0; i < sizeTxOuts; i++) {
             var output = TransactionOutput.fromReader(reader);
             output.outputIndex = i;
-            output.transactionId = _txId!;
+            output.transactionId = _txId;
             _txnOutputs.add(output);
         }
 
