@@ -30,10 +30,10 @@ import 'blockheader.dart';
 ///
 class MerkleBlock {
 
-    BlockHeader _header;
-    int _numTransactions;
-    List _hashes;
-    List _flags;
+    BlockHeader? _header;
+    int? _numTransactions;
+    List? _hashes;
+    List? _flags;
     int _flagBitsUsed = 0;
     int _hashesUsed = 0;
 
@@ -88,7 +88,7 @@ class MerkleBlock {
     /// Renders the Merkle Block as a structured data object
     Map<String, dynamic> toObject() {
         return { // Mainnet Block 100014
-            'header': _header.toObject(),
+            'header': _header!.toObject(),
             'numTransactions': _numTransactions,
             'hashes': _hashes,
             'flags': _flags
@@ -99,44 +99,44 @@ class MerkleBlock {
     /// Returns *true* if the Merkle tree remains consistent in spite of missing transactions.
     bool validMerkleTree() {
         // Can't have more hashes than numTransactions
-        if (hashes.length > numTransactions) {
+        if (hashes!.length > numTransactions!) {
             return false;
         }
 
         // Can't have more flag bits than num hashes
-        if (flags.length * 8 < hashes.length) {
+        if (flags!.length * 8 < hashes!.length) {
             return false;
         }
 
         var height = _calcTreeHeight();
-        Map<String, dynamic> resultMap = _traverseMerkleTree(height, 0, flagBitsUsed: 0);
-        if (resultMap['hashesUsed'] != hashes.length) {
+        Map<String, dynamic> resultMap = _traverseMerkleTree(height, 0, flagBitsUsed: 0)!;
+        if (resultMap['hashesUsed'] != hashes!.length) {
             return false;
         }
-        return HEX.encode(resultMap['nodeValue']) == HEX.encode(header.merkleRoot);
+        return HEX.encode(resultMap['nodeValue']) == HEX.encode(header!.merkleRoot!);
     }
 
 
     List<String> filteredTxsHash() {
         // Can't have more hashes than numTransactions
-        if (hashes.length > numTransactions) {
+        if (hashes!.length > numTransactions!) {
             throw MerkleTreeException('Invalid merkle tree - more hashes than transactions');
         }
 
         // Can't have more flag bits than num hashes
-        if (flags.length * 8 < hashes.length) {
+        if (flags!.length * 8 < hashes!.length) {
             throw MerkleTreeException('Invalid merkle tree - more flag bits than hashes');
         }
 
         // If there is only one hash the filter do not match any txs in the block
-        if (hashes.length == 1) {
+        if (hashes!.length == 1) {
             return [];
         };
 
         var height = _calcTreeHeight();
         var hashesUsed = 0, flagBitsUsed = 0;
         var result = _traverseMerkleTree(height, 0, hashesUsed: hashesUsed, flagBitsUsed: flagBitsUsed, checkForTxs: true);
-        if (result['hashesUsed'] != hashes.length) {
+        if (result!['hashesUsed'] != hashes!.length) {
             throw MerkleTreeException('Invalid merkle tree');
         }
         return result['transactions'];
@@ -179,22 +179,22 @@ class MerkleBlock {
         _hashes = [];
 
         for (var i = 0; i < numHashes; i++) {
-            _hashes.add(HEX.encode(reader.read(32)));
+            _hashes!.add(HEX.encode(reader.read(32)));
         }
 
         var numFlags = readVarIntNum(reader);
         _flags = [];
         for (int i = 0; i < numFlags; i++) {
-            _flags.add(reader.readUint8());
+            _flags!.add(reader.readUint8());
         }
     }
 
-    Map<String, dynamic> _traverseMerkleTree(
+    Map<String, dynamic>? _traverseMerkleTree(
         int depth,
         int pos,
         {
-            List<String> txs,
-            int hashesUsed = 0,
+            List<String?>? txs,
+            int? hashesUsed = 0,
             int flagBitsUsed = 0,
             bool checkForTxs = false
         }) {
@@ -202,30 +202,30 @@ class MerkleBlock {
         //FIXME: I hate this, but optional params must be const. A lot of 'out' params in this method. Refactor!
         txs = txs == null ? [] : txs;
 
-        if (flagBitsUsed > flags.length * 8) {
+        if (flagBitsUsed > flags!.length * 8) {
             return null;
         }
 
-        var isParentOfMatch = (flags[flagBitsUsed >> 3] >> (flagBitsUsed++ & 7)) & 1; //fucking magic math *facepalm*
+        var isParentOfMatch = (flags![flagBitsUsed >> 3] >> (flagBitsUsed++ & 7)) & 1; //fucking magic math *facepalm*
         if (depth == 0 || isParentOfMatch == 0) {
-            if (hashesUsed >= hashes.length) {
+            if (hashesUsed! >= hashes!.length) {
                 return null;
             }
-            var hash = hashes[hashesUsed++];
+            var hash = hashes![hashesUsed++];
             if (depth == 0 && isParentOfMatch != 0) {
                 txs.add(hash);
             }
             return {'nodeValue' : HEX.decode(hash), 'hashesUsed' : hashesUsed, 'flagBitsUsed' : flagBitsUsed};
         } else {
             var result = _traverseMerkleTree(depth - 1, pos * 2, txs: txs, hashesUsed: hashesUsed, flagBitsUsed: flagBitsUsed, checkForTxs: checkForTxs);
-            var left = result['nodeValue'];
+            var left = result!['nodeValue'];
             hashesUsed = result['hashesUsed'];
             flagBitsUsed = result['flagBitsUsed'];
 
             var right = left;
             if (pos * 2 + 1 < _calcTreeWidth(depth - 1)) {
                 result = _traverseMerkleTree(depth - 1, pos * 2 + 1, txs: txs, hashesUsed: hashesUsed, flagBitsUsed: flagBitsUsed, checkForTxs: checkForTxs);
-                right = result['nodeValue'];
+                right = result!['nodeValue'];
                 hashesUsed = result['hashesUsed'];
                 flagBitsUsed = result['flagBitsUsed'];
             }
@@ -247,7 +247,7 @@ class MerkleBlock {
     }
 
     int _calcTreeWidth(int height) {
-        return (numTransactions + (1 << height) - 1) >> height;
+        return (numTransactions! + (1 << height) - 1) >> height;
     }
 
     void _decodeObject(Map<String, dynamic> blockObject) {
@@ -283,33 +283,33 @@ class MerkleBlock {
     List<int> get buffer {
         ByteDataWriter writer = ByteDataWriter();
 
-        writer.write(_header.buffer);
-        writer.writeUint32(_numTransactions, Endian.little);
-        writer.write(varIntWriter(_hashes.length));
+        writer.write(_header!.buffer);
+        writer.writeUint32(_numTransactions!, Endian.little);
+        writer.write(varIntWriter(_hashes!.length));
 
-        for (int i = 0; i < _hashes.length; i++) {
-            writer.write(HEX.decode(_hashes[i]));
+        for (int i = 0; i < _hashes!.length; i++) {
+            writer.write(HEX.decode(_hashes![i]));
         }
 
-        writer.write(varIntWriter(_flags.length));
-        for (int i = 0; i < _flags.length; i++) {
-            writer.writeUint8(_flags[i]);
+        writer.write(varIntWriter(_flags!.length));
+        for (int i = 0; i < _flags!.length; i++) {
+            writer.writeUint8(_flags![i]);
         }
 
         return writer.toBytes().toList();
     }
 
     /// Returns the bit-packed data structure showing locations of hashes in the tree
-    List get flags => _flags;
+    List? get flags => _flags;
 
     /// A list of all the hashes in the merkle block
-    List get hashes => _hashes;
+    List? get hashes => _hashes;
 
     /// Total transaction count for the block. Includes transactions not in the block.
-    int get numTransactions => _numTransactions;
+    int? get numTransactions => _numTransactions;
 
     /// Returns the block header
-    BlockHeader get header => _header;
+    BlockHeader? get header => _header;
 
     /// Serializes the Merkle Block to a JSON string
     String toJSON() {

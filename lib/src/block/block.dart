@@ -31,8 +31,8 @@ class Block {
     /// If the block contains no transactions it must have a null value as it's hash
     static final NULL_HASH = HEX.decode('0000000000000000000000000000000000000000000000000000000000000000');
 
-    List<Transaction> _transactions;
-    BlockHeader _header;
+    List<Transaction>? _transactions;
+    BlockHeader? _header;
 
     /// Constructs a  bitcoin block
     ///
@@ -132,8 +132,8 @@ class Block {
     /// See [Block.fromJSONMap()] for example result data.
     Object toObject(){
         return {
-            'header': _header.toObject(),
-            'transactions': _transactions.map((tx) => tx.toObject()).toList()
+            'header': _header!.toObject(),
+            'transactions': _transactions!.map((tx) => tx.toObject()).toList()
         };
     }
 
@@ -147,8 +147,8 @@ class Block {
     /// See [Block.fromJSONMap()] for example result data.
     String toJSON() {
         return jsonEncode({
-            'header': _header.toObject(),
-            'transactions': _transactions.map((tx) => tx.toObject()).toList()
+            'header': _header!.toObject(),
+            'transactions': _transactions!.map((tx) => tx.toObject()).toList()
         });
     }
 
@@ -160,7 +160,7 @@ class Block {
     /// be computationally expensive for large blocks especially on memory-constrained devices.
     bool validMerkleRoot() {
 
-        var headerVal = BigInt.parse(HEX.encode(header.merkleRoot), radix: 16);
+        var headerVal = BigInt.parse(HEX.encode(header!.merkleRoot!), radix: 16);
         var transactionVal = BigInt.parse(HEX.encode(getMerkleRoot()), radix: 16);
 
         if (headerVal != transactionVal ) {
@@ -190,7 +190,7 @@ class Block {
         var tree = getTransactionHashes();
 
         var j = 0;
-        for (var size = transactions.length; size > 1; size = ((size + 1) / 2).floor()) {
+        for (var size = transactions!.length; size > 1; size = ((size + 1) / 2).floor()) {
             for (var i = 0; i < size; i += 2) {
                 var i2 = min(i + 1, size - 1);
                 var buf = tree[j + i] + tree[j + i2];
@@ -205,11 +205,11 @@ class Block {
     /// Retrieves the complete list of all Transaction hashes in the block
     List<List<int>> getTransactionHashes() {
         List<List<int>> hashes = [];
-        if (transactions.isEmpty) {
+        if (transactions!.isEmpty) {
             return [Block.NULL_HASH];
         }
 
-        hashes = transactions.map((Transaction tx) => tx.hash).toList();
+        hashes = transactions!.map((Transaction tx) => tx.hash).toList();
 
         return hashes;
     }
@@ -224,7 +224,7 @@ class Block {
         _header = BlockHeader.fromJSONMap(map['header']);
 
         (map['transactions'] as List).forEach((tx) {
-            _transactions.add(Transaction.fromJSONMap(tx));
+            _transactions!.add(Transaction.fromJSONMap(tx));
         });
     }
 
@@ -249,7 +249,7 @@ class Block {
         var txCount = readVarIntNum(dataReader);
 
         for (var i = 0; i < txCount; i++) {
-            _transactions.add(Transaction.fromBufferReader(dataReader));
+            _transactions!.add(Transaction.fromBufferReader(dataReader));
         }
     }
 
@@ -259,10 +259,10 @@ class Block {
         ByteDataWriter writer = ByteDataWriter();
 
         //concatenate all transactions
-        List<int> txBuf = _transactions.fold(<int>[], (List<int> prev, Transaction tx) => prev + HEX.decode(tx.serialize(performChecks: false)));
+        List<int> txBuf = _transactions!.fold(<int>[], (List<int> prev, Transaction tx) => prev + HEX.decode(tx.serialize(performChecks: false)));
 
-        writer.write(_header.buffer);
-        writer.write(varIntWriter(_transactions.length).toList());
+        writer.write(_header!.buffer);
+        writer.write(varIntWriter(_transactions!.length).toList());
         writer.write(txBuf);
 
         return writer.toBytes().toList();
@@ -270,21 +270,21 @@ class Block {
 
     /// Returns the block's hash (header hash) as a buffer
     ///
-    List<int> get hash => _header.hash;
+    List<int> get hash => _header!.hash;
 
     /// Returns a HEX encoded version of the block's hash
     String get id => HEX.encode(hash);
 
     /// Returns this block's header as a [BlockHeader] object
-    BlockHeader get header => _header;
+    BlockHeader? get header => _header;
 
     /// Returns this block's transactions a List<[Transaction]>
-    List<Transaction> get transactions => _transactions;
+    List<Transaction>? get transactions => _transactions;
 
     /// Sets this block's internal list of transactions
     ///
     /// [txns] - The list of transactions with which to populate this block
-    set transactions(List<Transaction> txns){
+    set transactions(List<Transaction>? txns){
         _transactions = txns;
     }
 
