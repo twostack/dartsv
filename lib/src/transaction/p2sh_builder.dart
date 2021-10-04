@@ -61,7 +61,7 @@ mixin P2SHUnlockMixin on _P2SHUnlockBuilder implements UnlockingScriptBuilder{
 
   @override
   SVScript getScriptSig() {
-    return script;
+    return script!;
   }
 
 }
@@ -75,7 +75,7 @@ abstract class _P2SHUnlockBuilder extends SignedUnlockBuilder implements Unlocki
   @override
   List<SVSignature> signatures = <SVSignature>[];
 
-  SVScript script;
+  SVScript? script;
 
   _P2SHUnlockBuilder();
 

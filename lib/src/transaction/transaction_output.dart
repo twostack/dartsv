@@ -22,15 +22,15 @@ import 'package:sprintf/sprintf.dart';
 ///
 class TransactionOutput {
     BigInt _satoshis = BigInt.zero;
-    String _transactionId;
-    int _outputIndex;
+    String? _transactionId;
+    int? _outputIndex;
     bool _isChangeOutput = false;
 
-    LockingScriptBuilder _scriptBuilder;
+    LockingScriptBuilder? _scriptBuilder;
 
 
     /// The default constructor. Initializes a "clean slate" output.
-    TransactionOutput({LockingScriptBuilder scriptBuilder = null}){
+    TransactionOutput({LockingScriptBuilder? scriptBuilder = null}){
        _scriptBuilder = scriptBuilder ??= DefaultLockBuilder();
     }
 
@@ -43,7 +43,7 @@ class TransactionOutput {
     /// This method is useful when iteratively reading the transaction
     /// outputs in a raw transaction, which is also how it is currently
     /// being used.
-    TransactionOutput.fromReader(ByteDataReader reader, {LockingScriptBuilder scriptBuilder = null}) {
+    TransactionOutput.fromReader(ByteDataReader reader, {LockingScriptBuilder? scriptBuilder = null}) {
 
         _scriptBuilder = scriptBuilder ??= DefaultLockBuilder();
 
@@ -51,11 +51,11 @@ class TransactionOutput {
         var size = readVarIntNum(reader);
         if (size != 0) {
             var script = SVScript.fromBuffer(reader.read(size, copy: true));
-            _scriptBuilder.fromScript(script);
+            _scriptBuilder!.fromScript(script);
 
         } else {
             var script = SVScript.fromBuffer(Uint8List(0));
-            _scriptBuilder.fromScript(script);
+            _scriptBuilder!.fromScript(script);
         }
     }
 
@@ -75,7 +75,7 @@ class TransactionOutput {
 
     /// Returns a byte array containing the raw transaction output
     List<int> serialize() {
-        List<int> buffer = List<int>();
+        List<int> buffer = <int>[];
 
         //add value in satoshis - 8 bytes BigInt
         var satArr = sprintf("%016s", [this._satoshis.abs().toRadixString(16)]); //lazy way to get to 8 byte padding
@@ -102,21 +102,21 @@ class TransactionOutput {
     Map<String, dynamic> toObject() {
         return {
             "satoshis": this._satoshis.toInt(),
-            "script": _scriptBuilder.getScriptPubkey().toHex()
+            "script": _scriptBuilder!.getScriptPubkey().toHex()
         };
     }
 
     /// Returns the output script in it's raw hexadecimal form
     String get scriptHex {
-        return this._scriptBuilder.getScriptPubkey().toHex();
+        return this._scriptBuilder!.getScriptPubkey().toHex();
     }
 
     /// Returns the output script as a [SVScript] instance
-    SVScript get script => _scriptBuilder.getScriptPubkey();
+    SVScript get script => _scriptBuilder!.getScriptPubkey();
 
     /// Sets the output script to the provided value
     set script(SVScript script) {
-        _scriptBuilder.fromScript(script);
+        _scriptBuilder!.fromScript(script);
     }
 
     /// Returns the number of satoshis the output is sending
@@ -128,7 +128,7 @@ class TransactionOutput {
     }
 
     /// Returns the transactionId of the transaction this output belongs to
-    String get transactionId => _transactionId;
+    String get transactionId => _transactionId!;
 
 
     /// Sets the transactionId of the transaction this output belongs to
@@ -137,7 +137,7 @@ class TransactionOutput {
     }
 
     /// Returns the index of the (UTXO) in the transaction this output belongs to
-    int get outputIndex => _outputIndex;
+    int get outputIndex => _outputIndex!;
 
     /// sets the index of the (UTXO) in the transaction this output belongs to
     set outputIndex(int value) {
@@ -174,7 +174,7 @@ class TransactionOutput {
 
 
     /// Returns the current instance of LockingScriptBuilder in use by this instance
-    LockingScriptBuilder get scriptBuilder => _scriptBuilder;
+    LockingScriptBuilder get scriptBuilder => _scriptBuilder!;
 
 //FIXME: Swing back to this leaner implementation based on ByteDataWriter()
 //    List<int> serialize2(){
