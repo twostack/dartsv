@@ -4,8 +4,8 @@ import 'dart:convert';
 import 'dart:async';
 
 import 'package:pointycastle/key_derivators/api.dart';
-import 'package:resource/resource.dart';
 import 'package:dartsv/src/encoding/utils.dart';
+import 'package:resource_portable/resource.dart';
 import 'package:unorm_dart/unorm_dart.dart';
 import 'package:pointycastle/api.dart';
 
@@ -234,8 +234,7 @@ class Mnemonic {
     if (_wordlistCache.containsKey(wordlist)) {
       return _wordlistCache[wordlist];
     } else {
-      final res = Resource(
-          'package:dartsv/src/bip39/wordlists/${_getWordlistName(wordlist)}.txt');
+      final res = Resource( 'package:dartsv/src/bip39/wordlists/${_getWordlistName(wordlist)}.txt');
       final rawWords = await res.readAsString(encoding: utf8);
       final result = rawWords
           .split('\n')

@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dartsv/src/bip39/bip39.dart';
-import 'package:resource/resource.dart';
+import 'package:resource_portable/resource.dart';
 import 'package:test/test.dart';
 
 main(){
