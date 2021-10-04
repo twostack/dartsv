@@ -19,12 +19,8 @@ import 'exceptions.dart';
 class SVPublicKey {
     //We only deal with secp256k1
     final _domainParams =  ECDomainParameters('secp256k1');
-//    var _curve =  ECCurve_secp256k1();
 
-    ECPoint _point;
-
-//    ECPublicKey _publicKey;
-
+    ECPoint? _point;
 
     /// Creates a  public key from it's corresponding ECDSA private key.
     ///
@@ -38,12 +34,12 @@ class SVPublicKey {
 
         var actualKey = hexPrivKey;
         var point = _domainParams.G * BigInt.parse(actualKey, radix: 16);
-        if (point.x == null && point.y == null) {
+        if (point!.x == null && point!.y == null) {
             throw InvalidPointException('Cannot generate point from private key. Private key greater than N ?');
         }
 
         //create a  point taking into account compression request/indicator of parent private key
-        var finalPoint = _domainParams.curve.createPoint(point.x.toBigInteger(), point.y.toBigInteger(), privkey.isCompressed);
+        var finalPoint = _domainParams.curve.createPoint(point.x!.toBigInteger()!, point.y!.toBigInteger()!, privkey.isCompressed);
 
         _checkIfOnCurve(finalPoint); // a bit paranoid
 
@@ -100,15 +96,15 @@ class SVPublicKey {
 
         _point = _transformDER(buffer, strict);
 
-        if (_point.isInfinity) {
+        if (_point!.isInfinity) {
             throw InvalidPointException('That public key generates point at infinity');
         }
 
-        if (_point.y.toBigInteger() == BigInt.zero) {
+        if (_point!.y!.toBigInteger() == BigInt.zero) {
             throw InvalidPointException('Invalid Y value for this public key');
         }
 
-        _checkIfOnCurve(_point);
+        _checkIfOnCurve(_point!);
 
 //        _publicKey = ECPublicKey(_point, _domainParams);
     }
@@ -128,15 +124,15 @@ class SVPublicKey {
 //        _parseHexString(pubkey);
         _point = _transformDER(HEX.decode(pubkey), strict);
 
-        if (_point.isInfinity) {
+        if (_point!.isInfinity) {
             throw InvalidPointException('That public key generates point at infinity');
         }
 
-        if (_point.y.toBigInteger() == BigInt.zero) {
+        if (_point!.y!.toBigInteger() == BigInt.zero) {
             throw InvalidPointException('Invalid Y value for this public key');
         }
 
-        _checkIfOnCurve(_point);
+        _checkIfOnCurve(_point!);
 
 //        _publicKey = ECPublicKey(_point, _domainParams);
     }
@@ -176,7 +172,7 @@ class SVPublicKey {
     /// NOTE: The first byte will contain either an odd number or an even number,
     /// but this number is *NOT* a boolean flag.
     String getEncoded(bool compressed) {
-        return HEX.encode(_point.getEncoded(compressed));
+        return HEX.encode(_point!.getEncoded(compressed));
     }
 
 
@@ -189,7 +185,7 @@ class SVPublicKey {
             return '';
         }
 
-        return HEX.encode(_point.getEncoded(_point.isCompressed));
+        return HEX.encode(_point!.getEncoded(_point!.isCompressed));
     }
 
 
@@ -197,9 +193,9 @@ class SVPublicKey {
     /// public key.
     Address toAddress(NetworkType nat) {
         //generate compressed addresses by default
-        List<int> buffer = _point.getEncoded(_point.isCompressed);
+        List<int> buffer = _point!.getEncoded(_point!.isCompressed);
 
-        if (_point.isCompressed) {
+        if (_point!.isCompressed) {
             return Address.fromCompressedPubKey(buffer, nat);
         } else {
             return Address.fromHex(HEX.encode(buffer), nat);
@@ -249,7 +245,7 @@ class SVPublicKey {
 
         var encoded = HEX.decode(xValue);
 
-        var addressBytes = List<int>(1 + encoded.length);
+        var addressBytes = List<int>.filled(1 + encoded.length, 0);
         addressBytes[0] = prefixByte;
         addressBytes.setRange(1, addressBytes.length, encoded);
 
@@ -266,7 +262,7 @@ class SVPublicKey {
         try {
             var point = _domainParams.curve.decodePoint(encoded);
 
-            if (point.isCompressed && encoded.length != 33) {
+            if (point!.isCompressed && encoded.length != 33) {
                 throw BadParameterException("Compressed public keys must be 33 bytes long. Yours is [${encoded.length}]");
             } else if (!point.isCompressed && encoded.length != 65) {
                 throw BadParameterException( "Uncompressed public keys must be 65 bytes long. Yours is [${encoded.length}]");
@@ -286,9 +282,9 @@ class SVPublicKey {
 
     bool _checkIfOnCurve(ECPoint point) {
         //a bit of math copied from PointyCastle. ecc/ecc_fp.dart -> decompressPoint()
-        var x = _domainParams.curve.fromBigInteger(point.x.toBigInteger());
-        var alpha = (x * ((x * x) + _domainParams.curve.a)) + _domainParams.curve.b;
-        ECFieldElement beta = alpha.sqrt();
+        var x = _domainParams.curve.fromBigInteger(point.x!.toBigInteger()!);
+        var alpha = (x * ((x * x) + _domainParams.curve.a!)) + _domainParams.curve.b!;
+        ECFieldElement? beta = alpha.sqrt();
 
         if (beta == null) {
             throw InvalidPointException('This point is not on the curve');
@@ -297,25 +293,25 @@ class SVPublicKey {
         //slight-of-hand. Create compressed point, reconstruct and check Y value.
         var compressedPoint = _compressPoint(point);
         var checkPoint = _domainParams.curve.decodePoint(HEX.decode(compressedPoint));
-        if (checkPoint.y.toBigInteger() != point.y.toBigInteger()) {
+        if (checkPoint!.y!.toBigInteger() != point!.y!.toBigInteger()) {
             throw InvalidPointException('This point is not on the curve');
         }
 
-        return (point.x.toBigInteger() == BigInt.zero) && (point.y.toBigInteger() == BigInt.zero);
+        return (point.x!.toBigInteger() == BigInt.zero) && (point.y!.toBigInteger() == BigInt.zero);
     }
 
     /// Returns the (x,y) coordinates of this public key as an [ECPoint].
     /// The author dislikes leaking the wrapped PointyCastle implementation, but is too
     /// lazy to write his own Point implementation.
     ECPoint get point {
-        return _point;
+        return _point!;
     }
 
     /// Returns *true* if this public key will render using EC point compression by
     /// default when one calls the [toString()] or [toHex()] methods.
     /// Returns *false* otherwise.
     bool get isCompressed {
-        return _point.isCompressed;
+        return _point!.isCompressed;
     }
 
 }
