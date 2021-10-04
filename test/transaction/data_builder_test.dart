@@ -8,7 +8,7 @@ import 'package:test/test.dart';
 void main() {
   group('building data output scripts', () {
     test('should create script from no data', () {
-      var lockBuilder = DataLockBuilder(null);
+      var lockBuilder = DataLockBuilder(<int>[]);
       expect(lockBuilder.getScriptPubkey().toString(), equals('OP_0 OP_RETURN'));
     });
 
@@ -27,7 +27,7 @@ void main() {
 
 
     test('fails if old-style OP_RETURN', () {
-      var lockBuilder = DataLockBuilder(null);
+      var lockBuilder = DataLockBuilder([]);
 
       var script = SVScript.fromString('OP_RETURN');
       expect(() => lockBuilder.fromScript(script), throwsException);

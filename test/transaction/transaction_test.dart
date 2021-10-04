@@ -227,7 +227,7 @@ main() {
             List.from(jsonData).forEach((item) {
                 var privKey = SVPrivateKey.fromWIF(item['sign'][0]);
                 var utxoMap = item['from'][0][0];
-                utxoMap['satoshis'] = BigInt.from(utxoMap['satoshis']);
+                utxoMap['satoshis'] = BigInt.from(utxoMap['satoshis'] as int);
                 var transaction = Transaction().spendFromMap(utxoMap, scriptBuilder: P2PKHUnlockBuilder(privKey.publicKey));
 
                 for (var elem in item['to']) {
@@ -365,19 +365,19 @@ main() {
 
     test('fee per kb can be set up manually', () {
         var  inputs = List<TransactionInput>.generate(10, (input) {
-            BigInt amountToSpend = simpleUtxoWith100000Satoshis['satoshis'];
-            String transactionId = simpleUtxoWith100000Satoshis['txId'];
-            int outputIndex = simpleUtxoWith100000Satoshis['outputIndex'];
-            String scriptPubKey = simpleUtxoWith100000Satoshis['scriptPubKey'];
+            BigInt amountToSpend = simpleUtxoWith100000Satoshis['satoshis'] as BigInt;
+            String transactionId = simpleUtxoWith100000Satoshis['txId'] as String;
+            int outputIndex = simpleUtxoWith100000Satoshis['outputIndex'] as int;
+            String scriptPubKey = simpleUtxoWith100000Satoshis['scriptPubKey'] as String;
             return TransactionInput(transactionId, outputIndex, SVScript.fromString(scriptPubKey), amountToSpend, TransactionInput.UINT_MAX);
         });
 
         var outputs = List<TransactionOutput>.generate(10, (output) {
             var txo = TransactionOutput();
-            txo.transactionId = simpleUtxoWith100000Satoshis['txId'];
-            txo.outputIndex = simpleUtxoWith100000Satoshis['outputIndex'];
-            txo.script = SVScript.fromString(simpleUtxoWith100000Satoshis['scriptPubKey']);
-            txo.satoshis =  simpleUtxoWith100000Satoshis['satoshis'];
+            txo.transactionId = simpleUtxoWith100000Satoshis['txId'] as String;
+            txo.outputIndex = simpleUtxoWith100000Satoshis['outputIndex'] as int;
+            txo.script = SVScript.fromString(simpleUtxoWith100000Satoshis['scriptPubKey'] as String);
+            txo.satoshis =  simpleUtxoWith100000Satoshis['satoshis'] as BigInt;
             return txo;
         });
 
@@ -733,7 +733,7 @@ main() {
 
                     var txOutputs = outputSet.map((output) {
                         var txOut = TransactionOutput();
-                        txOut.script = SVScript.fromByteArray(utf8.encode(output["script"]));
+                        txOut.script = SVScript.fromByteArray(utf8.encode(output["script"]) as Uint8List);
                         txOut.satoshis = BigInt.from(output["value"]);
                         return txOut;
                     }).toList();
@@ -967,11 +967,12 @@ main() {
          */
 
   group('checks on adding inputs', () {
+      //FIXME:
         Transaction transaction = new Transaction();
-        BigInt amountToSpend = simpleUtxoWith100000Satoshis['satoshis'];
-        String transactionId = simpleUtxoWith100000Satoshis['txId'];
-        int outputIndex = simpleUtxoWith100000Satoshis['outputIndex'];
-        String scriptPubKey = simpleUtxoWith100000Satoshis['scriptPubKey'];
+        BigInt amountToSpend = simpleUtxoWith100000Satoshis['satoshis'] as BigInt;
+        String transactionId = simpleUtxoWith100000Satoshis['txId'] as String;
+        int outputIndex = simpleUtxoWith100000Satoshis['outputIndex'] as int;
+        String scriptPubKey = simpleUtxoWith100000Satoshis['scriptPubKey'] as String;
 
 //        test('fails if no output script is provided', () {
 //            var txInput = TransactionInput(transactionId, outputIndex, "", amountToSpend, TransactionInput.UINT_MAX);

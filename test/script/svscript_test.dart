@@ -309,7 +309,7 @@ main() {
       });
 
       test('should parse this long PUSHDATA4 script in ASM', () {
-        var buf = Uint8List(pow(2, 17));
+        var buf = Uint8List(pow(2, 17) as int);
         var asm = 'OP_RETURN ' + HEX.encode(buf);
         var script = SVScript.fromASM(asm);
         expect(script.chunks[1].opcodenum, equals(OpCodes.OP_PUSHDATA4));
@@ -397,7 +397,7 @@ main() {
       buf = Uint8List(256);
       expect(SVScript().add(buf).toString(), equals('OP_PUSHDATA2 256 0x' + HEX.encode(buf)));
 
-      buf = Uint8List(pow(2, 16));
+      buf = Uint8List(pow(2, 16) as int);
       expect(SVScript().add(buf).toString(), equals('OP_PUSHDATA4 ${pow(2, 16)} 0x${HEX.encode(buf)}'));
     });
 

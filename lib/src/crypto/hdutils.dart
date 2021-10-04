@@ -37,12 +37,14 @@ class HDUtils {
     }
 
     static Uint8List toCompressed(Uint8List uncompressedPoint) {
-        return _domainParams.curve.decodePoint(uncompressedPoint).getEncoded(true);
+        return _domainParams.curve.decodePoint(uncompressedPoint)!.getEncoded(true);
     }
 
     /// Append a derivation level to an existing path */
     static List<ChildNumber> append(List<ChildNumber> path, ChildNumber childNumber) {
         path.add(childNumber);
+
+        return path;
     }
 
     /// Concatenate two derivation paths */
@@ -72,7 +74,7 @@ class HDUtils {
         path = path.replaceAll("'", "H");
 
         List<String> parsedNodes = path.replaceFirst("M", "").split("/");
-        List<ChildNumber> nodes = new List<ChildNumber>();
+        List<ChildNumber> nodes = <ChildNumber>[];
 
         for (String n in parsedNodes) {
             n = n.replaceAll(" ", "");

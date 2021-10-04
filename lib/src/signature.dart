@@ -22,17 +22,17 @@ class SVSignature {
     static final SHA256Digest _sha256Digest = SHA256Digest();
     final ECDSASigner _dsaSigner =  ECDSASigner(null, HMac(_sha256Digest, 64));
 
-    ECSignature _signature;
-    BigInt _r;
-    BigInt _s;
-    String _rHex;
-    String _sHex;
+    ECSignature? _signature;
+    BigInt? _r = null;
+    BigInt? _s = null;
+    String? _rHex;
+    String? _sHex;
     int _nhashtype = 0;
-    int _i;
+    int? _i;
     bool _compressed = false;
 
-    SVPrivateKey _privateKey;
-    SVPublicKey _publicKey;
+    SVPrivateKey? _privateKey;
+    SVPublicKey? _publicKey;
 
     /// Construct a  instance from the R and S components of an ECDSA signature.
     ///
@@ -40,7 +40,7 @@ class SVSignature {
     ///
     /// [s] - The s component of the signature
     SVSignature.fromECParams(this._r, this._s) {
-        _signature = ECSignature(_r, _s);
+        _signature = ECSignature(_r! , _s!);
     }
 
     /// Constructs a signature for it's bitcoin-transaction-encoded form.
@@ -62,7 +62,7 @@ class SVSignature {
     /// Constructs a signature from it's DER-encoded form
     ///
     /// [derBuffer] - Hex-encoded DER string containing the signature
-    SVSignature.fromDER(String derBuffer, {SVPublicKey publicKey = null}) {
+    SVSignature.fromDER(String derBuffer, {SVPublicKey? publicKey = null}) {
         _publicKey = publicKey;
         _parseDER(derBuffer);
     }
@@ -127,13 +127,13 @@ class SVSignature {
         tmp = HEX.encode(b3);
         _s = BigInt.parse(tmp, radix: 16);
 
-        _rHex = _r.toRadixString(16);
-        _sHex = _s.toRadixString(16);
+        _rHex = _r!.toRadixString(16);
+        _sHex = _s!.toRadixString(16);
 
-        _signature = ECSignature(_r, _s);
+        _signature = ECSignature(_r!, _s!);
 
         _publicKey = _recoverPublicKey(i, signedMessage);
-        _dsaSigner.init(false, PublicKeyParameter( ECPublicKey(_publicKey.point, _domainParams)));
+        _dsaSigner.init(false, PublicKeyParameter( ECPublicKey(_publicKey!.point, _domainParams)));
     }
 
 
@@ -147,7 +147,7 @@ class SVSignature {
             throw  SignatureException('i must be equal to 0, 1, 2, or 3');
         }
 
-        var val = _i + 27 + 4;
+        var val = _i! + 27 + 4;
         if (!_compressed) {
             val = val - 4;
         }
@@ -156,9 +156,9 @@ class SVSignature {
 
         //This is a hack around the problem of having r-values or s-values of length 31. This causes invalid sigs
         //see: https://github.com/twostack/dartsv/issues/35
-        var b2Padded= sprintf("%064s", [_r.toRadixString(16)]).replaceAll(' ', '0');
+        var b2Padded= sprintf("%064s", [_r!.toRadixString(16)]).replaceAll(' ', '0');
         var b2 = HEX.decode(b2Padded);
-        var b3Padded= sprintf("%064s", [_s.toRadixString(16)]).replaceAll(' ', '0');
+        var b3Padded= sprintf("%064s", [_s!.toRadixString(16)]).replaceAll(' ', '0');
         var b3 = HEX.decode(b3Padded);
         return b1 + b2 + b3;
     }
@@ -176,7 +176,7 @@ class SVSignature {
 
         var decodedMessage = Uint8List.fromList(HEX.decode(message).toList());
 
-        return _dsaSigner.verifySignature(decodedMessage, _signature);
+        return _dsaSigner.verifySignature(decodedMessage, _signature!);
     }
 
 
@@ -197,11 +197,11 @@ class SVSignature {
         //sign it
         List<int> decodedMessage = Uint8List.fromList(HEX.decode(message).toList());
 
-        _signature = _dsaSigner.generateSignature(decodedMessage);
-        _r = _signature.r;
-        _s = _signature.s;
-        _rHex = _r.toRadixString(16);
-        _sHex = _s.toRadixString(16);
+        _signature = _dsaSigner.generateSignature(decodedMessage as Uint8List) as ECSignature;
+        _r = _signature!.r;
+        _s = _signature!.s;
+        _rHex = _r!.toRadixString(16);
+        _sHex = _s!.toRadixString(16);
 
         _toLowS();
 
@@ -363,7 +363,7 @@ class SVSignature {
     bool hasLowS() {
         var hex = '7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0';
 
-        if (_s < (BigInt.from(1)) || _s > (BigInt.parse(hex, radix: 16))) {
+        if (_s! < (BigInt.from(1)) || _s! > (BigInt.parse(hex, radix: 16))) {
             return false;
         }
 
@@ -374,7 +374,7 @@ class SVSignature {
     // side-effects on _i
     void _calculateI(List<int> decodedMessage){
 
-        var pubKey = _privateKey.publicKey;
+        var pubKey = _privateKey!.publicKey;
         for (var i = 0; i < 4; i++) {
             _i = i;
             SVPublicKey Qprime;
@@ -420,9 +420,9 @@ class SVSignature {
         ECPoint R = _domainParams.curve.decompressPoint(yTilde, x);
 
         // 1.4 Check that nR is at infinity
-        ECPoint nR = R * n;
+        ECPoint? nR = R * n;
 
-        if (!nR.isInfinity) {
+        if (!nR!.isInfinity) {
             throw  SignatureException('nR is not a valid curve point');
         }
 
@@ -434,9 +434,9 @@ class SVSignature {
         var rInv = r.modInverse(n);
 
         // var Q = R.multiplyTwo(s, G, eNeg).mul(rInv);
-        var Q = (R * s + G * eNeg) * rInv;
+        var Q = (((R * s)! + G * eNeg)! * rInv)!;
 
-        return SVPublicKey.fromXY(Q.x.toBigInteger(), Q.y.toBigInteger(), compressed: _compressed);
+        return SVPublicKey.fromXY(Q.x!.toBigInteger()!, Q.y!.toBigInteger()!, compressed: _compressed);
     }
 
 
@@ -447,42 +447,42 @@ class SVSignature {
 
         // enforce low s
         // see BIP 62, 'low S values in signatures'
-        if (_s > BigInt.parse('7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0', radix: 16)) {
-            _s = _domainParams.n - _s;
+        if (_s! > BigInt.parse('7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0', radix: 16)) {
+            _s = _domainParams.n - _s!;
         }
     }
 
 
     void _parseDER(derBuffer) {
         try {
-            var parser =  ASN1Parser(HEX.decode(derBuffer));
+            var parser =  ASN1Parser(HEX.decode(derBuffer) as Uint8List);
 
             var seq = parser.nextObject() as ASN1Sequence;
 
-            var rVal = seq.elements[0] as ASN1Integer;
-            var sVal = seq.elements[1] as ASN1Integer;
+            var rVal = seq.elements![0] as ASN1Integer;
+            var sVal = seq.elements![1] as ASN1Integer;
 
-            _rHex = HEX.encode(rVal.valueBytes);
-            _sHex = HEX.encode(sVal.valueBytes);
+            _rHex = HEX.encode(rVal.valueBytes!);
+            _sHex = HEX.encode(sVal!.valueBytes!);
 
-            _r = BigInt.parse(_rHex, radix: 16);
-            _s = BigInt.parse(_sHex, radix: 16);
+            _r = BigInt.parse(_rHex!, radix: 16);
+            _s = BigInt.parse(_sHex!, radix: 16);
 
             _signature = ECSignature(r, s);
-        } catch (e) {
-            throw SignatureException(e.cause);
+        } catch (err) {
+            throw err;
         }
     }
 
 
     /// Returns the signature's *S* value
-    BigInt get s => _s;
+    BigInt get s => _s!;
 
     /// Returns the signature's *R* value
-    BigInt get r => _r;
+    BigInt get r => _r!;
 
     /// Returns the public key that will be used to verify signatures
-    SVPublicKey get publicKey => _publicKey;
+    SVPublicKey get publicKey => _publicKey!;
 
 //    int get i => _i;
 
@@ -495,9 +495,9 @@ class SVSignature {
     }
 
     /// Returns the signature's *S* value as a hexadecimal string
-    String get sHex => _sHex;
+    String get sHex => _sHex!;
 
     /// Returns the signature's *R* value as a hexadecimal string
-    String get rHex => _rHex;
+    String get rHex => _rHex!;
 
 }

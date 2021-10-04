@@ -30,7 +30,7 @@ void main() {
       var script = lockBuilder.getScriptPubkey();
       expect(script, isNotNull);
       expect( script.toString(), equals('OP_DUP OP_HASH160 20 0x9674af7395592ec5d91573aa8d6557de55f60147 OP_EQUALVERIFY OP_CHECKSIG'));
-      expect(lockBuilder.address.networkType, equals(NetworkType.TEST));
+      expect(lockBuilder.address?.networkType, equals(NetworkType.TEST));
     });
   });
   

@@ -17,7 +17,7 @@ mixin P2PKHLockMixin on _P2PKHLockBuilder implements LockingScriptBuilder {
     String destAddress;
     int addressLength;
     if (address != null) {
-      destAddress = address.address; //hash160(pubkey) aka pubkeyHash
+      destAddress = address!.address; //hash160(pubkey) aka pubkeyHash
 
       addressLength = HEX.decode(destAddress).length;
 
@@ -27,8 +27,8 @@ mixin P2PKHLockMixin on _P2PKHLockBuilder implements LockingScriptBuilder {
         destAddress = HEX.encode(hash160(HEX.decode(destAddress)));
       }
     }else if (pubkeyHash != null) {
-      addressLength = pubkeyHash.length;
-      destAddress = HEX.encode(pubkeyHash);
+      addressLength = pubkeyHash!.length;
+      destAddress = HEX.encode(pubkeyHash!);
     }else{
       return SVScript(); //return empty script if no pubkeyHash or Address
     }
@@ -40,18 +40,18 @@ mixin P2PKHLockMixin on _P2PKHLockBuilder implements LockingScriptBuilder {
 }
 
 abstract class _P2PKHLockBuilder implements LockingScriptBuilder {
-  Address address;
-  List<int> pubkeyHash;
+  Address? address;
+  List<int>? pubkeyHash;
 
   _P2PKHLockBuilder(this.address);
 
   _P2PKHLockBuilder.fromPublicKey(SVPublicKey publicKey, {NetworkType networkType= NetworkType.MAIN}){
     address = publicKey.toAddress(networkType);
-    pubkeyHash = HEX.decode(address.pubkeyHash160);
+    pubkeyHash = HEX.decode(address!.pubkeyHash160);
   }
 
   @override
-  void fromScript(SVScript script) {
+  void fromScript(SVScript? script) {
 
     if (script != null && script.buffer != null) {
 

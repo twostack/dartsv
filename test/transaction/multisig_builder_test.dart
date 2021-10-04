@@ -42,7 +42,7 @@ void main() {
     test('can recover state using fromScript', (){
       var script = SVScript.fromString('OP_2 33 0x022df8750480ad5b26950b25c7ba79d3e37d75f640f8e5d9bcd5b150a0f85014da 33 0x03e3818b65bcc73a7d64064106a859cc1a5a728c4345ff0b641209fba0d90de6e9 OP_2 OP_CHECKMULTISIG');
 
-      var lockBuilder = P2MSLockBuilder(null, null);
+      var lockBuilder = P2MSLockBuilder([], 0);
       lockBuilder.fromScript(script);
 
       expect(lockBuilder.publicKeys?.length, equals(2));
