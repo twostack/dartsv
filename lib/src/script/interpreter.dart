@@ -43,10 +43,10 @@ class Interpreter {
     String _errStr = '';
     int _flags = 0;
 
-    SVScript _script;
-    Transaction _tx;
-    int _nin;
-    BigInt _satoshis;
+    SVScript? _script;
+    Transaction? _tx;
+    int? _nin;
+    BigInt? _satoshis;
 
     /// The interpreter's internal stack
     ///
@@ -84,7 +84,7 @@ class Interpreter {
     int get flags => _flags;
 
     /// Returns the internal representation of the script
-    SVScript get script => _script;
+    SVScript? get script => _script;
 
     /// The default constructor. No setup is performed internally.
     Interpreter();
@@ -193,7 +193,7 @@ class Interpreter {
     ///  `satoshis` - amount in satoshis of the input to be verified (when FORKID sighash is used)
     ///
     ///  __Translated from bitcoind's VerifyScript__
-    bool verifyScript(SVScript scriptSig, SVScript scriptPubkey, {Transaction tx, int nin = 0, int flags = 0, BigInt satoshis}) {
+    bool verifyScript(SVScript scriptSig, SVScript scriptPubkey, {Transaction? tx, int nin = 0, int flags = 0, BigInt? satoshis}) {
         tx ??= Transaction();
 
         // If FORKID is enabled, we also ensure strict encoding.
@@ -213,7 +213,7 @@ class Interpreter {
         _flags = flags;
         _satoshis = satoshis;
 
-        InterpreterStack stackCopy;
+        InterpreterStack? stackCopy;
 
         if ((flags & ScriptFlags.SCRIPT_VERIFY_SIGPUSHONLY) != 0 && !scriptSig.isPushOnly()) {
             _errStr = 'SCRIPT_ERR_SIG_PUSHONLY';
@@ -267,13 +267,13 @@ class Interpreter {
             // stackCopy cannot be empty here, because if it was the
             // P2SH  HASH <> EQUAL  scriptPubKey would be evaluated with
             // an empty stack and the EvalScript above would return false.
-            if (stackCopy.length == 0) {
+            if (stackCopy?.length == 0) {
                 throw  InterpreterException('internal error - stack copy empty');
             }
 
-            var redeemScriptSerialized = stackCopy.peek(); // [stackCopy.length - 1];
-            var redeemScript = SVScript.fromByteArray(Uint8List.fromList(redeemScriptSerialized));
-            stackCopy.pop();
+            var redeemScriptSerialized = stackCopy?.peek(); // [stackCopy.length - 1];
+            var redeemScript = SVScript.fromByteArray(Uint8List.fromList(redeemScriptSerialized!));
+            stackCopy?.pop();
 
             _initialize();
             _set({
@@ -290,12 +290,12 @@ class Interpreter {
                 return false;
             }
 
-            if (stackCopy.length == 0) {
+            if (stackCopy?.length == 0) {
                 _errStr = 'SCRIPT_ERR_EVAL_FALSE_NO_P2SH_STACK';
                 return false;
             }
 
-            if (!castToBool(stackCopy.peek())) {
+            if (!castToBool(stackCopy!.peek())) {
                 _errStr = 'SCRIPT_ERR_EVAL_FALSE_IN_P2SH_STACK';
                 return false;
             }
@@ -313,7 +313,7 @@ class Interpreter {
                 throw  InterpreterException('internal error - CLEANSTACK without P2SH');
             }
 
-            if (stackCopy.length != 1) {
+            if (stackCopy?.length != 1) {
                 _errStr = 'SCRIPT_ERR_CLEANSTACK';
                 return false;
             }
@@ -375,16 +375,16 @@ class Interpreter {
     bool evaluate() {
         // TODO: script size should be configurable. no magic numbers
         if (_script
-            .buffer.length > 10000) { //FIXME: Does BSV still limit script size to 10k ???
+            !.buffer.length > 10000) { //FIXME: Does BSV still limit script size to 10k ???
             _errStr = 'SCRIPT_ERR_SCRIPT_SIZE';
             return false;
         }
 
         try {
-            while (_pc < _script.chunks.length) {
+            while (_pc < _script!.chunks.length) {
                 var thisStep = {
                     'pc': _pc,
-                    'opcode': _script.chunks[pc].opcodenum
+                    'opcode': _script!.chunks[pc].opcodenum
                 };
 
                 var fSuccess = _step();
@@ -508,7 +508,7 @@ class Interpreter {
         var fValue, fSuccess;
 
         // Read instruction
-        var chunk = _script.chunks[pc];
+        var chunk = _script!.chunks[pc];
         _pc++; //FIXME: global var f*ckery. Looks like index pointer into script chunks
         var opcodenum = chunk.opcodenum;
         if (opcodenum == null) {
@@ -532,7 +532,7 @@ class Interpreter {
         }
 
         if (fExec && opcodenum >= 0 && opcodenum <= OpCodes.OP_PUSHDATA4) {
-            if (fRequireMinimal && !_script.checkMinimalPush(_pc - 1)) {
+            if (fRequireMinimal && !_script!.checkMinimalPush(_pc - 1)) {
                 _errStr = 'SCRIPT_ERR_MINIMALDATA';
                 return false;
             }
@@ -917,9 +917,9 @@ class Interpreter {
                         _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-                    buf = _stack.peek(index: -n - 1);
+                    buf = _stack!.peek(index: -n - 1);
                     if (opcodenum == OpCodes.OP_ROLL) {
-                        _stack.splice(_stack.length - n - 1, 1);
+                        _stack!.splice(_stack!.length - n - 1 as int, 1);
                     }
                     _stack.push(buf);
                     break;
@@ -1057,7 +1057,7 @@ class Interpreter {
                         }
                         _stack.pop();
                         _stack.pop();
-                        BigInt shifted;
+                        late BigInt shifted;
 
 
                         // bitcoin client implementation of l/rshift is unconventional, therefore this implementation is a bit unconventional
@@ -1332,7 +1332,7 @@ class Interpreter {
                     buf = stack.peek();
                     // valtype vchHash((opcode === OpCodes.OP_RIPEMD160 ||
                     //                 opcode === OpCodes.OP_SHA1 || opcode === Opcode.OP_HASH160) ? 20 : 32);
-                    List<int> bufHash;
+                    late List<int> bufHash;
                     if (opcodenum == OpCodes.OP_RIPEMD160) {
                         bufHash = ripemd160(buf);
                     } else if (opcodenum == OpCodes.OP_SHA1) {
@@ -1369,7 +1369,7 @@ class Interpreter {
                     }
 
                     // Subset of script starting at the most recent codeseparator
-                    var subscript = SVScript.fromChunks(_script.chunks.sublist(pbegincodehash));
+                    var subscript = SVScript.fromChunks(_script!.chunks.sublist(pbegincodehash));
 
                     // Drop the signature, since there's no way for a signature to sign itself
                     var tmpScript = SVScript().add(bufSig);
@@ -1379,7 +1379,7 @@ class Interpreter {
                         pubkey = SVPublicKey.fromHex(HEX.encode(bufPubkey), strict: false);
                         sig = SVSignature.fromTxFormat(HEX.encode(bufSig)); //FIXME: Why can't I construct a SVSignature that properly verifies from TxFormat ???
 
-                        fSuccess = _tx.verifySignature(sig, pubkey, _nin, subscript, _satoshis, _flags);
+                        fSuccess = _tx!.verifySignature(sig, pubkey, _nin!, subscript, _satoshis!, _flags);
                     } catch (e) {
                         // invalid sig or pubkey
                         fSuccess = false;
@@ -1457,7 +1457,7 @@ class Interpreter {
                     }
 
                     // Subset of script starting at the most recent codeseparator
-                    subscript = SVScript.fromChunks(_script.chunks.sublist(pbegincodehash));
+                    subscript = SVScript.fromChunks(_script!.chunks.sublist(pbegincodehash));
 
                     // Drop the signatures, since there's no way for a signature to sign itself
                     for (var k = 0; k < nSigsCount; k++) {
@@ -1481,7 +1481,7 @@ class Interpreter {
                             pubkey = SVPublicKey.fromHex(HEX.encode(bufPubkey), strict: false);
                             sig = SVSignature.fromTxFormat(HEX.encode(bufSig));
 
-                            fOk = _tx.verifySignature(sig, pubkey, _nin, subscript, _satoshis, _flags);
+                            fOk = _tx!.verifySignature(sig, pubkey, _nin!, subscript, _satoshis!, _flags);
                         } catch (e) {
                             // invalid sig or pubkey
                             fOk = false;
@@ -1637,8 +1637,8 @@ class Interpreter {
                         rawnum[rawnum.length - 1] &= 0x7f;
                     }
 
-                    var num = List<int>(size);
-                    num.fillRange(0, num.length, 0);
+                    var num = List<int>.filled(size, 0);
+
                     if (rawnum.isNotEmpty) {
                         num[0] = rawnum[0];
                     }
@@ -1704,14 +1704,14 @@ class Interpreter {
         // We want to compare apples to apples, so fail the script
         // unless the type of nLockTime being tested is the same as
         // the nLockTime in the transaction.
-        if (!((_tx.nLockTime < Interpreter.LOCKTIME_THRESHOLD && nLockTime < (Interpreter.LOCKTIME_THRESHOLD_BN)) ||
-            (_tx.nLockTime >= Interpreter.LOCKTIME_THRESHOLD && nLockTime >= (Interpreter.LOCKTIME_THRESHOLD_BN)))) {
+        if (!((_tx!.nLockTime < Interpreter.LOCKTIME_THRESHOLD && nLockTime < (Interpreter.LOCKTIME_THRESHOLD_BN)) ||
+            (_tx!.nLockTime >= Interpreter.LOCKTIME_THRESHOLD && nLockTime >= (Interpreter.LOCKTIME_THRESHOLD_BN)))) {
             return false;
         }
 
         // Now that we know we're comparing apples-to-apples, the
         // comparison is a simple numeric one.
-        if (nLockTime > BigInt.from(_tx.nLockTime)) {
+        if (nLockTime > BigInt.from(_tx!.nLockTime)) {
             return false;
         }
 
@@ -1725,7 +1725,7 @@ class Interpreter {
         // prevent this condition. Alternatively we could test all
         // inputs, but testing just this input minimizes the data
         // required to prove correct CHECKLOCKTIMEVERIFY execution.
-        if (_tx.inputs[_nin].isFinal()) {
+        if (_tx!.inputs[_nin!].isFinal()) {
             return false;
         }
 
@@ -1741,11 +1741,11 @@ class Interpreter {
     bool checkSequence(BigInt nSequence) {
         // Relative lock times are supported by comparing the passed in operand to
         // the sequence number of the input.
-        var txToSequence = _tx.inputs[_nin].sequenceNumber;
+        var txToSequence = _tx!.inputs[_nin!].sequenceNumber;
 
         // Fail if the transaction's version number is not set high enough to
         // trigger BIP 68 rules.
-        if (_tx.version < 2) {
+        if (_tx!.version < 2) {
             return false;
         }
 
