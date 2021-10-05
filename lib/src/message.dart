@@ -21,8 +21,8 @@ class Message {
 
   static const String MAGIC_BYTES = 'Bitcoin Signed Message:\n';
 
-    /// A double-sha256 digest unique to Bitcoin Signed Messages
-    ///
+  /// A double-sha256 digest unique to Bitcoin Signed Messages
+  ///
   /// The hash is constructed from the double-sha256 of a buffer.
   /// The buffer is composed from appending the following elements in order:
   ///
@@ -33,7 +33,7 @@ class Message {
   ///
   /// Returns the double-sha256 of the buffer constructed as shown above
   List<int> magicHash({String magicBytes = MAGIC_BYTES}) {
-    var prefix1 = MAGIC_BYTES.length;
+    var prefix1 = magicBytes.length;
     var prefix2 = this._message!.length;
     var buf = HEX.encode([prefix1] + utf8.encode(magicBytes) + [prefix2] + this._message!);
     var hash = sha256Twice(HEX.decode(buf));
