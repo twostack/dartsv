@@ -236,7 +236,7 @@ class SVPrivateKey {
 
     /// Returns the *naked* private key Big Integer value as a hexadecimal string
     String toHex(){
-        return _d!.toRadixString(16);
+        return _d!.toRadixString(16).padLeft(64, '0');
     }
 
     //convenience method to retrieve an address
