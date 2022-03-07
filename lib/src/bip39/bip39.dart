@@ -4,8 +4,8 @@ import 'dart:convert';
 import 'dart:async';
 
 import 'package:pointycastle/key_derivators/api.dart';
-import 'package:resource/resource.dart';
 import 'package:dartsv/src/encoding/utils.dart';
+import 'package:resource_portable/resource.dart';
 import 'package:unorm_dart/unorm_dart.dart';
 import 'package:pointycastle/api.dart';
 
@@ -37,16 +37,16 @@ typedef Uint8List RandomBytes(int size);
 class Mnemonic {
 
 
-  final _wordlistCache = Map<Wordlist, List<dynamic>>();
+  final _wordlistCache = Map<Wordlist?, List<dynamic>>();
 
-  Wordlist DEFAULT_WORDLIST;
+  Wordlist DEFAULT_WORDLIST = Wordlist.ENGLISH;
 
   static const int _SIZE_8BITS = 255;
   static const String _INVALID_ENTROPY = 'Invalid entroy';
   static const String _INVALID_MNEMONIC = 'Invalid mnemonic';
   static const String _INVALID_CHECKSUM = 'Invalid checksum';
 
-  List<String> _wordRes ;
+  List<String>? _wordRes ;
 
 
   /// Construct a new Mnemonic instance
@@ -84,8 +84,8 @@ class Mnemonic {
     final saltBuffer = utf8.encode(_salt(nfkd(password)));
     final pbkdf2 = KeyDerivator('SHA-512/HMAC/PBKDF2');
 
-    pbkdf2.init(Pbkdf2Parameters(saltBuffer, 2048, 64));
-    return pbkdf2.process(mnemonicBuffer);
+    pbkdf2.init(Pbkdf2Parameters(saltBuffer as Uint8List, 2048, 64));
+    return pbkdf2.process(mnemonicBuffer as Uint8List);
   }
 
 
@@ -117,7 +117,7 @@ class Mnemonic {
   /// Returns the full list of words for the named word list
   ///
   /// [wordList] - The word list to return words for
-  Future<List<String>> getWordList(Wordlist wordList) async {
+  Future<List<String> ?> getWordList(Wordlist wordList) async {
     return _loadWordlist(wordList);
   }
 
@@ -148,7 +148,7 @@ class Mnemonic {
     _wordRes = await _loadWordlist(DEFAULT_WORDLIST);
 
     return chunks
-        .map((binary) => _wordRes[_binaryToByte(binary)])
+        .map((binary) => _wordRes![_binaryToByte(binary!)])
         .join(DEFAULT_WORDLIST == Wordlist.JAPANESE ? '\u3000' : ' ');
   }
 
@@ -165,7 +165,7 @@ class Mnemonic {
 
     // convert word indices to 11bit binary strings
     final bits = words.map((word) {
-      final index = _wordRes.indexOf(word);
+      final index = _wordRes!.indexOf(word);
       if (index == -1) {
         throw ArgumentError(_INVALID_MNEMONIC);
       }
@@ -182,7 +182,7 @@ class Mnemonic {
 
     final entropyBytes = Uint8List.fromList(regex
         .allMatches(entropyBits)
-        .map((match) => _binaryToByte(match.group(0)))
+        .map((match) => _binaryToByte(match.group(0)!))
         .toList(growable: false));
     if (entropyBytes.length < 16) {
       throw StateError(_INVALID_ENTROPY);
@@ -230,12 +230,11 @@ class Mnemonic {
   }
 
 
-  Future<List<String>> _loadWordlist(Wordlist wordlist) async {
+  Future<List<String>?> _loadWordlist(Wordlist? wordlist) async {
     if (_wordlistCache.containsKey(wordlist)) {
-      return _wordlistCache[wordlist];
+      return _wordlistCache[wordlist] as FutureOr<List<String>?>;
     } else {
-      final res = Resource(
-          'package:dartsv/src/bip39/wordlists/${_getWordlistName(wordlist)}.txt');
+      final res = Resource( 'package:dartsv/src/bip39/wordlists/${_getWordlistName(wordlist)}.txt');
       final rawWords = await res.readAsString(encoding: utf8);
       final result = rawWords
           .split('\n')
@@ -247,7 +246,7 @@ class Mnemonic {
     }
   }
 
-  String _getWordlistName(Wordlist wordlist) {
+  String _getWordlistName(Wordlist? wordlist) {
     switch (wordlist) {
       case Wordlist.CHINESE_SIMPLIFIED:
         return 'chinese_simplified';
@@ -270,7 +269,7 @@ class Mnemonic {
     }
   }
 
-  String _salt(String password) {
+  String _salt(String? password) {
     return 'mnemonic${password ?? ""}';
   }
 

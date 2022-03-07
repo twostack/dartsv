@@ -36,9 +36,9 @@ class SVPrivateKey {
 
     var random =  Random.secure();
 
-    BigInt _d;
-    ECPrivateKey _ecPrivateKey;
-    SVPublicKey _svPublicKey;
+    BigInt? _d;
+    ECPrivateKey? _ecPrivateKey;
+    SVPublicKey? _svPublicKey;
 
     /// Constructs a  random private key.
     ///
@@ -53,11 +53,11 @@ class SVPrivateKey {
         generator.init(ParametersWithRandom(keyParams, _secureRandom));
 
         var retry = 100; //100 retries to get correct bitLength. Problem in PointyCastle lib ?
-        AsymmetricKeyPair keypair;
+        late AsymmetricKeyPair keypair;
         while (retry > 0 ) {
           keypair = generator.generateKeyPair();
-          ECPrivateKey key = keypair.privateKey;
-          if (key.d.bitLength == 256) {
+          ECPrivateKey key = keypair.privateKey as ECPrivateKey;
+          if (key.d!.bitLength == 256) {
             break;
           }else{
             retry--;
@@ -66,10 +66,10 @@ class SVPrivateKey {
 
         _hasCompressedPubKey = true;
         _networkType = networkType;
-        _ecPrivateKey = keypair.privateKey;
-        _d = _ecPrivateKey.d;
+        _ecPrivateKey = keypair.privateKey as ECPrivateKey;
+        _d = _ecPrivateKey!.d;
 
-        if (_d.bitLength != 256) {
+        if (_d!.bitLength != 256) {
           throw InvalidKeyException("Failed to generate a valid private key after 100 tries. Try again. ");
         }
 
@@ -199,7 +199,7 @@ class SVPrivateKey {
     /// Returns this Private Key in WIF format. See [toWIF()].
     String toWIF() {
         //convert private key _d to a hex string
-        var wifKey = _d.toRadixString(16).padLeft(64, '0');
+        var wifKey = _d!.toRadixString(16).padLeft(64, '0');
         var versionByte;
 
         if (_networkType == NetworkType.MAIN) {
@@ -236,7 +236,7 @@ class SVPrivateKey {
 
     /// Returns the *naked* private key Big Integer value as a hexadecimal string
     String toHex(){
-        return _d.toRadixString(16).padLeft(64, '0');
+        return _d!.toRadixString(16).padLeft(64, '0');
     }
 
     //convenience method to retrieve an address
@@ -244,7 +244,7 @@ class SVPrivateKey {
     /// Private Key's corresponding [SVPublicKey].
     Address toAddress({NetworkType networkType = NetworkType.MAIN}) {
         //FIXME: set network type to default parameter unless explicitly specified ?
-        return _svPublicKey.toAddress(_networkType);
+        return _svPublicKey!.toAddress(_networkType);
     }
 
     Uint8List _seed() {
@@ -272,7 +272,7 @@ class SVPrivateKey {
 
     /// Returns the *naked* private key Big Integer value as a Big Integer
     BigInt get privateKey {
-        return _d;
+        return _d!;
     }
 
 
@@ -280,7 +280,7 @@ class SVPrivateKey {
     ///
     /// NOTE: `Q = d * G` where *Q* is the public key, *d* is the private key and `G` is the curve's Generator.
     SVPublicKey get publicKey  {
-        return _svPublicKey;
+        return _svPublicKey!;
     }
 
     /// Returns true if the corresponding public key for this private key

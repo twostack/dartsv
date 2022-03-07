@@ -27,7 +27,7 @@ mixin P2MSLockMixin on _P2MSLockBuilder implements LockingScriptBuilder {
     if (sorting) {
       publicKeys.sort((a, b) => a.toString().compareTo(b.toString())); //sort the keys by default
     }
-    var pubKeyString = publicKeys.fold('', (prev, elem) => prev + sprintf(' %s 0x%s', [HEX.decode(elem.toHex()).length, elem.toHex()]));
+    var pubKeyString = publicKeys.fold('', (dynamic prev, elem) => prev + sprintf(' %s 0x%s', [HEX.decode(elem.toHex()).length, elem.toHex()]));
 
     var scriptString = sprintf('OP_%s %s OP_%s OP_CHECKMULTISIG', [requiredSigs, pubKeyString, publicKeys.length]);
 
@@ -82,7 +82,7 @@ mixin P2MSUnlockMixin on _P2MSUnlockBuilder implements UnlockingScriptBuilder{
   @override
   SVScript getScriptSig() {
 
-    var multiSigs = signatures.fold('', (prev, elem) => prev + sprintf(' %s 0x%s', [HEX.decode(elem.toTxFormat()).length, elem.toTxFormat()]));
+    var multiSigs = signatures.fold('', (dynamic prev, elem) => prev + sprintf(' %s 0x%s', [HEX.decode(elem.toTxFormat()).length, elem.toTxFormat()]));
 
     return SVScript.fromString('OP_0 ${multiSigs}');
   }

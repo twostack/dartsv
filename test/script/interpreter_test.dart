@@ -165,7 +165,7 @@ void main() {
             var flags = ScriptFlags.SCRIPT_VERIFY_P2SH | ScriptFlags.SCRIPT_VERIFY_STRICTENC;
             var interpreter = Interpreter();
 
-            var verified = interpreter.verifyScript(scriptSig, scriptPubkey, tx: tx, nin: inputIndex, flags: flags, satoshis: utxo["satoshis"]);
+            var verified = interpreter.verifyScript(scriptSig, scriptPubkey, tx: tx, nin: inputIndex, flags: flags, satoshis: utxo["satoshis"] as BigInt);
             expect(interpreter.errstr, equals(""));
             expect(verified, isTrue);
         });
@@ -200,7 +200,7 @@ void main() {
     var evaluateScript = (List<int> arraySig, List<int> arrayPubKey, int op) {
         var flags = ScriptFlags.SCRIPT_VERIFY_P2SH | ScriptFlags.SCRIPT_ENABLE_MAGNETIC_OPCODES | ScriptFlags.SCRIPT_ENABLE_MONOLITH_OPCODES;
         Interpreter interp = Interpreter.fromScript(SVScript().add(arraySig).add(arrayPubKey), flags);
-        interp.script.add(op);
+        interp.script?.add(op);
         interp.evaluate();
         return interp;
     };
@@ -426,8 +426,7 @@ void main() {
             inputAmount = extraData[0] * 1e8;
         }
 
-        var hashbuf = List<int>(32);
-        hashbuf.fillRange(0, hashbuf.length, 0);
+        var hashbuf = List<int>.filled(32, 0);
         Transaction credtx = new Transaction();
         var coinbaseUnlockBuilder = DefaultUnlockBuilder();
         coinbaseUnlockBuilder.fromScript(SVScript.fromString('OP_0 OP_0'));

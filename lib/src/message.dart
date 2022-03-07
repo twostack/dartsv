@@ -17,9 +17,7 @@ import 'encoding/utils.dart';
 ///
 /// Reference (section 4.1.6) : http://www.secg.org/sec1-v2.pdf
 class Message {
-    List<int> _message;
-    SVPrivateKey _privateKey;
-
+    List<int>? _message;
 
     final MAGIC_BYTES = 'Bitcoin Signed Message:\n';
 
@@ -37,8 +35,8 @@ class Message {
     List<int> magicHash() {
 
         var prefix1 = MAGIC_BYTES.length;
-        var prefix2 = this._message.length;
-        var buf = HEX.encode([prefix1] + utf8.encode(MAGIC_BYTES) + [prefix2] + this._message);
+        var prefix2 = this._message!.length;
+        var buf = HEX.encode([prefix1] + utf8.encode(MAGIC_BYTES) + [prefix2] + this._message!);
         var hash = sha256Twice(HEX.decode(buf));
         return hash;
     }
@@ -56,8 +54,6 @@ class Message {
     ///
     String sign(SVPrivateKey privateKey) {
         SVSignature signature = SVSignature.fromPrivateKey(privateKey);
-        this._privateKey = privateKey;
-//        signature.signWithCalcI(HEX.encode(this.magicHash()));
         signature.sign(HEX.encode(this.magicHash()), forCompact : true);
 
         List<int> compactSig = signature.toCompact();
@@ -122,6 +118,6 @@ class Message {
 
 
     /// The message we are signing/verifying
-    List<int> get message => _message;
+    List<int> get message => _message!;
 
 }

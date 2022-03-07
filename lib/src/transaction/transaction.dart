@@ -78,18 +78,18 @@ class Transaction{
     final List<TransactionInput> _txnInputs = [];  //this transaction's inputs
     final List<TransactionOutput> _txnOutputs = []; //this transaction's outputs
     final List<TransactionOutput> _utxos = [];  //the UTXOs from spent Transaction
-    Address _changeAddress;
-    LockingScriptBuilder _changeScriptBuilder;
+    Address? _changeAddress;
+    LockingScriptBuilder? _changeScriptBuilder;
     final Set<TransactionOption> _transactionOptions = Set<TransactionOption>();
 
-    List<int> _txHash;
-    String _txId;
+    List<int>? _txHash;
+    String? _txId;
 
     static final SHA256Digest _sha256Digest = SHA256Digest();
     final ECDSASigner _dsaSigner = ECDSASigner(null, HMac(_sha256Digest, 64));
     final ECDomainParameters _domainParams = ECDomainParameters('secp256k1');
 
-    BigInt _fee;
+    BigInt? _fee;
     bool _changeScriptFlag = false;
 
     var CURRENT_VERSION = 1;
@@ -200,7 +200,7 @@ class Transaction{
 
         List<int> hash = sha256Twice(HEX.decode(txnHex)).reversed.toList();
         _txHash = hash;
-        _txId = HEX.encode(_txHash);
+        _txId = HEX.encode(_txHash!);
         _parseTransactionHex(txnHex);
 
     }
@@ -232,7 +232,7 @@ class Transaction{
     String _getId(){
         var id = HEX.encode(_getHash().reversed.toList());
         _txId = id;
-        return _txId;
+        return _txId!;
     }
 
     /// Returns the transaction ID.
@@ -295,7 +295,7 @@ class Transaction{
     /// *Builder pattern*
     ///
     ///
-    Transaction spendTo(Address recipient, BigInt sats, {LockingScriptBuilder scriptBuilder = null}) {
+    Transaction spendTo(Address recipient, BigInt sats, {LockingScriptBuilder? scriptBuilder = null}) {
         if (sats <= BigInt.zero) throw  TransactionAmountException('You can only spend a positive amount of satoshis');
 
         scriptBuilder ??= P2PKHLockBuilder(recipient);
@@ -324,7 +324,7 @@ class Transaction{
     ///                   A null value results in a [P2PKHLockBuilder] being used by default, which will create a Pay-to-Public-Key-Hash output script.
     ///
     /// Returns an instance of the current Transaction as part of the builder pattern.
-    Transaction sendChangeTo(Address changeAddress, {LockingScriptBuilder scriptBuilder = null}) {
+    Transaction sendChangeTo(Address changeAddress, {LockingScriptBuilder? scriptBuilder = null}) {
 
         scriptBuilder ??= P2PKHLockBuilder(changeAddress);
 
@@ -360,7 +360,7 @@ class Transaction{
     ///
     /// Returns an instance of the current Transaction as part of the builder pattern.
     ///
-    Transaction addData(List<int> data, {DataLockBuilder scriptBuilder = null}) {
+    Transaction addData(List<int> data, {DataLockBuilder? scriptBuilder = null}) {
 
         scriptBuilder ??= DataLockBuilder(data) ;
 
@@ -412,7 +412,7 @@ class Transaction{
         return this;
     }*/
 
-    Transaction spendFromOutput(TransactionOutput utxo, int sequenceNumber, {UnlockingScriptBuilder scriptBuilder = null}){
+    Transaction spendFromOutput(TransactionOutput utxo, int sequenceNumber, {UnlockingScriptBuilder? scriptBuilder = null}){
 
         scriptBuilder ??= DefaultUnlockBuilder();
 
@@ -443,7 +443,7 @@ class Transaction{
     ///
     /// Returns an instance of the current Transaction as part of the builder pattern.
     ///
-    Transaction spendFromMap(Map<String, Object> map, {UnlockingScriptBuilder scriptBuilder = null }) {
+    Transaction spendFromMap(Map<String, dynamic> map, {UnlockingScriptBuilder? scriptBuilder = null }) {
         //FIXME: More robust validation / error handling needed here.
         if (map['satoshis'] == null || !(map['satoshis'] is BigInt)) {
             throw UTXOException('An amount to spend is required in BigInt format');
@@ -461,10 +461,10 @@ class Transaction{
             throw UTXOException('scriptPubKey from UTXO is required');
         }
 
-        BigInt amountToSpend = map['satoshis'];
-        String transactionId = map['txId'];
-        int outputIndex = map['outputIndex'];
-        String scriptPubKey = map['scriptPubKey'];
+        BigInt amountToSpend = map['satoshis'] as BigInt;
+        String transactionId = map['txId'] as String;
+        int outputIndex = map['outputIndex'] as int;
+        String scriptPubKey = map['scriptPubKey'] as String;
 
         scriptBuilder ??= DefaultUnlockBuilder();
 
@@ -543,7 +543,7 @@ class Transaction{
 
 
     //FIXME: Check under which circumstances this long list of params is actually required. Can be trimmed ?
-    bool verifySignature(SVSignature sig, SVPublicKey pubKey, int inputNumber, SVScript subscript, BigInt satoshis, int flags){
+    bool verifySignature(SVSignature sig, SVPublicKey pubKey, int inputNumber, SVScript subscript, BigInt? satoshis, int flags){
         var sigHash = Sighash();
         var hash = sigHash.hash(this, sig.nhashtype, inputNumber, subscript, satoshis, flags: flags);
 
@@ -755,7 +755,7 @@ class Transaction{
         }
 
         if (_fee != null) {
-            return _fee;
+            return _fee!;
         }
 
         // if no change output is set, fees should equal all the unspent amount
@@ -813,7 +813,7 @@ class Transaction{
 
     void _checkForFeeErrors(BigInt unspent) {
         if ((_fee != null) && (_fee != unspent)) {
-            var errorMessage = 'Unspent value is ' + unspent.toRadixString(10) + ' but specified fee is ' + _fee.toRadixString(10);
+            var errorMessage = 'Unspent value is ' + unspent.toRadixString(10) + ' but specified fee is ' + _fee!.toRadixString(10);
             throw  TransactionFeeException(errorMessage);
         }
 
@@ -882,14 +882,14 @@ class Transaction{
 
         if (_nonChangeRecipientTotals() == _inputTotals()) return;
 
-        var txnOutput = getChangeOutput(_changeScriptBuilder);
+        var txnOutput = getChangeOutput(_changeScriptBuilder!);
 
         var changeAmount = _recalculateChange();
 
         //can't spend negative amount of change :/
         if (changeAmount > BigInt.zero) {
             txnOutput.satoshis = changeAmount;
-            txnOutput.script = _changeScriptBuilder.getScriptPubkey();
+            txnOutput.script = _changeScriptBuilder!.getScriptPubkey();
             txnOutput.isChangeOutput = true;
             _txnOutputs.add(txnOutput);
         }

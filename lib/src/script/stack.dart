@@ -64,7 +64,7 @@ class InterpreterStack {
     /// `howMany` - the number of items to be removed
     ///
     /// `values`  - an optional List of new items to add to the stack, or null if no items need insertion
-    List<List<int>> splice(int index, int howMany, {List<int> values}) {
+    List<List<int>> splice(int index, int howMany, {List<int>? values}) {
         List<List<int>> buffer = _queue.toList();
 
         List<List<int>> removedItems = buffer.getRange(index, index+howMany).toList();

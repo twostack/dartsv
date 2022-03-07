@@ -15,14 +15,14 @@ abstract class CKDSerializer {
     static final List<int> TESTNET_PUBLIC  = HEX.decode("043587CF");
     static final List<int> TESTNET_PRIVATE = HEX.decode("04358394");
 
-    int _nodeDepth;
-    List<int> _parentFingerprint = List(4); //Uint32
-    List<int> _childNumber = List(4);       //Uint32
-    List<int> _chainCode = List(32);        //Uint8List(32)
-    List<int> _keyHex = List(33);           //Uint8List(33)
-    List<int> _versionBytes = List(4);      //Uint32
-    NetworkType _networkType;
-    KeyType _keyType;
+    int? _nodeDepth;
+    List<int> _parentFingerprint = List<int>.filled(4, 0); //Uint32
+    List<int> _childNumber = List<int>.filled(4, 0);       //Uint32
+    List<int> _chainCode = List<int>.filled(32, 0);        //Uint8List(32)
+    List<int> _keyHex = List<int>.filled(33, 0);           //Uint8List(33)
+    List<int> _versionBytes = List<int>.filled(4, 0);      //Uint32
+    NetworkType? _networkType;
+    KeyType? _keyType;
 
 
     void deserialize(String vector){
@@ -50,9 +50,9 @@ abstract class CKDSerializer {
         var chainCode = this._chainCode;
         var pubkeyHex = this._keyHex;
 
-        List<int> serializedKey = List(78);
+        List<int> serializedKey = List<int>.filled(78, 0);
         serializedKey.setRange(0, 4, versionBytes);
-        serializedKey.setRange(4, 5, [this._nodeDepth]);
+        serializedKey.setRange(4, 5, [this._nodeDepth!]);
         serializedKey.setRange(5, 9, this._parentFingerprint);
         serializedKey.setRange(9, 13,this._childNumber);
         serializedKey.setRange(13, 45,this._chainCode);
@@ -89,9 +89,9 @@ abstract class CKDSerializer {
     }
 
 
-    NetworkType get networkType => _networkType;
+    NetworkType? get networkType => _networkType;
 
-    set networkType(NetworkType value) {
+    set networkType(NetworkType? value) {
         _networkType = value;
     }
 
@@ -120,11 +120,11 @@ abstract class CKDSerializer {
         return this._versionBytes;
     }
 
-    set nodeDepth(int depth) {
+    set nodeDepth(int? depth) {
         this._nodeDepth = depth;
     }
 
-    int get nodeDepth {
+    int? get nodeDepth {
         return this._nodeDepth;
     }
 
@@ -144,9 +144,9 @@ abstract class CKDSerializer {
         return this._childNumber;
     }
 
-    KeyType get keyType => _keyType;
+    KeyType? get keyType => _keyType;
 
-    set keyType(KeyType value) {
+    set keyType(KeyType? value) {
         _keyType = value;
     }
 

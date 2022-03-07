@@ -25,7 +25,7 @@ List<int> sha1(List<int> bytes) {
 
 List<int> hash160(List<int> bytes) {
     List<int> shaHash = new SHA256Digest().process(Uint8List.fromList(bytes));
-    var ripeHash = new RIPEMD160Digest().process(shaHash);
+    var ripeHash = new RIPEMD160Digest().process(shaHash as Uint8List);
     return ripeHash.toList();
 }
 
@@ -76,7 +76,7 @@ List<int> varintBufNum(n) {
     return writer.toBytes().toList();
 }
 
-Uint8List varIntWriter(int length) {
+Uint8List varIntWriter(int? length) {
     ByteDataWriter writer = ByteDataWriter();
 
     if (length == null) {
@@ -115,7 +115,7 @@ Uint8List varIntWriter(int length) {
     return writer.toBytes();
 }
 
-List<int> calcVarInt(int length) {
+List<int> calcVarInt(int? length) {
     if (length == null)
         return Uint8List(0);
 
@@ -175,7 +175,7 @@ BigInt readVarInt(Uint8List buffer) {
     }
 }
 
-int getBufferOffset(int count) {
+int? getBufferOffset(int count) {
     if (count < 0xFD)
         return 1;
 

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:hex/hex.dart';
 import 'package:pointycastle/export.dart';
@@ -41,7 +42,7 @@ main(){
 
     final message = 'just a plain text message. padded with some more gobbledygook just to make sure we have size';
     final sha256Hmac = HMac(_sha256Digest, 32);
-    final checkSum = sha256Hmac.process(utf8.encode(message));
+    final checkSum = sha256Hmac.process(utf8.encode(message) as Uint8List);
 
     final buffer = utf8.encode(magic) + pubkeyBuffer + utf8.encode(message); // + checkSum; no checksum
     expect(() => Ecies().AESDecrypt(buffer, alicePrivKey), throwsException);
@@ -54,7 +55,7 @@ main(){
 
     final message = 'just a plain text message. padded with some more gobbledygook just to make sure we have size';
     final sha256Hmac = HMac(_sha256Digest, 32);
-    final checkSum = sha256Hmac.process(utf8.encode(message));
+    final checkSum = sha256Hmac.process(utf8.encode(message) as Uint8List);
 
     final buffer = utf8.encode(magic) + pubkeyBuffer + utf8.encode(message) + checkSum;
     expect(() => Ecies().AESDecrypt(buffer, alicePrivKey), throwsException);

@@ -28,12 +28,12 @@ import 'exceptions.dart';
 /// * last 4 bytes  - a checksum value taken from the first four bytes of sha256(sha256(previous_21_bytes))
 
 class Address {
-  List<NetworkType> _networkTypes;
+  List<NetworkType>? _networkTypes;
 
-  String _publicKeyHash;
-  AddressType _addressType;
-  NetworkType _networkType;
-  int _version;
+  String? _publicKeyHash;
+  AddressType? _addressType;
+  NetworkType? _networkType;
+  int? _version;
 
   /// Constructs a new Address object
   ///
@@ -118,7 +118,7 @@ class Address {
   String toBase58() {
       // A stringified buffer is:
       //   1 byte version + data bytes + 4 bytes check code (a truncated hash)
-      var rawHash = Uint8List.fromList(HEX.decode(_publicKeyHash));
+      var rawHash = Uint8List.fromList(HEX.decode(_publicKeyHash!));
 
       return _getEncoded(rawHash);
   }
@@ -132,14 +132,14 @@ class Address {
 
   /// Returns the public key hash `ripemd160(sha256(public_key))` encoded as a  hexadecimal string
   String toHex(){
-      return _publicKeyHash;
+      return _publicKeyHash!;
   }
 
 
   String _getEncoded(List<int> hashAddress) {
 
-      var addressBytes = List<int>(1 + hashAddress.length + 4);
-      addressBytes[0] = _version;
+      var addressBytes = List<int>.filled(1 + hashAddress.length + 4, 0);
+      addressBytes[0] = _version!;
 
       //copy all of raw address content, taking care not to
       //overwrite the version byte at start
@@ -166,9 +166,9 @@ class Address {
       var versionByte = versionAndDataBytes[0].toUnsigned(8);
 
       _version = versionByte & 0xFF;
-      _networkTypes = Networks.getNetworkTypes(_version);
-      _addressType = Networks.getAddressType(_version);
-      _networkType = Networks.getNetworkTypes(_version)[0];
+      _networkTypes = Networks.getNetworkTypes(_version!);
+      _addressType = Networks.getAddressType(_version!);
+      _networkType = Networks.getNetworkTypes(_version!)[0];
       var stripVersion = versionAndDataBytes.sublist(1, versionAndDataBytes.length);
       _publicKeyHash = HEX.encode(stripVersion.map((elem) => elem.toUnsigned(8)).toList());
   }
@@ -186,7 +186,7 @@ class Address {
 
     _version = versionByte & 0XFF;
     _publicKeyHash = HEX.encode(scriptHash);
-    _addressType = Networks.getAddressType(_version);
+    _addressType = Networks.getAddressType(_version!);
     _networkType = networkType;
 
   }
@@ -205,7 +205,7 @@ class Address {
 
       _version = versionByte & 0XFF;
       _publicKeyHash = HEX.encode(hash160(HEX.decode(hexPubKey)));
-      _addressType = Networks.getAddressType(_version);
+      _addressType = Networks.getAddressType(_version!);
       _networkType = networkType;
   }
 
@@ -216,10 +216,10 @@ class Address {
   /// computation is then passed to the `ripemd160()` digest function.
   ///
   /// The returned value is HEX-encoded
-  String get address => _publicKeyHash;
+  String get address => _publicKeyHash!;
 
   /// An alias for the [address] property
-  String get pubkeyHash160 => _publicKeyHash;
+  String get pubkeyHash160 => _publicKeyHash!;
 
 
   /// Returns a list of network types supported by this address
@@ -227,11 +227,11 @@ class Address {
   /// This is only really needed because BSV has three different test networks
   /// which technically share the same integer value when encoded, but for
   /// which it is useful to have a type-level distinction during development
-  List<NetworkType> get networkTypes => _networkTypes;
+  List<NetworkType> get networkTypes => _networkTypes!;
 
 
   /// Returns the specific Network Type that this Address is compatible with
-  NetworkType get networkType => _networkType;
+  NetworkType get networkType => _networkType!;
 
   /// Returns the type of "standard transaction" this Address is meant to be used for.
   ///
@@ -245,7 +245,7 @@ class Address {
   /// as "non-standard" transaction types start appearing on the Bitcoin SV blockchain.
   ///
   /// See documentation for [Transaction]
-  AddressType get addressType => _addressType;
+  AddressType get addressType => _addressType!;
 
 
 

@@ -100,7 +100,7 @@ class SVScript with ScriptBuilder {
     /// ```
     ///
     SVScript.fromHex(String script){
-        _processBuffer(HEX.decode(script));
+        _processBuffer(HEX.decode(script) as Uint8List);
     }
 
 
@@ -155,11 +155,11 @@ class SVScript with ScriptBuilder {
                 bw.write(tbuf);
             } else if (OpCodes.opcodeMap.containsKey("OP_${token.toUpperCase()}")) {
                 opstr = 'OP_' + token;
-                opcodenum = OpCodes.opcodeMap[opstr];
+                opcodenum = OpCodes.opcodeMap[opstr]!;
                 bw.writeUint8(opcodenum);
             } else if (OpCodes.opcodeMap[token] is num) {
                 opstr = token;
-                opcodenum = OpCodes.opcodeMap[opstr];
+                opcodenum = OpCodes.opcodeMap[opstr]!;
                 bw.writeUint8(opcodenum);
             } else if (BigInt.tryParse(token) != null) {
                 var script = SVScript()
@@ -209,7 +209,7 @@ class SVScript with ScriptBuilder {
           opcodenum = OpCodes.OP_PUSHDATA4;
         }
 
-        _chunks.add(ScriptChunk(buf, buf.length, opcodenum));
+        _chunks.add(ScriptChunk(buf, buf.length, opcodenum!));
       } else {
         _chunks.add(ScriptChunk([], 0, opcodenum));
       }
@@ -441,7 +441,7 @@ class SVScript with ScriptBuilder {
     /// `howMany` - the number of items to be removed.
     ///
     /// `values`  - an optional List of  items to insert; null if no items need insertion
-    List<ScriptChunk> splice(int index, int howMany, {List<ScriptChunk> values}) {
+    List<ScriptChunk> splice(int index, int howMany, {List<ScriptChunk>? values}) {
         List<ScriptChunk> buffer = List.from(_chunks);
 
         List<ScriptChunk> removedItems = buffer.getRange(index, index+howMany).toList();
@@ -459,7 +459,7 @@ class SVScript with ScriptBuilder {
 
     /// Strips all OP_CODESEPARATOR instructions from the script.
     SVScript removeCodeseparators() {
-        var chunks = List<ScriptChunk>();
+        var chunks = <ScriptChunk>[];
         for (var i = 0; i < _chunks.length; i++) {
             if (_chunks[i].opcodenum != OpCodes.OP_CODESEPARATOR) {
                 chunks.add(_chunks[i]);
@@ -611,13 +611,17 @@ class SVScript with ScriptBuilder {
     void _addOpcode(opcode, prepend) {
         int op;
         if (opcode is num) {
-            op = opcode;
+            op = opcode as int;
         } else if (opcode is String && OpCodes.opcodeMap.containsKey(opcode)) {
-            op = OpCodes.opcodeMap[opcode];
+            op = OpCodes.opcodeMap[opcode]!;
+        }else{
+            op = OpCodes.OP_INVALIDOPCODE;
         }
 
-        ScriptChunk chunk = ScriptChunk([], 0, op);
-        _insertAtPosition(chunk, prepend);
+        if (op != OpCodes.OP_INVALIDOPCODE) {
+          ScriptChunk chunk = ScriptChunk([], 0, op);
+          _insertAtPosition(chunk, prepend);
+        }
     }
 
     /// Currently used by subclasses. A more elegant way is needed to build specialised Script subclasses.

@@ -35,8 +35,8 @@ void main() {
         var publicKey = new SVPublicKey.fromHex(publicKeyHex);
         expect(publicKey.toString(), equals(publicKeyHex));
 
-        var pubx = encodeBigInt(publicKey.point.x.toBigInteger());
-        var puby = encodeBigInt(publicKey.point.y.toBigInteger());
+        var pubx = encodeBigInt(publicKey.point.x!.toBigInteger()!);
+        var puby = encodeBigInt(publicKey.point.y!.toBigInteger()!);
         expect(HEX.encode(pubx), equals('1ff0fe0f7b15ffaa85ff9f4744d539139c252a49710fb053bb9f2b933173ff9a'));
         expect(HEX.encode(puby), equals('7baad41d04514751e6851f5304fd243751703bed21b914f6be218c0fa354a341'));
     });
@@ -56,8 +56,8 @@ void main() {
         var derHex = '041ff0fe0f7b15ffaa85ff9f4744d539139c252a49710fb053bb9f2b933173ff9a7baad41d04514751e6851f5304fd243751703bed21b914f6be218c0fa354a341';
         var pk = SVPublicKey.fromHex(derHex);
 
-        var pubx = encodeBigInt(pk.point.x.toBigInteger());
-        var puby = encodeBigInt(pk.point.y.toBigInteger());
+        var pubx = encodeBigInt(pk.point.x!.toBigInteger()!);
+        var puby = encodeBigInt(pk.point.y!.toBigInteger()!);
 
         expect(HEX.encode(pubx), equals('1ff0fe0f7b15ffaa85ff9f4744d539139c252a49710fb053bb9f2b933173ff9a'));
         expect(HEX.encode(puby), equals('7baad41d04514751e6851f5304fd243751703bed21b914f6be218c0fa354a341'));
@@ -67,14 +67,14 @@ void main() {
         test('should parse this uncompressed public key', () {
             var pk = SVPublicKey.fromDER(HEX.decode(
                 '041ff0fe0f7b15ffaa85ff9f4744d539139c252a49710fb053bb9f2b933173ff9a7baad41d04514751e6851f5304fd243751703bed21b914f6be218c0fa354a341'));
-            expect(pk.point.x.toBigInteger().toRadixString(16), equals('1ff0fe0f7b15ffaa85ff9f4744d539139c252a49710fb053bb9f2b933173ff9a'));
-            expect(pk.point.y.toBigInteger().toRadixString(16), equals('7baad41d04514751e6851f5304fd243751703bed21b914f6be218c0fa354a341'));
+            expect(pk.point.x!.toBigInteger()!.toRadixString(16), equals('1ff0fe0f7b15ffaa85ff9f4744d539139c252a49710fb053bb9f2b933173ff9a'));
+            expect(pk.point.y!.toBigInteger()!.toRadixString(16), equals('7baad41d04514751e6851f5304fd243751703bed21b914f6be218c0fa354a341'));
         });
 
         test('should parse this compressed public key', () {
             var pk = SVPublicKey.fromDER(HEX.decode('031ff0fe0f7b15ffaa85ff9f4744d539139c252a49710fb053bb9f2b933173ff9a'));
-            expect(pk.point.x.toBigInteger().toRadixString(16), equals('1ff0fe0f7b15ffaa85ff9f4744d539139c252a49710fb053bb9f2b933173ff9a'));
-            expect(pk.point.y.toBigInteger().toRadixString(16), equals('7baad41d04514751e6851f5304fd243751703bed21b914f6be218c0fa354a341'));
+            expect(pk.point.x!.toBigInteger()!.toRadixString(16), equals('1ff0fe0f7b15ffaa85ff9f4744d539139c252a49710fb053bb9f2b933173ff9a'));
+            expect(pk.point.y!.toBigInteger()!.toRadixString(16), equals('7baad41d04514751e6851f5304fd243751703bed21b914f6be218c0fa354a341'));
         });
 
         test('should throw an error on this invalid public key', () {
@@ -87,8 +87,8 @@ void main() {
         var hexX = '1ff0fe0f7b15ffaa85ff9f4744d539139c252a49710fb053bb9f2b933173ff9a';
         var pk = SVPublicKey.fromX(hexX, true);
 
-        var pubx = encodeBigInt(pk.point.x.toBigInteger());
-        var puby = encodeBigInt(pk.point.y.toBigInteger());
+        var pubx = encodeBigInt(pk.point.x!.toBigInteger()!);
+        var puby = encodeBigInt(pk.point.y!.toBigInteger()!);
 
         expect(HEX.encode(pubx), equals('1ff0fe0f7b15ffaa85ff9f4744d539139c252a49710fb053bb9f2b933173ff9a'));
         expect(HEX.encode(puby), equals('7baad41d04514751e6851f5304fd243751703bed21b914f6be218c0fa354a341'));
@@ -179,13 +179,13 @@ void main() {
         ];
 
         for (var i = 0; i < knownKeys.length; i++) {
-            var privkey = new SVPrivateKey.fromWIF(knownKeys[i]['wif']);
+            var privkey = new SVPrivateKey.fromWIF(knownKeys[i]['wif'] as String);
             var pubkey = SVPublicKey.fromPrivateKey(privkey);
             var decodedPrivKey = encodeBigInt(privkey.privateKey);
             var hexPrivKey = HEX.encode(decodedPrivKey);
 
-            var pubx = encodeBigInt(pubkey.point.x.toBigInteger());
-            var puby = encodeBigInt(pubkey.point.y.toBigInteger());
+            var pubx = encodeBigInt(pubkey.point.x!.toBigInteger()!);
+            var puby = encodeBigInt(pubkey.point.y!.toBigInteger()!);
 
             expect(pubkey.getEncoded(true), equals(knownKeys[i]['pub']));
             expect(HEX.encode(pubx), equals(knownKeys[i]['pubx']));
@@ -199,8 +199,8 @@ void main() {
         var pointY = '3b402dfc89712cfe50963e670a0598e6b152b3cd94735001cdac6794975d3afd';
         var pk = SVPublicKey.fromXY(BigInt.parse(pointX, radix: 16), BigInt.parse(pointY, radix: 16));
 
-        expect(pk.point.x.toBigInteger(), equals(BigInt.parse(pointX, radix: 16)));
-        expect(pk.point.y.toBigInteger(), equals(BigInt.parse(pointY, radix: 16)));
+        expect(pk.point.x!.toBigInteger(), equals(BigInt.parse(pointX, radix: 16)));
+        expect(pk.point.y!.toBigInteger(), equals(BigInt.parse(pointY, radix: 16)));
     });
 
 
