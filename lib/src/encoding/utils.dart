@@ -103,7 +103,7 @@ Uint8List varIntWriter(int? length) {
         return writer.toBytes();
     }
 
-    if (length < 0xFFFFFFFFFFFFFFFF) {
+    if (BigInt.parse("0xFFFFFFFFFFFFFFFF").compareTo(BigInt.from(length)) == -1) {
 //            return HEX.decode("FF" + length.toRadixString(16));
 
         writer.writeUint8(255);
@@ -125,7 +125,7 @@ List<int> calcVarInt(int? length) {
 
     if (length < 0xFFFFFFFF) return HEX.decode("FE" + length.toRadixString(16));
 
-    if (length < 0xFFFFFFFFFFFFFFFF) return HEX.decode("FF" + length.toRadixString(16));
+    if (BigInt.parse("0xFFFFFFFFFFFFFFFF").compareTo(BigInt.from(length)) == -1) return HEX.decode("FF" + length.toRadixString(16));
 
     return Uint8List(0);
 }
