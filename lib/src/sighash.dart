@@ -79,7 +79,11 @@ class Sighash {
     SVScript? _subScript;
     int _sighashType = 0;
 
-    /// Calculates the hash value according to the Sighash flags specified in [sighashType]
+    Uint8List? _preImage;
+
+    Uint8List? get preImage => _preImage;
+
+  /// Calculates the hash value according to the Sighash flags specified in [sighashType]
     ///
     /// [txn] - The transaction to calculate the signature has for
     ///
@@ -327,8 +331,8 @@ class Sighash {
         // sighashType
         writer.writeUint32(sighashType >> 0, Endian.little);
 
-        var buf = writer.toBytes();
-        var ret = sha256Twice(buf.toList());
+        _preImage = writer.toBytes();
+        var ret = sha256Twice(_preImage!.toList());
         return ret.reversed.toList();
     }
 

@@ -85,7 +85,11 @@ class Transaction{
     List<int>? _txHash;
     String? _txId;
 
-    static final SHA256Digest _sha256Digest = SHA256Digest();
+    Uint8List? _preImage;
+
+    Uint8List? get preImage => _preImage;
+
+  static final SHA256Digest _sha256Digest = SHA256Digest();
     final ECDSASigner _dsaSigner = ECDSASigner(null, HMac(_sha256Digest, 64));
     final ECDomainParameters _domainParams = ECDomainParameters('secp256k1');
 
@@ -518,6 +522,8 @@ class Transaction{
         var inputIndex = inputs.indexOf(input);
         var sigHash = Sighash();
         var hash = sigHash.hash(this,sighashType, inputIndex, subscript, input.satoshis);
+
+        this._preImage = sigHash.preImage;
 
         //FIXME: Revisit this issue surrounding the need to sign a reversed copy of the hash.
         ///      Right now I've factored this out of signature.dart because 'coupling' & 'seperation of concerns'.
