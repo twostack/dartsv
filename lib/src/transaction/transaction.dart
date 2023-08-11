@@ -73,7 +73,7 @@ enum TransactionOption {
 /// `4 bytes` - A time (Unix epoch time) or block number. See the [nLockTime] parsing rules.
 ///
 class Transaction{
-    int _version = 1;
+    int _version = 2;
     int _nLockTime = 0;
     final List<TransactionInput> _txnInputs = [];  //this transaction's inputs
     final List<TransactionOutput> _txnOutputs = []; //this transaction's outputs
