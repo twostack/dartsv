@@ -101,10 +101,10 @@ class Transaction{
     var MAX_BLOCK_SIZE = 1000000;
 
    /// Minimum amount for an output for it not to be considered a dust output
-    static final DUST_AMOUNT = BigInt.from(546);
+    var DUST_AMOUNT = BigInt.from(546);
 
     /// Margin of error to allow fees in the vecinity of the expected value but doesn't allow a big difference
-    static final FEE_SECURITY_MARGIN = BigInt.from(150);
+    var FEE_SECURITY_MARGIN = BigInt.from(150);
 
     /// max amount of satoshis in circulation
     static final MAX_MONEY = BigInt.from(21000000 * 1e8);
@@ -118,9 +118,6 @@ class Transaction{
     /// Max value for an unsigned 32 bit value
     static final NLOCKTIME_MAX_VALUE = 4294967295;
 
-    /// Value used for fee estimation (satoshis per kilobyte)
-    static const FEE_PER_KB = 1000;
-
     /// Safe upper bound for change address script size in bytes
     static final CHANGE_OUTPUT_MAX_SIZE = 20 + 4 + 34 + 4;
     static final MAXIMUM_EXTRA_SIZE = 4 + 9 + 9 + 4;
@@ -132,9 +129,15 @@ class Transaction{
     //Default, zero-argument constructor
     Transaction();
 
-    var _feePerKb = FEE_PER_KB;
+    var _feePerKb = 50;
 
-    /// Default constructor. Start empty, use the builder pattern to
+    get feePerKb => _feePerKb;
+
+    set feePerKb(value) {
+      _feePerKb = value;
+    }
+
+  /// Default constructor. Start empty, use the builder pattern to
     /// build a transaction.
     ///
     /// E.g.
