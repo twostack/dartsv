@@ -1,70 +1,19 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:dartsv/src/encoding/utils.dart';
+import 'package:dartsv/src/transaction/preconditions.dart';
 import 'package:hex/hex.dart';
 import 'dart:math';
 import '../exceptions.dart';
 import 'opcodes.dart';
 import 'package:buffer/buffer.dart';
+import 'script_chunk.dart';
 
-/// Utility class to represent a parsed 'token' in the encoded script.
-class ScriptChunk {
-
-    List<int> _buf;
-    int _len;
-    int _opcodenum;
-
-    ///Construct a  ScriptChunk
-    ///
-    /// [_buf] - Buffer containing data in case of OP_PUSHDATA
-    ///
-    /// [_len] - length of _buf
-    ///
-    /// [_opcodenum] - Bitcoin script OpCode. See [OpCodes].
-    ///
-    ScriptChunk(this._buf, this._len, this._opcodenum);
-
-    /// Returns this script chunk's numeric opcode
-    ///
-    int get opcodenum => _opcodenum;
-
-    /// Sets this script chunk's numeric opcode
-    ///
-    set opcodenum(int value) {
-        _opcodenum = value;
-    }
-
-    /// Returns the length of the buffer in case of PUSHDATAx instruction. Zero otherwise.
-    ///
-    int get len => _len;
-
-    /// Sets the length of data contained in PUSHDATAx instruction. Zero otherwise.
-    ///
-    set len(int value) {
-        _len = value;
-    }
-
-    /// Returns the byte array containing the data from a PUSHDATAx instruction.
-    ///
-    List<int> get buf => _buf;
-
-    /// Sets the byte array of representing PUSHDATAx instruction.
-    ///
-    set buf(List<int> value) {
-        _buf = value;
-    }
-
-
-}
 
 mixin ScriptSig{
 }
 
 mixin ScriptPubkey {
-}
-
-mixin ScriptBuilder {
-    String buildScript();
 }
 
 
@@ -73,7 +22,7 @@ mixin ScriptBuilder {
 ///
 /// See : https://en.bitcoin.it/wiki/Script
 ///
-class SVScript with ScriptBuilder {
+class SVScript {
 
     final String _script = '';
 
@@ -125,10 +74,7 @@ class SVScript with ScriptBuilder {
     }
 
     /// Default constructor. Processing in this constructor is used by subclasses to bootstrap their internals.
-    SVScript() {
-        _processChunks(buildScript());
-        _convertChunksToByteArray();
-    }
+    SVScript() { }
 
     /// This constructor is *only* used by the Script Interpreter test vectors at the moment.
     /// Bitcoind test vectors are rather special snowflakes so we made a special constructor just for them.
@@ -624,10 +570,24 @@ class SVScript with ScriptBuilder {
         }
     }
 
-    /// Currently used by subclasses. A more elegant way is needed to build specialised Script subclasses.
-    @override
-    String buildScript() {
-        return '';
+
+    static int decodeFromOpN(int opcode) {
+      PreConditions.assertTrueWithMessage(opcode == 0 || opcode == 79 || opcode >= 81 && opcode <= 96, "decodeFromOpN called on non OP_N opcode:${OpCodes.fromNum(opcode)}");
+      if (opcode == 0) {
+        return 0;
+      } else {
+        return opcode == 79 ? -1 : opcode + 1 - 81;
+      }
     }
+
+    static int encodeToOpN(int value) {
+      PreConditions.assertTrueWithMessage(value >= -1 && value <= 16, "encodeToOpN called for ${value} which we cannot encode in an opcode.");
+      if (value == 0) {
+        return 0;
+      } else {
+        return value == -1 ? 79 : value - 1 + 81;
+      }
+    }
+
 }
 

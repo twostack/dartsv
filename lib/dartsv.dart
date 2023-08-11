@@ -22,6 +22,7 @@ export 'src/script/interpreter.dart';
 export 'src/script/stack.dart';
 export 'src/script/scriptflags.dart';
 export 'src/transaction/transaction.dart';
+export 'src/transaction/script_builder.dart';
 export 'src/transaction/transaction_output.dart';
 export 'src/encoding/base58check.dart';
 export 'src/transaction/locking_script_builder.dart';
