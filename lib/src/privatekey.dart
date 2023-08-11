@@ -199,7 +199,7 @@ class SVPrivateKey {
     /// Returns this Private Key in WIF format. See [toWIF()].
     String toWIF() {
         //convert private key _d to a hex string
-        var wifKey = _d!.toRadixString(16);
+        var wifKey = _d!.toRadixString(16).padLeft(64, '0');
         var versionByte;
 
         if (_networkType == NetworkType.MAIN) {
@@ -236,7 +236,7 @@ class SVPrivateKey {
 
     /// Returns the *naked* private key Big Integer value as a hexadecimal string
     String toHex(){
-        return _d!.toRadixString(16);
+        return _d!.toRadixString(16).padLeft(64, '0');
     }
 
     //convenience method to retrieve an address
