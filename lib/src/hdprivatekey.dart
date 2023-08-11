@@ -232,7 +232,7 @@ class HDPrivateKey extends CKDSerializer{
     ///    32 bytes: the chain code
     ///    33 bytes: the private key data ( 0x00 or ser256(k) )
     /// ```
-    get xprivkey {
+    String get xprivkey {
         return this.serialize();
     }
 
