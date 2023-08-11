@@ -1,3 +1,6 @@
+## 1.1.1
+- downgraded test dependencies to for Flutter compatibility
+
 ## 1.1.0
 - Exposed the DUST LIMIT and default feePerKb settings on the Transaction so user can manually change these.
 - Also exported the TransactionInput class
