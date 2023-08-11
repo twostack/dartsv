@@ -5,14 +5,14 @@ homepage: https://github.com/twostack/cli-example
 author: Stephan M. February <stephan@werkswinkel.com>
 
 environment:
-  sdk: '>=2.7.0 <3.0.0'
+  sdk: '>=2.12.0 <3.0.0'
 
 dependencies:
-  hex: ^0.1.2
+  hex: 0.2.0
   collection: ^1.14.11
-  sprintf: ^4.0.2
-  http: ^0.12.0+2
-  dartsv: ^0.4.2
+  sprintf: ^6.0.0
+  http: ^0.13.3
+  dartsv: ^1.0.0
   bip39: ^1.0.3
 
 
