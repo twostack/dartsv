@@ -80,6 +80,7 @@ void main() {
           .spendTo(toAddress, BigInt.from(500000), scriptBuilder: P2PKHLockBuilder(toAddress))
           .sendChangeTo(changeAddress, scriptBuilder: P2PKHLockBuilder(changeAddress));
 
+      transaction.version = 1;
       transaction.withFeePerKb(100000);
 
       transaction.signInput(0, private1);

@@ -209,6 +209,7 @@ main() {
 
     test('serializes an empty transaction', () {
         var transaction = new Transaction();
+        transaction.version = 1;
         expect(transaction.uncheckedSerialize(), equals(txEmptyHex));
     });
 
@@ -235,6 +236,7 @@ main() {
                     transaction.spendTo(Address(elem[0]), BigInt.from(elem[1]), scriptBuilder: P2PKHLockBuilder(addr));
                 };
 
+                transaction.version = 1;
                 transaction.withFeePerKb(100000);
                 transaction.signInput(0, privKey, sighashType: item['sign'][1]);
 
@@ -1073,7 +1075,8 @@ main() {
           .spendFromMap(from3, scriptBuilder: P2PKHUnlockBuilder(privateKey.publicKey))
           .spendFromMap(from2, scriptBuilder: P2PKHUnlockBuilder(privateKey.publicKey))
           .spendFromMap(from1, scriptBuilder: P2PKHUnlockBuilder(privateKey.publicKey));
-      
+
+      tx.version = 1;
       tx.signInput(0, privateKey);
       tx.signInput(1, privateKey);
       tx.signInput(2, privateKey);

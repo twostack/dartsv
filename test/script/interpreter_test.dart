@@ -428,6 +428,7 @@ void main() {
 
         var hashbuf = List<int>.filled(32, 0);
         Transaction credtx = new Transaction();
+        credtx.version = 1;
         var coinbaseUnlockBuilder = DefaultUnlockBuilder();
         coinbaseUnlockBuilder.fromScript(SVScript.fromString('OP_0 OP_0'));
         TransactionInput txCredInput = TransactionInput(
@@ -455,6 +456,7 @@ void main() {
         var defaultUnlockBuilder = DefaultUnlockBuilder();
         defaultUnlockBuilder.fromScript(scriptSig);
         var spendtx = Transaction();
+        spendtx.version = 1;
         var txSpendInput = TransactionInput(
             prevTxId,
             0,
