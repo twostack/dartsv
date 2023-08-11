@@ -40,6 +40,34 @@ main() {
         var sig = SVSignature.fromTxFormat(buf);
         expect(sig.toTxFormat().toString(), equals(buf));
     });
+    /*
+     describe('vectors', function () {
+    // TODO: These vectors were taken from BitcoinJS-lib during a debugging
+    // expedition. I only took a subset relevant for the stuff I wanted to
+    // test, but it would be valuable to revisit these test vectors and make
+    // sure all of them pass.
+    vectors.valid.forEach(function (vector) {
+      it('should pass this vector', function () {
+        const compact = vector.compact
+        const sig = Sig.fromCompact(Buffer.from(compact.hex, 'hex'))
+        sig.recovery.should.equal(compact.i)
+        sig.compressed.should.equal(compact.compressed)
+        sig
+          .toCompact()
+          .toString('hex')
+          .should.equal(compact.hex)
+      })
+    })
+
+    vectors.invalid.compact.forEach(function (compact) {
+      it('should pass this vector', function () {
+        ;(function () {
+          Sig.fromCompact(Buffer.from(compact.hex, 'hex'))
+        }.should.throw())
+      })
+    })
+  })
+     */
 
 
     test('should parse this signature generated in node', () {
@@ -110,6 +138,20 @@ main() {
         expect(parsed, isNotNull);
     });
 
+
+    test('create compact format', () {
+      var privateKey = SVPrivateKey();
+      //create signature instance
+      var sig = SVSignature.fromPrivateKey(privateKey);
+
+      //sign a message
+      var hexMessage = HEX.encode(Utf8Encoder().convert("some arbitrary data"));
+      var derSig = sig.sign(hexMessage, forCompact: true);
+
+      var compactSig = HEX.encode(sig.toCompact());
+      print(compactSig);
+
+    });
 
     test('should convert these known r and s values into a known signature', () {
         var r = BigInt.parse('63173831029936981022572627018246571655303050627048489594159321588908385378810');

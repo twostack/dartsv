@@ -170,6 +170,10 @@ class HDPublicKey extends CKDSerializer {
     }
 
 
+    SVPublicKey get publicKey {
+        return SVPublicKey.fromHex(HEX.encode(this.keyBuffer));
+    }
+
     HDPublicKey _copyParams(HDPublicKey hdPublicKey){
 
         //all other serializer params should be the same ?
