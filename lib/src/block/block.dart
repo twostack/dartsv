@@ -259,7 +259,7 @@ class Block {
         ByteDataWriter writer = ByteDataWriter();
 
         //concatenate all transactions
-        List<int> txBuf = _transactions!.fold(<int>[], (List<int> prev, Transaction tx) => prev + HEX.decode(tx.serialize(performChecks: false)));
+        List<int> txBuf = _transactions!.fold(<int>[], (List<int> prev, Transaction tx) => prev + HEX.decode(tx.serialize()));
 
         writer.write(_header!.buffer);
         writer.write(varIntWriter(_transactions!.length).toList());

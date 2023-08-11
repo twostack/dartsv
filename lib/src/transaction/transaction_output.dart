@@ -22,20 +22,12 @@ import 'package:sprintf/sprintf.dart';
 ///
 class TransactionOutput {
     BigInt _satoshis = BigInt.zero;
-    String? _transactionId;
-    int? _outputIndex;
-    bool _isChangeOutput = false;
+    SVScript _script = SVScript();
 
-    LockingScriptBuilder? _scriptBuilder;
-
-
-    /// The default constructor. Initializes a "clean slate" output.
-    TransactionOutput({LockingScriptBuilder? scriptBuilder = null}){
-       _scriptBuilder = scriptBuilder ??= DefaultLockBuilder();
+    TransactionOutput( BigInt amount, SVScript scriptPubKey ){
+        _satoshis = amount;
+        _script = scriptPubKey;
     }
-
-    // FIXME: This should be default constructor
-   // TransactionOutput(this._satoshis, this._script, this._outputIndex, this._transactionId);
 
     /// Constructs a new Transaction output from a ByteDataReader that
     /// has been initialized with the raw transaction output data.
@@ -43,19 +35,12 @@ class TransactionOutput {
     /// This method is useful when iteratively reading the transaction
     /// outputs in a raw transaction, which is also how it is currently
     /// being used.
-    TransactionOutput.fromReader(ByteDataReader reader, {LockingScriptBuilder? scriptBuilder = null}) {
-
-        _scriptBuilder = scriptBuilder ??= DefaultLockBuilder();
+    TransactionOutput.fromReader(ByteDataReader reader) {
 
         this.satoshis = BigInt.from(reader.readUint64(Endian.little));
         var size = readVarIntNum(reader);
         if (size != 0) {
-            var script = SVScript.fromBuffer(reader.read(size, copy: true));
-            _scriptBuilder!.fromScript(script);
-
-        } else {
-            var script = SVScript.fromBuffer(Uint8List(0));
-            _scriptBuilder!.fromScript(script);
+            _script = SVScript.fromBuffer(reader.read(size, copy: true));
         }
     }
 
@@ -102,21 +87,21 @@ class TransactionOutput {
     Map<String, dynamic> toObject() {
         return {
             "satoshis": this._satoshis.toInt(),
-            "script": _scriptBuilder!.getScriptPubkey().toHex()
+            "script": _script.toHex()
         };
     }
 
     /// Returns the output script in it's raw hexadecimal form
     String get scriptHex {
-        return this._scriptBuilder!.getScriptPubkey().toHex();
+        return _script.toHex();
     }
 
     /// Returns the output script as a [SVScript] instance
-    SVScript get script => _scriptBuilder!.getScriptPubkey();
+    SVScript get script => _script;
 
     /// Sets the output script to the provided value
     set script(SVScript script) {
-        _scriptBuilder!.fromScript(script);
+        _script = SVScript.fromHex(script.toHex()); //take a copy
     }
 
     /// Returns the number of satoshis the output is sending
@@ -127,30 +112,13 @@ class TransactionOutput {
         _satoshis = value;
     }
 
-    /// Returns the transactionId of the transaction this output belongs to
-    String? get transactionId => _transactionId;
-
-
-    /// Sets the transactionId of the transaction this output belongs to
-    set transactionId(String? value) {
-        _transactionId = value;
-    }
-
-    /// Returns the index of the (UTXO) in the transaction this output belongs to
-    int get outputIndex => _outputIndex!;
-
-    /// sets the index of the (UTXO) in the transaction this output belongs to
-    set outputIndex(int value) {
-        _outputIndex = value;
-    }
-
     /// Convenience property to check if this output has been made unspendable
     /// using either an OP_RETURN or "OP_FALSE OP_RETURN" in first positions of
     /// the script.
     ///
     ///
     bool get isDataOut {
-        var scriptChunks = scriptBuilder.getScriptPubkey().chunks;
+        var scriptChunks = _script.chunks;
         if (scriptChunks.isNotEmpty && scriptChunks[0].opcodenum == OpCodes.OP_FALSE){
             //safe data out
            return scriptChunks.length >= 2 && scriptChunks[1].opcodenum == OpCodes.OP_RETURN;
@@ -162,19 +130,8 @@ class TransactionOutput {
         return false;
     }
 
-    /// Returns true if this output is meant to generate change back
-    /// the person creating the transaction this output will belong to.
-    bool get isChangeOutput => _isChangeOutput;
-
-    /// Set to true if this output is meant to generate change back
-    /// the person creating the transaction this output will belong to.
-    set isChangeOutput(bool value) {
-        _isChangeOutput = value;
-    }
-
-
     /// Returns the current instance of LockingScriptBuilder in use by this instance
-    LockingScriptBuilder get scriptBuilder => _scriptBuilder!;
+    // LockingScriptBuilder get scriptBuilder => DefaultLockBuilder();
 
 //FIXME: Swing back to this leaner implementation based on ByteDataWriter()
 //    List<int> serialize2(){

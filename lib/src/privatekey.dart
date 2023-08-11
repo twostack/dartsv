@@ -87,6 +87,11 @@ class SVPrivateKey {
         _svPublicKey = SVPublicKey.fromPrivateKey(this);
     }
 
+
+    SVPrivateKey.fromBuffer(List<int> buffer, {NetworkType networkType = NetworkType.TEST}){
+      SVPrivateKey.fromHex(HEX.encode(buffer), networkType);
+    }
+
     /// Construct a  Private Key from the hexadecimal value representing the
     /// BigInt value of (d) in ` Q = d * G `
     ///

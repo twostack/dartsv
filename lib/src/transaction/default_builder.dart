@@ -1,4 +1,6 @@
 
+import 'dart:typed_data';
+
 import 'package:dartsv/src/transaction/signed_unlock_builder.dart';
 import 'package:hex/hex.dart';
 import 'package:sprintf/sprintf.dart';
@@ -16,7 +18,9 @@ mixin DefaultLockMixin on _DefaultLockBuilder implements LockingScriptBuilder {
 abstract class _DefaultLockBuilder implements LockingScriptBuilder{
 
   SVScript _script = SVScript();
-  _DefaultLockBuilder();
+  _DefaultLockBuilder(){
+    _script = SVScript.fromBuffer(Uint8List(0));
+  }
 
   @override
   SVScript get scriptPubkey => getScriptPubkey();
@@ -56,7 +60,7 @@ abstract class _DefaultUnlockBuilder extends SignedUnlockBuilder implements Unlo
   SVScript get scriptSig => getScriptSig();
 
   @override
-  void fromScript(SVScript script) {
+  fromScript(SVScript script) {
     _script = script;
   }
 

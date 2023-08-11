@@ -24,7 +24,7 @@ class ScriptBuilder {
     return this;
   }
 
-  ScriptBuilder lastOpCode(int opcode) {
+  ScriptBuilder opCode(int opcode) {
     return opCodeAtIndex(_chunks.length, opcode);
   }
 

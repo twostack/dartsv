@@ -1,6 +1,7 @@
 
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/transaction/p2ms_builder.dart';
+import 'package:dartsv/src/transaction/transaction_builder.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -75,16 +76,19 @@ void main() {
 
     test('can perform a multisig spend', () {
       var unlockBuilder = P2MSUnlockBuilder();
-      var transaction = new Transaction()
-          .spendFromMap(simpleUtxoWith100000Satoshis, scriptBuilder: unlockBuilder)
-          .spendTo(toAddress, BigInt.from(500000), scriptBuilder: P2PKHLockBuilder(toAddress))
-          .sendChangeTo(changeAddress, scriptBuilder: P2PKHLockBuilder(changeAddress));
+      var signer1 = TransactionSigner(SighashType.SIGHASH_ALL, private1);
+      var signer2 = TransactionSigner(SighashType.SIGHASH_ALL, private2);
+      var transaction = TransactionBuilder()
+          .spendFromUtxoMapWithSigner(signer1, simpleUtxoWith100000Satoshis, unlockBuilder)
+          .spendTo(P2PKHLockBuilder(toAddress), BigInt.from(500000) )
+          .sendChangeToAddress(changeAddress)
+          .withFeePerKb(50)
+          .build(false);
 
       transaction.version = 1;
-      transaction.withFeePerKb(100000);
 
-      transaction.signInput(0, private1);
-      transaction.signInput(0, private2);
+      // transaction.signInput(0, private1);
+      // transaction.signInput(0, private2);
 
       expect(unlockBuilder.signatures.length, equals(2));
       expect(unlockBuilder.getScriptSig().toString(), equals('OP_0 71 0x30440220506a721a4aca80943146700333be6f5f0abd96798b4b5e21d14a45f6f3e1c96d022074be7308c17a86d327ad6f9b59116f45edff218187e5a6bcff6c58150ec94f9700 71 0x304402205133d18807f1261bd0712a6d334cf85a286fe3aaec08efbce824a31efe60c0a9022048d52308728a602a046adceb990188062955a0f20f390895066325406b41644700'));

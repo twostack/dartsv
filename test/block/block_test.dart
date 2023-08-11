@@ -55,15 +55,12 @@ void main() {
             transaction.version = tx["version"];
             transaction.nLockTime = tx["nLockTime"];
             (tx["inputs"] as List).forEach((input) {
-                var tmpTx = TransactionInput(input["prevTxId"], input["outputIndex"], SVScript(), BigInt.zero, input["sequenceNumber"]);
-                tmpTx.scriptBuilder.fromScript(SVScript.fromHex(input["script"]));
+                var tmpTx = TransactionInput(input["prevTxId"], input["outputIndex"], input["sequenceNumber"],SVScript.fromHex(input["script"]) );
                 transaction.inputs.add(tmpTx);
             });
 
             (tx["outputs"] as List).forEach((output) {
-                var txOut = TransactionOutput();
-                txOut.satoshis = BigInt.from(output["satoshis"]);
-                txOut.script = SVScript.fromHex(output["script"]);
+                var txOut = TransactionOutput(BigInt.from(output["satoshis"]), SVScript.fromHex(output["script"]));
                 transaction.outputs.add(txOut);
             });
 

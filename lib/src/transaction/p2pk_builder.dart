@@ -1,90 +1,105 @@
+import 'dart:typed_data';
 
-import 'package:dartsv/src/exceptions.dart';
-import 'package:dartsv/src/transaction/signed_unlock_builder.dart';
+import 'package:dartsv/dartsv.dart';
 import 'package:hex/hex.dart';
 import 'package:sprintf/sprintf.dart';
 
-import '../../dartsv.dart';
+class P2PKLockBuilder extends LockingScriptBuilder {
+  SVPublicKey? signerPubKey;
 
-mixin P2PKLockMixin on _P2PKLockBuilder implements LockingScriptBuilder {
+  P2PKLockBuilder(this.signerPubKey);
+
+  P2PKLockBuilder.fromScript(SVScript script) : super.fromScript(script);
 
   @override
-  SVScript getScriptPubkey(){
+  SVScript getScriptPubkey() {
+    if (signerPubKey == null) return SVScript();
 
-    if (signerPubkey == null) return SVScript();
+    var builder = ScriptBuilder()
+        .addData(Uint8List.fromList(HEX.decode(signerPubKey!.toHex())))
+        .opCode(OpCodes.OP_CHECKSIG);
 
-    var pubKeySize = HEX.decode(signerPubkey.toString()).length;
-    var scriptString = sprintf("%s 0x%s OP_CHECKSIG", [pubKeySize, signerPubkey.toString()]);
-
-    return SVScript.fromString(scriptString);
+    return builder.build();
   }
-}
-
-abstract class _P2PKLockBuilder implements LockingScriptBuilder{
-  SVPublicKey signerPubkey;
-
-  _P2PKLockBuilder(this.signerPubkey);
-
-  //SVScript get scriptPubkey => getScriptPubkey();
 
   @override
-  void fromScript(SVScript script) {
+  void parse(SVScript script) {
+    if (script == null) {
+      throw new ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic +
+          " - Invalid Script or Malformed Script.");
+    }
 
-    if (script != null && script.buffer != null) {
+    if (script != null) {
+      List<ScriptChunk> chunkList = script.chunks;
 
-      var chunkList = script.chunks;
-
-      if (chunkList.length != 2){
-        throw ScriptException("Wrong number of data elements for P2PK ScriptPubkey");
+      if (chunkList.length != 2) {
+        throw new ScriptException(
+            ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic +
+                " - Wrong number of data elements for P2PK Locking Script");
       }
 
-      signerPubkey = SVPublicKey.fromDER(chunkList[0].buf);
+      if (chunkList[1].opcodenum != OpCodes.OP_CHECKSIG) {
+        throw new ScriptException(
+            ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic +
+                " - Malformed P2PK Locking Script. Mismatched OP_CODES.");
+      }
 
-    }else{
-      throw ScriptException("Invalid Script or Malformed Script.");
+      signerPubKey = SVPublicKey.fromBuffer(chunkList[0].buf);
     }
   }
-
 }
 
-class P2PKLockBuilder extends _P2PKLockBuilder with P2PKLockMixin{
-  P2PKLockBuilder(SVPublicKey signerPubkey) : super(signerPubkey);
-}
+class P2PKUnlockBuilder extends UnlockingScriptBuilder {
+  SVPublicKey? signerPubKey;
 
+  P2PKUnlockBuilder(this.signerPubKey);
 
-mixin P2PKUnlockMixin on _P2PKUnlockBuilder implements UnlockingScriptBuilder{
+  P2PKUnlockBuilder.fromScript(SVScript script) : super.fromScript(script);
 
   @override
   SVScript getScriptSig() {
 
-    if (signatures.isEmpty) return SVScript();
+    if (!signatures.isEmpty) {
+      var signature = signatures[0];
 
-    var signatureSize = HEX.decode(signatures[0].toTxFormat()).length;
-    var scriptString =sprintf("%s 0x%s", [signatureSize, signatures[0].toTxFormat()]);
+      if (signature == null || signerPubKey == null) {
+        return ScriptBuilder()
+            .build(); //return empty script; otherwise we will barf on early serialize (prior to signing)
+      }
 
-    return SVScript.fromString(scriptString);
+      try {
+        var sigBuffer = Uint8List.fromList(HEX.decode(signature.toTxFormat()));
+        return ScriptBuilder()
+            .addData(sigBuffer)
+            .addData(Uint8List.fromList(HEX.decode(signerPubKey!.toHex())))
+            .build();
+      } on Exception catch(e) {
+        print(e);
+      }
+    }
+    return ScriptBuilder().build();
   }
 
-}
-
-abstract class _P2PKUnlockBuilder extends SignedUnlockBuilder implements UnlockingScriptBuilder{
-
-  _P2PKUnlockBuilder();
-
   @override
-  List<SVSignature> signatures = <SVSignature>[];
+  void parse(SVScript script) {
+    if (script != null) {
+      List<ScriptChunk> chunkList = script.chunks;
 
-  @override
-  SVScript get scriptSig => getScriptSig();
+      if (chunkList.length != 2){
+        throw new ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic + " - Wrong number of data elements for P2PKH ScriptSig");
+      }
 
-  @override
-  void fromScript(SVScript script) {
-    throw UnimplementedError();
+      var sig = chunkList[0].buf;
+      var pubKey = chunkList[1].buf;
+
+      signerPubKey = SVPublicKey.fromBuffer(pubKey);
+      signatures.add(SVSignature.fromTxFormat(HEX.encode(sig)));
+
+    }else{
+      throw new ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic + " -Invalid Script or Malformed Script.");
+    }
   }
 
-}
 
-class P2PKUnlockBuilder extends _P2PKUnlockBuilder with P2PKUnlockMixin{
-  P2PKUnlockBuilder() : super();
 }
 
