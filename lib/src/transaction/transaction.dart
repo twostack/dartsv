@@ -101,10 +101,10 @@ class Transaction{
     var MAX_BLOCK_SIZE = 1000000;
 
    /// Minimum amount for an output for it not to be considered a dust output
-    var DUST_AMOUNT = BigInt.from(546);
+    static var DUST_AMOUNT = BigInt.from(546);
 
     /// Margin of error to allow fees in the vecinity of the expected value but doesn't allow a big difference
-    var FEE_SECURITY_MARGIN = BigInt.from(150);
+    static var FEE_SECURITY_MARGIN = BigInt.from(150);
 
     /// max amount of satoshis in circulation
     static final MAX_MONEY = BigInt.from(21000000 * 1e8);
