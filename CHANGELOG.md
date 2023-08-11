@@ -1,3 +1,7 @@
+## 1.0.2
+- Added convenience method on HDPublicKey for getting SVPublicKey
+- Strongly typed hexadecimal string returned for xprivkey in HDPrivateKey
+
 ## 1.0.1
 Resolved Null-safety warnings on project build
 
