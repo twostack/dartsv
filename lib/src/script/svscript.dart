@@ -347,37 +347,6 @@ class SVScript {
     /// Returns this script's internal representation as a list of [ScriptChunk]s
     List<ScriptChunk> get chunks => _chunks;
 
-    /// Checks to see if the PUSHDATA instruction is using the *smallest* pushdata opcode it can.
-    ///
-    /// [i] - Index of ScriptChunk. This should be a pushdata instruction.
-    ///
-    /// Returns true if the *smallest* pushdata opcode was used.
-    bool checkMinimalPush(int i) {
-        var chunk = _chunks[i];
-        var buf = chunk.buf;
-        var opcodenum = chunk.opcodenum;
-
-        if (buf.isEmpty) {
-            // Could have used OP_0.
-            return (opcodenum == OpCodes.OP_0);
-        } else if (buf.length == 1 && buf[0] >= 1 && buf[0] <= 16) {
-            // Could have used OP_1 .. OP_16.
-            return opcodenum == OpCodes.OP_1 + (buf[0] - 1);
-        } else if (buf.length == 1 && buf[0] == 0x81) {
-            // Could have used OP_1NEGATE
-            return opcodenum == OpCodes.OP_1NEGATE;
-        } else if (buf.length <= 75) {
-            // Could have used a direct push (opcode indicating number of bytes pushed + those bytes).
-            return opcodenum == buf.length;
-        } else if (buf.length <= 255) {
-            // Could have used OP_PUSHDATA.
-            return opcodenum == OpCodes.OP_PUSHDATA1;
-        } else if (buf.length <= 65535) {
-            // Could have used OP_PUSHDATA2.
-            return opcodenum == OpCodes.OP_PUSHDATA2;
-        }
-        return true;
-    }
 
 
     /// Removes [ScriptChunk]s from the script and optionally inserts  [ScriptChunk]s.

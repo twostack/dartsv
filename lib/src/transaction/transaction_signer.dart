@@ -51,7 +51,7 @@ class TransactionSigner {
 
     TransactionInput input = unsignedTxn.inputs[inputIndex];
     if (input != null){
-      UnlockingScriptBuilder scriptBuilder = DefaultUnLockBuilder(input.script);
+      UnlockingScriptBuilder scriptBuilder = DefaultUnlockBuilder.fromScript(input.script!); //force failure on null script
       (scriptBuilder as SignedUnlockBuilder).signatures.add(sig);
     } else {
       throw new TransactionException(

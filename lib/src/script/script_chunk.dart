@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dartsv/dartsv.dart';
 
 /// Utility class to represent a parsed 'token' in the encoded script.
@@ -45,6 +47,72 @@ class ScriptChunk {
   ///
   set buf(List<int> value) {
     _buf = value;
+  }
+
+  bool equalsOpCode(int opcode) {
+    return opcode == _opcodenum;
+  }
+
+  /**
+   * If this chunk is a single byte of non-pushdata content (could be OP_RESERVED or some invalid Opcode)
+   */
+  bool isOpCode() {
+    return _opcodenum > OpCodes.OP_PUSHDATA4;
+  }
+
+  /**
+   * Returns true if this chunk is pushdata content, including the single-byte pushdatas.
+   */
+  bool isPushData() {
+    return _opcodenum <= OpCodes.OP_16;
+  }
+
+  /** If this chunk is an OP_N opcode returns the equivalent integer value. */
+  int decodeOpN() {
+    return SVScript.decodeFromOpN(_opcodenum);
+  }
+
+  int size() {
+    final int opcodeLength = 1;
+
+    int pushDataSizeLength = 0;
+    if (_opcodenum == OpCodes.OP_PUSHDATA1) pushDataSizeLength = 1;
+    else if (_opcodenum == OpCodes.OP_PUSHDATA2) pushDataSizeLength = 2;
+    else if (_opcodenum == OpCodes.OP_PUSHDATA4) pushDataSizeLength = 4;
+
+    final int dataLength = _buf == null ? 0 : _buf.length;
+
+    return opcodeLength + pushDataSizeLength + dataLength;
+  }
+
+
+  /// Checks to see if the PUSHDATA instruction is using the *smallest* pushdata opcode it can.
+  ///
+  /// [i] - Index of ScriptChunk. This should be a pushdata instruction.
+  ///
+  /// Returns true if the *smallest* pushdata opcode was used.
+  bool checkMinimalPush(int i) {
+
+    if (_buf.isEmpty) {
+      // Could have used OP_0.
+      return (_opcodenum == OpCodes.OP_0);
+    } else if (_buf.length == 1 && buf[0] >= 1 && buf[0] <= 16) {
+      // Could have used OP_1 .. OP_16.
+      return _opcodenum == OpCodes.OP_1 + (buf[0] - 1);
+    } else if (_buf.length == 1 && buf[0] == 0x81) {
+      // Could have used OP_1NEGATE
+      return _opcodenum == OpCodes.OP_1NEGATE;
+    } else if (_buf.length <= 75) {
+      // Could have used a direct push (opcode indicating number of bytes pushed + those bytes).
+      return _opcodenum == buf.length;
+    } else if (_buf.length <= 255) {
+      // Could have used OP_PUSHDATA.
+      return _opcodenum == OpCodes.OP_PUSHDATA1;
+    } else if (_buf.length <= 65535) {
+      // Could have used OP_PUSHDATA2.
+      return _opcodenum == OpCodes.OP_PUSHDATA2;
+    }
+    return true;
   }
 
   // String toString(){

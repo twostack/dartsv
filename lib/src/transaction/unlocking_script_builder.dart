@@ -1,6 +1,5 @@
 
 import 'package:dartsv/dartsv.dart';
-import 'package:dartsv/src/script/svscript.dart';
 
 abstract class UnlockingScriptBuilder {
 

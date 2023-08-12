@@ -27,7 +27,7 @@ class TransactionBuilder {
   //Map the transactionIds we're spending from, to the corresponding UTXO amount in the output
   Map<String, BigInt> _spendingMap = Map();
 
-  LockingScriptBuilder _changeScriptBuilder = DefaultLockBuilder();
+  LockingScriptBuilder _changeScriptBuilder = DefaultLockBuilder.fromScript(SVScript());
   BigInt _changeAmount = BigInt.zero;
 
   TransactionOutput? _changeOutput;
@@ -85,7 +85,7 @@ class TransactionBuilder {
 
     _signerMap[mapKey] = SignerDto(signer, outpoint);
 
-    unlocker ??= DefaultUnlockBuilder();
+    unlocker ??= DefaultUnlockBuilder.fromScript(SVScript());
 
     var input = TransactionInput(utxoMap["transactionId"] as String, outputIndex,sequenceNumber, unlocker?.getScriptSig());
 
@@ -105,7 +105,7 @@ class TransactionBuilder {
 
     String mapKey = "${transactionId}:${outputIndex}";
 
-    unlocker ??= DefaultUnlockBuilder();
+    unlocker ??= DefaultUnlockBuilder.fromScript(SVScript());
 
     var input = TransactionInput(utxoMap["transactionId"] as String,
         outputIndex, sequenceNumber, unlocker.getScriptSig());
@@ -241,7 +241,7 @@ class TransactionBuilder {
    * @return TransactionBuilder
    */
   TransactionBuilder sendChangeToAddress(Address changeAddress) {
-    _changeScriptBuilder = P2PKHLockBuilder(changeAddress);
+    _changeScriptBuilder = P2PKHLockBuilder.fromAddress(changeAddress);
 
     return sendChangeToLocker(_changeScriptBuilder);
   }

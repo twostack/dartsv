@@ -532,7 +532,7 @@ class Interpreter {
         }
 
         if (fExec && opcodenum >= 0 && opcodenum <= OpCodes.OP_PUSHDATA4) {
-            if (fRequireMinimal && !_script!.checkMinimalPush(_pc - 1)) {
+            if (fRequireMinimal && !chunk.checkMinimalPush(_pc - 1)) {
                 _errStr = 'SCRIPT_ERR_MINIMALDATA';
                 return false;
             }

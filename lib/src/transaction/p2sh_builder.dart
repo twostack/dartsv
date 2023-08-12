@@ -1,4 +1,6 @@
 
+import 'dart:typed_data';
+
 import 'package:dartsv/src/exceptions.dart';
 import 'package:dartsv/src/script/opcodes.dart';
 import 'package:dartsv/src/transaction/signed_unlock_builder.dart';
@@ -8,36 +10,30 @@ import 'package:sprintf/sprintf.dart';
 import '../../dartsv.dart';
 
 
-/// ** P2PMS (multisig) locking Script (output script / scriptPubkey) ***
-mixin P2SHLockMixin on _P2SHLockBuilder implements LockingScriptBuilder {
+class P2SHLockBuilder extends LockingScriptBuilder {
+
+  String? scriptHash;
+
+  P2SHLockBuilder(this.scriptHash);
+
+  P2SHLockBuilder.fromScript(SVScript script): super.fromScript(script);
 
   @override
-  SVScript getScriptPubkey(){
+  SVScript getScriptPubkey() {
    // OP_HASH160 <the script hash> OP_EQUAL
-    if (scriptHash == null || scriptHash.isEmpty) return SVScript();
+    if (scriptHash == null || scriptHash!.isEmpty) return SVScript();
 
-    var hashHex = HEX.decode(scriptHash);
-    var script = sprintf('OP_HASH160 %s 0x%s OP_EQUAL', [hashHex.length, scriptHash]);
+    var hashHex = HEX.decode(scriptHash!);
+    var builder = ScriptBuilder()
+      .opCode(OpCodes.OP_HASH160)
+      .addData(Uint8List.fromList(hashHex))
+      .opCode(OpCodes.OP_EQUAL);
 
-    return SVScript.fromString(script);
+    return builder.build();
   }
 
-}
-
-abstract class _P2SHLockBuilder implements LockingScriptBuilder {
-
-  String scriptHash;
-
-  _P2SHLockBuilder(this.scriptHash);
-
-  /// In this case our fromScript() method won't assume that we are being passed
-  /// a P2SH formatted script. I.e. the usual format of `OP_HASH160 <hash> OP_EQUAL`
-  /// won't be assumed.
-  ///
-  /// [script] - Arbitrary script for which we want to generate a P2SH locking script
   @override
-  void fromScript(SVScript script) {
-
+  void parse(SVScript script) {
     if (script != null && script.buffer != null) {
       //create a hash of the serialized script
       var hash = hash160(HEX.decode(script.toHex()));
@@ -47,40 +43,20 @@ abstract class _P2SHLockBuilder implements LockingScriptBuilder {
     }else{
       throw ScriptException("Invalid Script or Malformed Script.");
     }
-
-  }
-}
-
-class P2SHLockBuilder extends _P2SHLockBuilder with P2SHLockMixin {
-  P2SHLockBuilder(String hash) : super(hash);
-}
-
-
-/// P2SH unlocking Script
-mixin P2SHUnlockMixin on _P2SHUnlockBuilder implements UnlockingScriptBuilder{
-
-  @override
-  SVScript getScriptSig() {
-    return script!;
   }
 
 }
 
-/// Signatures are injected by the framework when you call Transaction().signInput()
-/// Make consecutive calls to the signInput() function to had the signatures
-/// added to the [SignedUnlockBuilder] instance associated with the [Transaction].
-///
-abstract class _P2SHUnlockBuilder extends SignedUnlockBuilder implements UnlockingScriptBuilder {
-
-  @override
-  List<SVSignature> signatures = <SVSignature>[];
+class P2SHUnlockBuilder extends UnlockingScriptBuilder{
 
   SVScript? script;
 
-  _P2SHUnlockBuilder();
+  P2SHUnlockBuilder(this.script);
+
+  P2SHUnlockBuilder.fromString(SVScript script): super.fromScript(script);
 
   @override
-  void fromScript(SVScript script) {
+  void parse(SVScript script) {
     if (script != null && script.buffer != null) {
       this.script = script;
     }else{
@@ -88,14 +64,16 @@ abstract class _P2SHUnlockBuilder extends SignedUnlockBuilder implements Unlocki
     }
   }
 
+  @override
+  SVScript getScriptSig() {
+    return script ??= SVScript();
+  }
+
   SVScript get scriptSig => getScriptSig();
-}
-
-class P2SHUnlockBuilder extends _P2SHUnlockBuilder with P2SHUnlockMixin{
-
-  P2SHUnlockBuilder() : super();
 
 }
+
+
 
 
 
