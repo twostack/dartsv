@@ -39,8 +39,8 @@ void main() {
       var unlocker = P2PKUnlockBuilder(pubkey);
       var txn = TransactionBuilder()
           .spendFromOutputWithSigner(signer, txWithUTXO.id, 0, utxo.satoshis, TransactionInput.MAX_SEQ_NUMBER, unlocker) //set global sequenceNumber/nLocktime time for each Input created
-          .spendTo(locker, BigInt.from(50000000)) //spend half of a bitcoin (we should have 1 in the UTXO)
-          .sendChangeToAddress(changeAddress) // spend change to myself
+          .spendToLockBuilder(locker, BigInt.from(50000000)) //spend half of a bitcoin (we should have 1 in the UTXO)
+          .sendChangeToPKH(changeAddress) // spend change to myself
           .withFeePerKb(50)
           .build(false);
 

@@ -10,7 +10,7 @@ main() {
     for (int i = -100; i <= 100; i++) {
       SVScript s = ScriptBuilder().number(i).build();
       for (ScriptChunk ch in s.chunks) {
-        s.checkMinimalPush(0);
+        ch.checkMinimalPush(0);
       }
     }
   });

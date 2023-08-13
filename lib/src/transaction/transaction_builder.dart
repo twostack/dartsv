@@ -36,6 +36,12 @@ class TransactionBuilder {
 
   static final BigInt DUST_AMOUNT = BigInt.from(50);
 
+  /// nlocktime limit to be considered block height rather than a timestamp
+  static final NLOCKTIME_BLOCKHEIGHT_LIMIT = 5e8;
+
+  static final DEFAULT_SEQNUMBER = 0xFFFFFFFF;
+  static final DEFAULT_LOCKTIME_SEQNUMBER = DEFAULT_SEQNUMBER - 1;
+
   /// Margin of error to allow fees in the vicinity of the expected value but doesn't allow a big difference
   static final BigInt FEE_SECURITY_MARGIN = BigInt.from(50);
 
@@ -53,7 +59,7 @@ class TransactionBuilder {
 
   // static final int SCRIPT_MAX_SIZE = 149;
 
-  int nLockTime = 0;
+  int _nLockTime = 0;
 
   Map<String, SignerDto> _signerMap = new Map();
 
@@ -155,6 +161,7 @@ class TransactionBuilder {
     return this;
   }
 
+  //TODO: Docs
   TransactionBuilder spendFromOutpointWithSigner(TransactionSigner signer,
       TransactionOutpoint outpoint,
       int sequenceNumber,
@@ -171,10 +178,13 @@ class TransactionBuilder {
     return this;
   }
 
-  TransactionBuilder spendFromOutpoint(TransactionOutpoint outpoint,
-      int sequenceNumber, UnlockingScriptBuilder unlocker) {
-    TransactionInput input = TransactionInput(
-        outpoint.transactionId, outpoint.outputIndex, sequenceNumber, unlocker.getScriptSig());
+  //TODO: Docs
+  TransactionBuilder spendFromOutpoint(
+      TransactionOutpoint outpoint,
+      int sequenceNumber,
+      UnlockingScriptBuilder unlocker) {
+
+    TransactionInput input = TransactionInput( outpoint.transactionId, outpoint.outputIndex, sequenceNumber, unlocker.getScriptSig());
 
     String mapKey = "${outpoint.transactionId}:${outpoint.outputIndex}";
     _spendingMap[mapKey] = outpoint.satoshis;
@@ -183,10 +193,15 @@ class TransactionBuilder {
     return this;
   }
 
-  TransactionBuilder spendFromOutput(String utxoTxnId, int outputIndex,
-      BigInt amount, int sequenceNumber, UnlockingScriptBuilder unlocker) {
-    TransactionInput input =
-    TransactionInput(utxoTxnId, outputIndex, sequenceNumber, unlocker.getScriptSig());
+  //TODO: Docs
+  TransactionBuilder spendFromOutput(
+      String utxoTxnId,
+      int outputIndex,
+      BigInt amount,
+      int sequenceNumber,
+      UnlockingScriptBuilder unlocker) {
+
+    TransactionInput input = TransactionInput(utxoTxnId, outputIndex, sequenceNumber, unlocker.getScriptSig());
 
     String mapKey = "${utxoTxnId}:${outputIndex}";
     _spendingMap[mapKey] = amount;
@@ -216,7 +231,8 @@ class TransactionBuilder {
     return this;
   }
 
-  TransactionBuilder spendTo(LockingScriptBuilder locker, BigInt satoshis) {
+
+  TransactionBuilder spendToLockBuilder(LockingScriptBuilder locker, BigInt satoshis) {
     int satoshiCompare = satoshis.compareTo(BigInt.zero);
     if (satoshiCompare == -1) //equivalent of satoshis < 0
       throw TransactionException(
@@ -236,14 +252,22 @@ class TransactionBuilder {
   }
 
   /**
+   * Spends to a P2PKH recipient
+   */
+  TransactionBuilder spendToPKH(Address address, BigInt satoshis) {
+    var locker = P2PKHLockBuilder.fromAddress(address);
+    return spendToLockBuilder(locker, satoshis);
+  }
+
+  /**
    * Bitcoin Address Where to send any change (lefover satoshis after fees) to
    * @param changeAddress - Bitcoin Address. Implicitly creates a P2PKH output.
    * @return TransactionBuilder
    */
-  TransactionBuilder sendChangeToAddress(Address changeAddress) {
+  TransactionBuilder sendChangeToPKH(Address changeAddress) {
     _changeScriptBuilder = P2PKHLockBuilder.fromAddress(changeAddress);
 
-    return sendChangeToLocker(_changeScriptBuilder);
+    return sendChangeToLockBuilder(_changeScriptBuilder);
   }
 
   /**
@@ -252,13 +276,24 @@ class TransactionBuilder {
    * @param locker - a LockingScriptBuilder instance
    * @return TransactionBuilder
    */
-  TransactionBuilder sendChangeToLocker(LockingScriptBuilder locker) {
+  TransactionBuilder sendChangeToLockBuilder(LockingScriptBuilder locker) {
     _changeScriptBuilder = locker;
 
     updateChangeOutput();
 
     _changeScriptFlag = true;
 
+    return this;
+  }
+
+  TransactionBuilder withOption(TransactionOption option){
+    _transactionOptions.add(option);
+    return this;
+  }
+
+  TransactionBuilder withFee(BigInt value) {
+    _transactionFee = value;
+    updateChangeOutput();
     return this;
   }
 
@@ -289,7 +324,7 @@ class TransactionBuilder {
         tx.addOutput(changeOutput);
     }
 
-    tx.nLockTime = nLockTime;
+    tx.nLockTime = _nLockTime;
 
     //update inputs with signatures
 //        String txId = tx.getTransactionId();
@@ -385,6 +420,66 @@ class TransactionBuilder {
             unspent.toString());
       }
     }
+  }
+
+
+  /// Set the locktime flag on the transaction to prevent it becoming
+  /// spendable before specified date
+  ///
+  /// [future] - The date in future before which transaction will not be spendable.
+  TransactionBuilder lockUntilDate(DateTime future) {
+    if (future.millisecondsSinceEpoch < NLOCKTIME_BLOCKHEIGHT_LIMIT) {
+      throw LockTimeException('Block time is set too early');
+    }
+
+    for (var input in _inputs) {
+      if (input.sequenceNumber == DEFAULT_SEQNUMBER) {
+        input.sequenceNumber = DEFAULT_LOCKTIME_SEQNUMBER;
+      }
+    }
+
+    _nLockTime = future.millisecondsSinceEpoch;
+
+    return this;
+  }
+
+  /// Set the locktime flag on the transaction to prevent it becoming
+  /// spendable before specified date
+  ///
+  /// [timestamp] - The date in future before which transaction will not be spendable.
+  TransactionBuilder lockUntilUnixTime(int timestamp) {
+    if (timestamp < NLOCKTIME_BLOCKHEIGHT_LIMIT) {
+      throw LockTimeException('Block time is set too early');
+    }
+
+    _nLockTime = timestamp;
+
+    return this;
+  }
+
+  /// Set the locktime flag on the transaction to prevent it becoming
+  /// spendable before specified block height
+  ///
+  /// [blockHeight] - The block height before which transaction will not be spendable.
+  TransactionBuilder lockUntilBlockHeight(int blockHeight) {
+    if (blockHeight > NLOCKTIME_BLOCKHEIGHT_LIMIT) {
+      throw LockTimeException('Block height must be less than 500000000');
+    }
+
+    if (blockHeight < 0) {
+      throw LockTimeException("Block height can't be negative");
+    }
+
+    for (var input in _inputs) {
+      if (input.sequenceNumber == DEFAULT_SEQNUMBER) {
+        input.sequenceNumber = DEFAULT_LOCKTIME_SEQNUMBER;
+      }
+    }
+
+    //FIXME: assumption on the length of _nLockTime. Risks indexexception
+    _nLockTime = blockHeight;
+
+    return this;
   }
 
 

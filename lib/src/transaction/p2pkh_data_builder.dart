@@ -1,5 +1,3 @@
-
-
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -23,32 +21,33 @@ import 'package:sprintf/sprintf.dart';
  *
  */
 class P2PKHDataLockBuilder extends LockingScriptBuilder {
-
   Address? _address;
+
   Address? get address => _address;
 
   List<int>? _pubkeyHash;
+
   List<int>? get pubkeyHash => _pubkeyHash;
 
   List<int>? _dataBuffer;
+
   List<int>? get dataBuffer => _dataBuffer;
 
-  P2PKHDataLockBuilder.fromPublicKey(SVPublicKey pubKey, List<int> data, {NetworkType networkType = NetworkType.MAIN}){
+  P2PKHDataLockBuilder.fromPublicKey(SVPublicKey pubKey, List<int> data, {NetworkType networkType = NetworkType.MAIN}) {
     _address = Address.fromPublicKey(pubKey, networkType);
     _dataBuffer = data;
   }
 
-  P2PKHDataLockBuilder.fromAddress(Address address, List<int> data){
+  P2PKHDataLockBuilder.fromAddress(Address address, List<int> data) {
     _address = address;
     _dataBuffer = data;
 
-    if (_address != null){
+    if (_address != null) {
       _pubkeyHash = HEX.decode(_address!.pubkeyHash160);
     }
   }
 
-  P2PKHDataLockBuilder.fromScript(SVScript script): super.fromScript(script);
-
+  P2PKHDataLockBuilder.fromScript(SVScript script) : super.fromScript(script);
 
   @override
   SVScript getScriptPubkey() {
@@ -57,13 +56,13 @@ class P2PKHDataLockBuilder extends LockingScriptBuilder {
     }
 
     var builder = ScriptBuilder()
-    .addData(Uint8List.fromList(_dataBuffer!))
-    .opCode(OpCodes.OP_DROP)
-    .opCode(OpCodes.OP_DUP)
-    .opCode(OpCodes.OP_HASH160)
-    .addData(Uint8List.fromList(_pubkeyHash!))
-    .opCode(OpCodes.OP_EQUALVERIFY)
-    .opCode(OpCodes.OP_CHECKSIG);
+        .addData(Uint8List.fromList(_dataBuffer!))
+        .opCode(OpCodes.OP_DROP)
+        .opCode(OpCodes.OP_DUP)
+        .opCode(OpCodes.OP_HASH160)
+        .addData(Uint8List.fromList(_pubkeyHash!))
+        .opCode(OpCodes.OP_EQUALVERIFY)
+        .opCode(OpCodes.OP_CHECKSIG);
 
     return builder.build();
   }
@@ -71,39 +70,33 @@ class P2PKHDataLockBuilder extends LockingScriptBuilder {
   @override
   void parse(SVScript script) {
     if (script != null) {
-
       var chunkList = script.chunks;
 
-      if (!chunkList[0].isPushData() && chunkList[1].opcodenum != OpCodes.OP_DROP){
+      if (!chunkList[0].isPushData() && chunkList[1].opcodenum != OpCodes.OP_DROP) {
         throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic + " - Script must start with PUSHDATA & DROP instruction.");
       }
 
       int chunkListOffset = 0;
 
-      if (chunkList.length == 8){
+      if (chunkList.length == 8) {
         chunkListOffset = 1;
       }
 
-      if (chunkList[chunkListOffset + 4].opcodenum != 20 ){
+      if (chunkList[chunkListOffset + 4].opcodenum != 20) {
         throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic + " - Signature and Public Key values are malformed");
       }
 
-
-      if(!( chunkList[chunkListOffset + 2].opcodenum == OpCodes.OP_DUP &&
+      if (!(chunkList[chunkListOffset + 2].opcodenum == OpCodes.OP_DUP &&
           chunkList[chunkListOffset + 3].opcodenum == OpCodes.OP_HASH160 &&
           chunkList[chunkListOffset + 5].opcodenum == OpCodes.OP_EQUALVERIFY &&
-          chunkList[chunkListOffset + 6].opcodenum == OpCodes.OP_CHECKSIG )){
+          chunkList[chunkListOffset + 6].opcodenum == OpCodes.OP_CHECKSIG)) {
         throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic + " - Malformed script. Mismatched OP_CODES.");
       }
 
       _dataBuffer = chunkList[chunkListOffset].buf;
       _pubkeyHash = chunkList[chunkListOffset + 4].buf;
-
-    }else{
+    } else {
       throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic + "- Invalid Script or Malformed Script.");
     }
   }
-
 }
-
-

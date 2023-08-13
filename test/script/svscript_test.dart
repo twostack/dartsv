@@ -1,4 +1,3 @@
-import 'dart:ffi';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -39,7 +38,7 @@ main() {
 
         test('should create script from livenet address', () {
           var address = Address('1NaTVwXDDUJaXDQajoa9MqHhz4uTxtgK14');
-          var script = P2PKHLockBuilder(address).getScriptPubkey();
+          var script = P2PKHLockBuilder.fromAddress(address).getScriptPubkey();
           expect(script, isNotNull);
           expect(script.toString(), equals('OP_DUP OP_HASH160 20 0xecae7d092947b7ee4998e254aa48900d26d2ce1d OP_EQUALVERIFY OP_CHECKSIG'));
 
@@ -84,7 +83,7 @@ main() {
   group('#buildPublicKeyHashOut', () {
     test('should create script from livenet address', () {
       var address = Address('1NaTVwXDDUJaXDQajoa9MqHhz4uTxtgK14');
-      var lockBuilder = P2PKHLockBuilder(address);
+      var lockBuilder = P2PKHLockBuilder.fromAddress(address);
       var outScript = lockBuilder.getScriptPubkey();
       expect(outScript, isNotNull);
 
@@ -96,7 +95,7 @@ main() {
 
     test('should create script from testnet address', () {
       var address = Address('mxRN6AQJaDi5R6KmvMaEmZGe3n5ScV9u33');
-      var lockBuilder = P2PKHLockBuilder(address);
+      var lockBuilder = P2PKHLockBuilder.fromAddress(address);
       var outScript = lockBuilder.getScriptPubkey();
       expect(outScript, isNotNull);
 

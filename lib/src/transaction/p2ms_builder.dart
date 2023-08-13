@@ -11,7 +11,7 @@ class P2MSLockBuilder extends LockingScriptBuilder{
   int requiredSigs = 0;
   bool sorting = false;
 
-  P2MSLockBuilder(this.publicKeys, this.requiredSigs, this.sorting);
+  P2MSLockBuilder(this.publicKeys, this.requiredSigs, {this.sorting = true});
 
   P2MSLockBuilder.fromScript(SVScript script): super.fromScript(script);
 
@@ -67,7 +67,9 @@ class P2MSLockBuilder extends LockingScriptBuilder{
 
 class P2MSUnlockBuilder extends UnlockingScriptBuilder {
 
-  P2MSUnlockBuilder(List<SVSignature> signatures) {
+  P2MSUnlockBuilder();
+
+  P2MSUnlockBuilder.fromSignatures(List<SVSignature> signatures) {
       this.signatures.addAll(signatures);
   }
 

@@ -13,7 +13,6 @@ import 'package:pointycastle/signers/ecdsa_signer.dart';
 import 'dart:typed_data';
 import 'package:buffer/buffer.dart';
 
-import '../exceptions.dart';
 import 'locking_script_builder.dart';
 
 /// When serializing the transaction to hexadecimal it is possible
@@ -92,11 +91,7 @@ class Transaction {
   /// max amount of satoshis in circulation
   static final MAX_MONEY = BigInt.from(21000000 * 1e8);
 
-  /// nlocktime limit to be considered block height rather than a timestamp
-  static final NLOCKTIME_BLOCKHEIGHT_LIMIT = 5e8;
 
-  static final DEFAULT_SEQNUMBER = 0xFFFFFFFF;
-  static final DEFAULT_LOCKTIME_SEQNUMBER = DEFAULT_SEQNUMBER - 1;
 
   /// Max value for an unsigned 32 bit value
   static final NLOCKTIME_MAX_VALUE = 4294967295;
@@ -222,12 +217,9 @@ class Transaction {
   /// Serialize the transaction object to it's raw hexadecimal representation, ready to be
   /// broadcast to the network, or to be passed to a peer.
   /// Returns the raw transaction as a hexadecimal string.
-  String serialize() {
-    return uncheckedSerialize();
-  }
 
   /// Returns the raw transaction as a hexadecimal string, skipping all checks.
-  String uncheckedSerialize() {
+  String serialize() {
     ByteDataWriter writer = ByteDataWriter();
 
     // set the transaction version
@@ -273,64 +265,6 @@ class Transaction {
     return this;
   }
 
-  /// Set the locktime flag on the transaction to prevent it becoming
-  /// spendable before specified date
-  ///
-  /// [future] - The date in future before which transaction will not be spendable.
-  Transaction lockUntilDate(DateTime future) {
-    if (future.millisecondsSinceEpoch < NLOCKTIME_BLOCKHEIGHT_LIMIT) {
-      throw LockTimeException('Block time is set too early');
-    }
-
-    for (var input in _txnInputs) {
-      if (input.sequenceNumber == DEFAULT_SEQNUMBER) {
-        input.sequenceNumber = DEFAULT_LOCKTIME_SEQNUMBER;
-      }
-    }
-
-    _nLockTime = future.millisecondsSinceEpoch;
-
-    return this;
-  }
-
-  /// Set the locktime flag on the transaction to prevent it becoming
-  /// spendable before specified date
-  ///
-  /// [timestamp] - The date in future before which transaction will not be spendable.
-  Transaction lockUntilUnixTime(int timestamp) {
-    if (timestamp < NLOCKTIME_BLOCKHEIGHT_LIMIT) {
-      throw LockTimeException('Block time is set too early');
-    }
-
-    _nLockTime = timestamp;
-
-    return this;
-  }
-
-  /// Set the locktime flag on the transaction to prevent it becoming
-  /// spendable before specified block height
-  ///
-  /// [blockHeight] - The block height before which transaction will not be spendable.
-  Transaction lockUntilBlockHeight(int blockHeight) {
-    if (blockHeight > NLOCKTIME_BLOCKHEIGHT_LIMIT) {
-      throw LockTimeException('Block height must be less than 500000000');
-    }
-
-    if (blockHeight < 0) {
-      throw LockTimeException("Block height can't be negative");
-    }
-
-    for (var input in _txnInputs) {
-      if (input.sequenceNumber == DEFAULT_SEQNUMBER) {
-        input.sequenceNumber = DEFAULT_LOCKTIME_SEQNUMBER;
-      }
-    }
-
-    //FIXME: assumption on the length of _nLockTime. Risks indexexception
-    _nLockTime = blockHeight;
-
-    return this;
-  }
 
   ///Returns either DateTime or int (blockHeight)
   ///Yes, the return type overloading sucks. Welcome to bitcoin.
@@ -535,7 +469,7 @@ class Transaction {
 
   /// Returns the current set of options that govern which checks are performed
   /// when serializing to raw hex format.
-  Set<TransactionOption> get transactionOptions => _transactionOptions;
+  Set<TransactionOption> get transactionOptions => Set.unmodifiable(_transactionOptions);
 
   void addInputs(inputs) {
     this.inputs.addAll(inputs);

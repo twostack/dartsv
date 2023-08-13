@@ -8,7 +8,7 @@ void main() {
   group('P2PKH Builder - Locking Script', () {
     test('should create script from livenet address', () {
       var address = Address('1NaTVwXDDUJaXDQajoa9MqHhz4uTxtgK14');
-      var lockBulder = P2PKHLockBuilder(address);
+      var lockBulder = P2PKHLockBuilder.fromAddress(address);
       var script = lockBulder.getScriptPubkey();
       expect(script, isNotNull);
       expect( script.toString(), equals( 'OP_DUP OP_HASH160 20 0xecae7d092947b7ee4998e254aa48900d26d2ce1d OP_EQUALVERIFY OP_CHECKSIG'));
@@ -17,7 +17,7 @@ void main() {
 
     test('should create script from testnet address', () {
       var address = Address('mxRN6AQJaDi5R6KmvMaEmZGe3n5ScV9u33');
-      var lockBuilder = P2PKHLockBuilder(address);
+      var lockBuilder = P2PKHLockBuilder.fromAddress(address);
       var script = lockBuilder.getScriptPubkey();
       expect(script, isNotNull);
       expect( script.toString(), equals( 'OP_DUP OP_HASH160 20 0xb96b816f378babb1fe585b7be7a2cd16eb99b3e4 OP_EQUALVERIFY OP_CHECKSIG'));
@@ -40,8 +40,7 @@ void main() {
       var signature = SVSignature.fromTxFormat("3046022100bb3c194a30e460d81d34be0a230179c043a656f67e3c5c8bf47eceae7c4042ee0221008bf54ca11b2985285be0fd7a212873d243e6e73f5fad57e8eb14c4f39728b8c601");
       var script = SVScript.fromString('73 0x3046022100bb3c194a30e460d81d34be0a230179c043a656f67e3c5c8bf47eceae7c4042ee0221008bf54ca11b2985285be0fd7a212873d243e6e73f5fad57e8eb14c4f39728b8c601 65 0x04e365859b3c78a8b7c202412b949ebca58e147dba297be29eee53cd3e1d300a6419bc780cc9aec0dc94ed194e91c8f6433f1b781ee00eac0ead2aae1e8e0712c6');
 
-      var unlockBuilder = P2PKHUnlockBuilder(pubkey);
-      unlockBuilder.fromScript(script);
+      var unlockBuilder = P2PKHUnlockBuilder.fromScript(script);
 
       expect(unlockBuilder.signatures, isNotEmpty);
       expect(unlockBuilder.signerPubkey, isNotNull);

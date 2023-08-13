@@ -10,7 +10,6 @@ import 'package:dartsv/src/script/opcodes.dart';
 import 'package:dartsv/src/script/scriptflags.dart';
 import 'package:dartsv/src/script/svscript.dart';
 import 'package:dartsv/src/transaction/default_builder.dart';
-import 'package:dartsv/src/transaction/signed_unlock_builder.dart';
 import 'package:dartsv/src/transaction/transaction_builder.dart';
 import 'package:dartsv/src/transaction/transaction_input.dart';
 import 'package:dartsv/src/transaction/transaction_signer.dart';
@@ -140,7 +139,7 @@ void main() {
             var publicKey = privateKey.publicKey;
             var fromAddress = publicKey.toAddress(NetworkType.TEST);
             var toAddress = Address('mrU9pEmAx26HcbKVrABvgL7AwA5fjNFoDc');
-            var scriptPubkey = P2PKHLockBuilder(fromAddress).getScriptPubkey();
+            var scriptPubkey = P2PKHLockBuilder.fromAddress(fromAddress).getScriptPubkey();
             var utxo = {
                 "address": fromAddress,
                 "txId": 'a477af6b2667c29670467e4e0728b685ee07b240235771862318e29ddbe58458',
@@ -152,7 +151,7 @@ void main() {
             var signer = TransactionSigner(1, privateKey);
             var txBuilder = TransactionBuilder()
                 .spendFromUtxoMapWithSigner(signer, utxo, scriptSigBuilder )
-                .spendTo(P2PKHLockBuilder(toAddress), BigInt.from(100000));
+                .spendToLockBuilder(P2PKHLockBuilder.fromAddress(toAddress), BigInt.from(100000));
 
             var tx = txBuilder.build(false);
 
@@ -426,11 +425,10 @@ void main() {
             inputAmount = extraData[0] * 1e8;
         }
 
-        var hashbuf = List<int>.filled(32, 0);
+        // var hashbuf = List<int>.filled(32, 0);
         Transaction credtx = new Transaction();
         credtx.version = 1;
-        var coinbaseUnlockBuilder = DefaultUnlockBuilder();
-        coinbaseUnlockBuilder.fromScript(SVScript.fromString('OP_0 OP_0'));
+        var coinbaseUnlockBuilder = DefaultUnlockBuilder.fromScript(SVScript.fromString('OP_0 OP_0'));
         TransactionInput txCredInput = TransactionInput(
             '0000000000000000000000000000000000000000000000000000000000000000',
             0xffffffff,
@@ -441,16 +439,14 @@ void main() {
         credtx.serialize();
 
         //add output to spent Transaction
-        var txOutLockBuilder = DefaultLockBuilder();
-        txOutLockBuilder.fromScript(scriptPubkey);
+        var txOutLockBuilder = DefaultLockBuilder.fromScript(scriptPubkey);
         var txCredOut = TransactionOutput(BigInt.from(inputAmount), scriptPubkey);
         credtx.addOutput(txCredOut);
 
         //setup transaction ID of spent Transaction
         String prevTxId = credtx.id;
 
-        var defaultUnlockBuilder = DefaultUnlockBuilder();
-        defaultUnlockBuilder.fromScript(scriptSig);
+        var defaultUnlockBuilder = DefaultUnlockBuilder.fromScript(scriptSig);
         var spendtx = Transaction();
         spendtx.version = 1;
         var txSpendInput = TransactionInput(
