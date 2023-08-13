@@ -43,6 +43,7 @@ class TransactionSigner {
     var hash = sigHash.hash(unsignedTxn, sigHashType, inputIndex, subscript, utxo.satoshis);
     var reversedHash = HEX.encode(HEX.decode(hash).reversed.toList());
     var preImage = sigHash.preImage;
+    var preImageHex = HEX.encode(preImage!.toList());
 
     if (preImage == null) throw SignatureException(
         "Preimage calcumation failed");
@@ -51,8 +52,8 @@ class TransactionSigner {
 
     TransactionInput input = unsignedTxn.inputs[inputIndex];
     if (input != null){
-      UnlockingScriptBuilder scriptBuilder = DefaultUnlockBuilder.fromScript(input.script!); //force failure on null script
-      (scriptBuilder as SignedUnlockBuilder).signatures.add(sig);
+      UnlockingScriptBuilder scriptBuilder = input.scriptBuilder!; //force failure on null script
+      scriptBuilder.signatures.add(sig);
     } else {
       throw new TransactionException(
           "Trying to sign a Transaction Input that is missing a SignedUnlockBuilder");
@@ -63,7 +64,7 @@ class TransactionSigner {
 
   SVSignature signPreimage(SVPrivateKey signingKey, Uint8List preImage, int sigHashType) {
 
-    var hash = sha256Twice(preImage!.toList());
+    var hash = sha256Twice(preImage.toList());
     var hashHex = HEX.encode(hash);
 
     //FIXME: This kind of required round-tripping into the base class of TransactionSignature smells funny

@@ -22,7 +22,7 @@ import 'transaction.dart';
 ///
 class TransactionInput {
 
-    SVScript? _unlockingScript;
+    UnlockingScriptBuilder? _unlockingScriptBuilder;
 
     /// Maximum size an unsigned int can be. Used as value of [sequenceNumber] when we
     /// want to indicate that the transaction's [Transaction.nLockTime] should be ignored.
@@ -47,11 +47,11 @@ class TransactionInput {
     /// purpose. At present this is only used to
     /// indicate whether nLockTime should be honored or ignored. Set this value to [UINT_MAX] to indicate
     /// that transaction's [Transaction.nLockTime] should be ignored.
-    TransactionInput(String? txId, int outputIndex, int? seqNumber, SVScript? script) {
+    TransactionInput(String? txId, int outputIndex, int? seqNumber, {UnlockingScriptBuilder? scriptBuilder}) {
         _prevTxnId = txId;
         _prevTxnOutputIndex = outputIndex;
         _sequenceNumber = seqNumber ??= MAX_SEQ_NUMBER;
-        _unlockingScript = script ??= SVScript();
+        _unlockingScriptBuilder = scriptBuilder ??= DefaultUnlockBuilder.fromScript(SVScript());
     }
 
 
@@ -67,14 +67,15 @@ class TransactionInput {
         _prevTxnOutputIndex = reader.readUint32(Endian.little);
 
         var len = readVarIntNum(reader);
-        _unlockingScript = SVScript.fromBuffer(reader.read(len, copy: true));
+        var scriptSig = SVScript.fromBuffer(reader.read(len, copy: true));
+        _unlockingScriptBuilder= scriptBuilder ??= DefaultUnlockBuilder.fromScript(scriptSig);
         _sequenceNumber = reader.readUint32(Endian.little);
     }
 
     ///Returns a buffer containing the serialized bytearray for this TransactionInput
     List<int> serialize() {
 
-        if (_unlockingScript == null) return Uint8List(0);
+        if (_unlockingScriptBuilder == null) return Uint8List(0);
 
         var writer = ByteDataWriter();
 
@@ -82,10 +83,10 @@ class TransactionInput {
 
         writer.writeUint32(_prevTxnOutputIndex!, Endian.little);
 
-        var scriptHex = HEX.decode(_unlockingScript!.toHex());
+        var scriptBytes = _unlockingScriptBuilder!.getScriptSig().buffer;
 
-        writer.write(varIntWriter(scriptHex.length).toList(), copy: true);
-        writer.write(scriptHex, copy: true);
+        writer.write(varIntWriter(scriptBytes.length).toList(), copy: true);
+        writer.write(scriptBytes, copy: true);
 
         writer.writeUint32(sequenceNumber, Endian.little);
 
@@ -109,7 +110,7 @@ class TransactionInput {
             'prevTxId': _prevTxnId,
             'outputIndex': _prevTxnOutputIndex,
             'sequenceNumber': sequenceNumber,
-            'script': _unlockingScript?.toHex()
+            'script': _unlockingScriptBuilder?.getScriptSig().toHex()
         };
     }
 
@@ -133,15 +134,21 @@ class TransactionInput {
     // }
 
     /// Returns the scriptSig (Input Script / Unlocking Script)
-    SVScript? get script => _unlockingScript;
+    SVScript? get script => _unlockingScriptBuilder?.getScriptSig();
 
     // /// Returns the script from the previous transaction's output
     // SVScript get subScript => _utxoScript!;
     //
     /// Set the script that represents the parent transaction's output (UTXO)
     set script(SVScript? script) {
-        _unlockingScript = script ??= SVScript();
+        if (script == null) {
+             _unlockingScriptBuilder?.parse(SVScript());
+        }else{
+             _unlockingScriptBuilder?.parse(script);
+        }
     }
+
+    UnlockingScriptBuilder? get scriptBuilder => _unlockingScriptBuilder;
 
     // /// Set the script that represents the UTXO's scriptPubKey
     // set subScript(SVScript script) {
@@ -158,7 +165,7 @@ class TransactionInput {
     }
 
     /// Returns the transaction Id of the transaction that this input is spending from
-    String get prevTxnId => _prevTxnId!;
+    String get prevTxnId => _prevTxnId ??= "";
 
     /// Sets the transaction Id of the transaction that this input is spending from
     set prevTxnId(String value) {

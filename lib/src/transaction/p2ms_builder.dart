@@ -23,7 +23,7 @@ class P2MSLockBuilder extends LockingScriptBuilder{
       throw ScriptException("Too many public keys. P2MS limit is 15 public keys");
     }
 
-    if (requiredSigs! > publicKeys.length) {
+    if (requiredSigs > publicKeys.length) {
       throw ScriptException("You can't have more signatures than public keys");
     }
 

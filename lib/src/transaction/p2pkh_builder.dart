@@ -3,7 +3,6 @@ import 'dart:typed_data';
 
 import 'package:dartsv/dartsv.dart';
 import 'package:hex/hex.dart';
-import 'package:sprintf/sprintf.dart';
 
 /// ** P2PKH locking Script ***
 class P2PKHLockBuilder extends LockingScriptBuilder {
@@ -12,11 +11,12 @@ class P2PKHLockBuilder extends LockingScriptBuilder {
   List<int>? pubkeyHash;
 
   P2PKHLockBuilder.fromAddress(Address address){
-    pubkeyHash = HEX.decode(address!.pubkeyHash160);
+    this.address = address;
+    pubkeyHash = HEX.decode(address.pubkeyHash160);
   }
 
   P2PKHLockBuilder.fromPublicKey(SVPublicKey publicKey, {NetworkType networkType = NetworkType.MAIN}){
-    address = publicKey.toAddress(networkType);
+    this.address = publicKey.toAddress(networkType);
     pubkeyHash = HEX.decode(address!.pubkeyHash160);
   }
 

@@ -306,17 +306,27 @@ class SVScript {
     /// [type] - options are either 'hex' or 'asm'
     ///
     String toString({type='hex'}) {
-        if (_chunks.isNotEmpty) {
-            return _chunks.fold('', (String prev, ScriptChunk chunk) => prev + _chunkToString(chunk, type: type)).trim();
+        if (!_chunks.isEmpty) {
+          List<String> asmStrings = _chunks.map((chunk) => chunk.toEncodedString(type == 'asm')).toList();
+          return asmStrings.fold("", (previousValue, element) => "${previousValue} ${element}").trim();
+        } else {
+          return "<empty>";
         }
-
-        return _script;
     }
 
     /// Renders this script in it's hexadecimal form as a String
     String toHex() {
         _convertChunksToByteArray();
         return HEX.encode(_byteArray);
+    }
+
+    String toBitcoindString(){
+        if (!_chunks.isEmpty) {
+          List<String> asmStrings = _chunks.map((chunk) => chunk.toEncodedString(false)).toList();
+          return asmStrings.fold("", (previousValue, element) => "${previousValue} ${element}").trim();
+        } else {
+          return "<empty>";
+        }
     }
 
     /// Returns *true* if this script only performs PUSHDATA operations
@@ -423,59 +433,59 @@ class SVScript {
         return this;
     }
 
-    String _chunkToString(ScriptChunk chunk, {type = 'hex'}) {
-        var opcodenum = chunk.opcodenum;
-        var asm = (type == 'asm');
-        var str = '';
-        if (chunk.buf.isEmpty) {
-            if (chunk.opcodenum == null) return "";
-
-            // no data chunk
-            if (OpCodes.opcodeMap.containsValue(opcodenum)) {
-                if (asm) {
-                    // A few cases where the opcode name differs from reverseMap
-                    // aside from 1 to 16 data pushes.
-                    if (opcodenum == 0) {
-                        // OP_0 -> 0
-                        str = str + ' 0';
-                    } else if (opcodenum == 79) {
-                        // OP_1NEGATE -> 1
-                        str = str + ' -1';
-                    } else {
-                        str = str + ' ' + OpCodes.fromNum(opcodenum);
-                    }
-                } else {
-                    str = str + ' ' + OpCodes.fromNum(opcodenum);
-                }
-            } else {
-                var numstr = opcodenum.toRadixString(16);
-                if (numstr.length % 2 != 0) {
-                    numstr = '0' + numstr;
-                }
-                if (asm) {
-                    str = str + ' ' + numstr;
-                } else {
-                    str = str + ' ' + '0x' + numstr;
-                }
-            }
-        } else {
-            // data chunk
-            if (!asm && (opcodenum == OpCodes.OP_PUSHDATA1 ||
-                opcodenum == OpCodes.OP_PUSHDATA2 ||
-                opcodenum == OpCodes.OP_PUSHDATA4)) {
-                str = str + ' ' + OpCodes.fromNum(opcodenum);
-            }
-            if (chunk.len > 0) {
-                if (asm) {
-                    str = str + ' ' + HEX.encode(chunk.buf);
-                } else {
-                    str = str + ' ' + chunk.len.toString() + ' ' + '0x' + HEX.encode(chunk.buf);
-                }
-            }
-        }
-        return str;
-    }
-
+    // String _chunkToString(ScriptChunk chunk, {type = 'hex'}) {
+    //     var opcodenum = chunk.opcodenum;
+    //     var asm = (type == 'asm');
+    //     var str = '';
+    //     if (chunk.buf.isEmpty) {
+    //         if (chunk.opcodenum == null) return "";
+    //
+    //         // no data chunk
+    //         if (OpCodes.opcodeMap.containsValue(opcodenum)) {
+    //             if (asm) {
+    //                 // A few cases where the opcode name differs from reverseMap
+    //                 // aside from 1 to 16 data pushes.
+    //                 if (opcodenum == 0) {
+    //                     // OP_0 -> 0
+    //                     str = str + ' 0';
+    //                 } else if (opcodenum == 79) {
+    //                     // OP_1NEGATE -> 1
+    //                     str = str + ' -1';
+    //                 } else {
+    //                     str = str + ' ' + OpCodes.fromNum(opcodenum);
+    //                 }
+    //             } else {
+    //                 str = str + ' ' + OpCodes.fromNum(opcodenum);
+    //             }
+    //         } else {
+    //             var numstr = opcodenum.toRadixString(16);
+    //             if (numstr.length % 2 != 0) {
+    //                 numstr = '0' + numstr;
+    //             }
+    //             if (asm) {
+    //                 str = str + ' ' + numstr;
+    //             } else {
+    //                 str = str + ' ' + '0x' + numstr;
+    //             }
+    //         }
+    //     } else {
+    //         // data chunk
+    //         if (!asm && (opcodenum == OpCodes.OP_PUSHDATA1 ||
+    //             opcodenum == OpCodes.OP_PUSHDATA2 ||
+    //             opcodenum == OpCodes.OP_PUSHDATA4)) {
+    //             str = str + ' ' + OpCodes.fromNum(opcodenum);
+    //         }
+    //         if (chunk.len > 0) {
+    //             if (asm) {
+    //                 str = str + ' ' + HEX.encode(chunk.buf);
+    //             } else {
+    //                 str = str + ' ' + chunk.len.toString() + ' ' + '0x' + HEX.encode(chunk.buf);
+    //             }
+    //         }
+    //     }
+    //     return str;
+    // }
+    //
 
 
     void _addByType(obj, prepend) {

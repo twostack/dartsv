@@ -2,6 +2,7 @@ import 'dart:collection';
 
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
+import 'package:dartsv/src/transaction/default_builder.dart';
 import 'package:dartsv/src/transaction/transaction_input.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
 import 'package:hex/hex.dart';
@@ -157,7 +158,7 @@ class Transaction {
     _version = map['version'];
     _nLockTime = map['nLockTime'];
     (map['inputs'] as List).forEach((input) {
-      var tmpTx = TransactionInput(input['prevTxId'], input['outputIndex'], input['sequenceNumber'], SVScript.fromHex(input['script']));
+      var tmpTx = TransactionInput(input['prevTxId'], input['outputIndex'], input['sequenceNumber'], scriptBuilder: DefaultUnlockBuilder.fromScript(SVScript.fromHex(input['script'])));
       _txnInputs.add(tmpTx);
     });
 

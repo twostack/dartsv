@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:dartsv/dartsv.dart';
+import 'package:hex/hex.dart';
 
 /// Utility class to represent a parsed 'token' in the encoded script.
 class ScriptChunk {
@@ -115,69 +116,57 @@ class ScriptChunk {
     return true;
   }
 
-  // String toString(){
-  //   if (_buf == null)
-  //     return OpCodes.fromNum(opcodenum);
-  //
-  //   return "${getPushDataName(opcode)}[${HEX.encode(_buf)}]";
-  // }
-
-/*TODO: Pretty print Chunks
-
-    public String toEncodedString(boolean asm){
-
+    String toEncodedString(bool asm){
         StringBuffer str = new StringBuffer();
-        if (data == null || data.length <= 0) {
-//            if (chunk.opcodenum == null) return "";
+        if (_buf == null || _buf.length <= 0) {
 
             // no data chunk
-            if (!ScriptOpCodes.getOpCodeName(opcode).startsWith("NON_OP")) {
+            if (!OpCodes.getOpCodeName(opcodenum).startsWith("NON_OP")) {
                 if (asm) {
                     // A few cases where the opcode name differs from reverseMap
                     // aside from 1 to 16 data pushes.
-                    if (opcode == 0) {
+                    if (opcodenum == 0) {
                         // OP_0 -> 0
-                        str.append("0");
-                    } else if (opcode == 79) {
+                        str.write("0");
+                    } else if (opcodenum == 79) {
                         // OP_1NEGATE -> 1
-                        str.append("-1");
+                        str.write("-1");
                     } else {
-                        str.append( "OP_" + ScriptOpCodes.getOpCodeName(opcode));
+                        str.write( OpCodes.getOpCodeName(opcodenum));
                     }
                 } else {
-                    str.append(  "OP_" + ScriptOpCodes.getOpCodeName(opcode));
+                    str.write(  OpCodes.getOpCodeName(opcodenum));
                 }
             } else {
-                String numstr =  Integer.toHexString(opcode);
+                String numstr =  HEX.encode([opcodenum]);
 
                 //uneven numbers get padded with a leading zero
-                if (numstr.length() % 2 != 0) {
+                if (numstr.length % 2 != 0) {
                     numstr = "0" + numstr;
                 }
                 if (asm) {
-                    str.append( numstr);
+                    str.write( numstr);
                 } else {
-                    str.append("0x" + numstr);
+                    str.write("0x" + numstr);
                 }
             }
         } else {
             // data chunk
-            if (!asm && (opcode == ScriptOpCodes.OP_PUSHDATA1 ||
-                    opcode == ScriptOpCodes.OP_PUSHDATA2 ||
-                    opcode == ScriptOpCodes.OP_PUSHDATA4)) {
-                str.append( "OP_" +  ScriptOpCodes.getOpCodeName(opcode) + " ");
+            if (!asm && (opcodenum == OpCodes.OP_PUSHDATA1 ||
+                    opcodenum == OpCodes.OP_PUSHDATA2 ||
+                    opcodenum == OpCodes.OP_PUSHDATA4)) {
+                str.write(  OpCodes.getOpCodeName(opcodenum) + " ");
             }
-            if (data.length > 0) {
+            if (_buf.length > 0) {
                 if (asm) {
-                    str.append(Utils.HEX.encode(data));
+                    str.write(HEX.encode(_buf));
                 } else {
-                    str.append(data.length + " 0x" + Utils.HEX.encode(data));
+                    str.write("${_buf.length} 0x${HEX.encode(_buf)}");
                 }
             }
         }
         return str.toString();
     }
-     */
 
 
 }

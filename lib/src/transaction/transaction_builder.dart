@@ -27,14 +27,14 @@ class TransactionBuilder {
   //Map the transactionIds we're spending from, to the corresponding UTXO amount in the output
   Map<String, BigInt> _spendingMap = Map();
 
-  LockingScriptBuilder _changeScriptBuilder = DefaultLockBuilder.fromScript(SVScript());
+  LockingScriptBuilder? _changeScriptBuilder;
   BigInt _changeAmount = BigInt.zero;
 
   TransactionOutput? _changeOutput;
 
   final int DEFAULT_FEE_PER_KB = 50; //amount in satoshis
 
-  static final BigInt DUST_AMOUNT = BigInt.from(50);
+  static final BigInt DUST_AMOUNT = BigInt.from(50); //set a safe dust limit
 
   /// nlocktime limit to be considered block height rather than a timestamp
   static final NLOCKTIME_BLOCKHEIGHT_LIMIT = 5e8;
@@ -47,7 +47,8 @@ class TransactionBuilder {
 
   int _feePerKb = 50; //initialize to default
 
-  BigInt _transactionFee = BigInt.zero;
+  //FIXME: This does nothing at the moment
+  BigInt? _transactionFee;
 
   bool _changeScriptFlag = false;
 
@@ -75,17 +76,19 @@ class TransactionBuilder {
       }
    */
   TransactionBuilder spendFromUtxoMapWithSigner(TransactionSigner signer,
-      Map<String, Object> utxoMap, UnlockingScriptBuilder? unlocker) {
+      Map<String, dynamic> utxoMap, UnlockingScriptBuilder? unlocker) {
     String transactionId = utxoMap["transactionId"] as String;
 
     int outputIndex = utxoMap["outputIndex"] as int;
-    int sequenceNumber = utxoMap["sequenceNumber"] as int;
+    int sequenceNumber = TransactionInput.MAX_SEQ_NUMBER;
+    if (utxoMap["sequenceNumber"] != null)
+        sequenceNumber = utxoMap["sequenceNumber"] as int;
 
     TransactionOutpoint outpoint = new TransactionOutpoint(
         transactionId,
         outputIndex,
         BigInt.from(utxoMap["satoshis"] as int),
-        SVScript.fromASM(utxoMap["scriptPubKey"] as String));
+        SVScript.fromBitcoindString(utxoMap["scriptPubKey"] as String));
 
     String mapKey = "${transactionId}:${outputIndex}";
 
@@ -93,7 +96,7 @@ class TransactionBuilder {
 
     unlocker ??= DefaultUnlockBuilder.fromScript(SVScript());
 
-    var input = TransactionInput(utxoMap["transactionId"] as String, outputIndex,sequenceNumber, unlocker?.getScriptSig());
+    var input = TransactionInput(utxoMap["transactionId"] as String, outputIndex,sequenceNumber, scriptBuilder: unlocker);
 
     _spendingMap[mapKey] = BigInt.from(utxoMap["satoshis"] as int);
 
@@ -102,19 +105,19 @@ class TransactionBuilder {
     return this;
   }
 
-  TransactionBuilder spendFromUtxoMap(Map<String, Object> utxoMap,
+  TransactionBuilder spendFromUtxoMap(Map<String, dynamic> utxoMap,
       UnlockingScriptBuilder? unlocker) {
     String transactionId = utxoMap["transactionId"] as String;
 
     int outputIndex = utxoMap["outputIndex"] as int;
-    int sequenceNumber = utxoMap["sequenceNumber"] as int;
+    var sequenceNumber = utxoMap["sequenceNumber"] == null ? TransactionInput.MAX_SEQ_NUMBER : utxoMap["sequenceNumber"] as int;
 
     String mapKey = "${transactionId}:${outputIndex}";
 
     unlocker ??= DefaultUnlockBuilder.fromScript(SVScript());
 
     var input = TransactionInput(utxoMap["transactionId"] as String,
-        outputIndex, sequenceNumber, unlocker.getScriptSig());
+        outputIndex, sequenceNumber, scriptBuilder : unlocker);
 
     _spendingMap[mapKey] = BigInt.from(utxoMap["satoshis"] as int);
 
@@ -141,7 +144,7 @@ class TransactionBuilder {
     _signerMap[mapKey] = SignerDto(signer, outpoint);
 
     //update the spending transactionInput
-    var input = TransactionInput(txn.id, outputIndex, sequenceNumber, unlocker.getScriptSig());
+    var input = TransactionInput(txn.id, outputIndex, sequenceNumber, scriptBuilder: unlocker);
 
     _spendingMap[mapKey] = txn.outputs[outputIndex].satoshis;
 
@@ -152,7 +155,7 @@ class TransactionBuilder {
   TransactionBuilder spendFromTxn(Transaction txn, int outputIndex,
       int sequenceNumber, UnlockingScriptBuilder unlocker) {
     TransactionInput input =
-    TransactionInput(txn.id, outputIndex, sequenceNumber, unlocker.getScriptSig());
+    TransactionInput(txn.id, outputIndex, sequenceNumber, scriptBuilder: unlocker);
 
     String mapKey = "${txn.id}:${outputIndex}";
     _spendingMap[mapKey] = txn.outputs[outputIndex].satoshis;
@@ -170,7 +173,7 @@ class TransactionBuilder {
     _signerMap[mapKey] = SignerDto(signer, outpoint);
 
     TransactionInput input = TransactionInput(
-        outpoint.transactionId, outpoint.outputIndex, sequenceNumber, unlocker.getScriptSig());
+        outpoint.transactionId, outpoint.outputIndex, sequenceNumber, scriptBuilder: unlocker);
 
     _spendingMap[mapKey] = outpoint.satoshis;
 
@@ -184,7 +187,7 @@ class TransactionBuilder {
       int sequenceNumber,
       UnlockingScriptBuilder unlocker) {
 
-    TransactionInput input = TransactionInput( outpoint.transactionId, outpoint.outputIndex, sequenceNumber, unlocker.getScriptSig());
+    TransactionInput input = TransactionInput( outpoint.transactionId, outpoint.outputIndex, sequenceNumber, scriptBuilder: unlocker);
 
     String mapKey = "${outpoint.transactionId}:${outpoint.outputIndex}";
     _spendingMap[mapKey] = outpoint.satoshis;
@@ -201,12 +204,13 @@ class TransactionBuilder {
       int sequenceNumber,
       UnlockingScriptBuilder unlocker) {
 
-    TransactionInput input = TransactionInput(utxoTxnId, outputIndex, sequenceNumber, unlocker.getScriptSig());
+    TransactionInput input = TransactionInput(utxoTxnId, outputIndex, sequenceNumber, scriptBuilder: unlocker);
 
     String mapKey = "${utxoTxnId}:${outputIndex}";
     _spendingMap[mapKey] = amount;
 
     _inputs.add(input);
+
     return this;
   }
 
@@ -223,11 +227,12 @@ class TransactionBuilder {
     _signerMap[mapKey] = SignerDto(signer, outpoint);
 
     TransactionInput input =
-    TransactionInput(utxoTxnId, outputIndex, sequenceNumber, unlocker.getScriptSig());
+    TransactionInput(utxoTxnId, outputIndex, sequenceNumber, scriptBuilder: unlocker);
 
     _spendingMap[mapKey] = amount;
 
     _inputs.add(input);
+
     return this;
   }
 
@@ -248,6 +253,7 @@ class TransactionBuilder {
     TransactionOutput txnOutput = new TransactionOutput(satoshis, script);
     _outputs.add(txnOutput);
 
+
     return this;
   }
 
@@ -266,8 +272,7 @@ class TransactionBuilder {
    */
   TransactionBuilder sendChangeToPKH(Address changeAddress) {
     _changeScriptBuilder = P2PKHLockBuilder.fromAddress(changeAddress);
-
-    return sendChangeToLockBuilder(_changeScriptBuilder);
+    return sendChangeToLockBuilder(_changeScriptBuilder!);
   }
 
   /**
@@ -278,9 +283,7 @@ class TransactionBuilder {
    */
   TransactionBuilder sendChangeToLockBuilder(LockingScriptBuilder locker) {
     _changeScriptBuilder = locker;
-
     updateChangeOutput();
-
     _changeScriptFlag = true;
 
     return this;
@@ -293,7 +296,10 @@ class TransactionBuilder {
 
   TransactionBuilder withFee(BigInt value) {
     _transactionFee = value;
-    updateChangeOutput();
+
+    if (_changeScriptBuilder != null)
+      updateChangeOutput();
+
     return this;
   }
 
@@ -306,6 +312,9 @@ class TransactionBuilder {
   }
 
   Transaction build(bool performChecks) {
+
+    //make sure change calculations are in order
+
     if (performChecks) {
       runTransactionChecks();
     }
@@ -389,8 +398,7 @@ class TransactionBuilder {
     }
 
     //check for dust on change output
-    if (getChangeOutput() != null &&
-        (getChangeOutput()?.satoshis.compareTo(DUST_AMOUNT) == -1)) {
+    if (_changeOutput != null && _changeOutput!.satoshis < DUST_AMOUNT) {
       throw new TransactionException(
           "You have a change output with spending value below the dust limit of " +
               DUST_AMOUNT.toString());
@@ -398,11 +406,11 @@ class TransactionBuilder {
   }
 
   checkForFeeErrors(BigInt unspent) {
-    if (_transactionFee.compareTo(unspent) != 0) {
+    if (_transactionFee != null && _transactionFee!.compareTo(unspent) != 0) {
       String errorMessage = "Unspent value is " +
           unspent.toRadixString(10) +
           " but specified fee is " +
-          _transactionFee.toRadixString(10);
+          _transactionFee!.toRadixString(10);
       throw new TransactionException(errorMessage);
     }
 
@@ -486,7 +494,7 @@ class TransactionBuilder {
   BigInt getUnspentValue() {
     BigInt inputAmount = calcInputTotals();
     BigInt outputAmount = calcRecipientTotals();
-    BigInt unspent = inputAmount = outputAmount;
+    BigInt unspent = inputAmount - outputAmount;
 
     return unspent;
   }
@@ -508,38 +516,39 @@ class TransactionBuilder {
 
   updateChangeOutput() {
     //spent amount equals input amount. No change generated. Return.
-    if (calcRecipientTotals() == calcInputTotals()) return;
+    var recipientTotals = calcRecipientTotals();
+    var inputTotals = calcInputTotals();
+    if ( recipientTotals == inputTotals) return;
 
     //clear change outputs
-    _changeOutput = null;
+    this._changeOutput = null;
+    TransactionOutput? output = getChangeOutput(); //this has to preceed getFee() call so we can force an estimate
+    this._changeAmount = inputTotals - recipientTotals - getFee(); //calculate change
 
-    _changeAmount = calculateChange();
-    TransactionOutput? output = getChangeOutput();
     output?.satoshis = _changeAmount;
   }
 
   TransactionOutput? getChangeOutput() {
     if (_changeScriptBuilder == null) return null;
 
-    if (_changeOutput == null) {
-      _changeOutput = TransactionOutput(
-          BigInt.zero, _changeScriptBuilder.getScriptPubkey());
+    if (_changeOutput == null ) {
+      _changeOutput = TransactionOutput(BigInt.zero, _changeScriptBuilder!.getScriptPubkey());
     }
 
     return _changeOutput;
   }
 
-  BigInt calculateChange() {
-    BigInt inputAmount = calcInputTotals();
-    BigInt outputAmount = calcRecipientTotals();
-    BigInt unspent = inputAmount - outputAmount;
-
-    return unspent - getFee(); //sub
-  }
+  // BigInt calculateChange() {
+  //   BigInt inputAmount = calcInputTotals();
+  //   BigInt outputAmount = calcRecipientTotals();
+  //   BigInt unspent = inputAmount - outputAmount;
+  //
+  //   return unspent - getFee(); //sub
+  // }
 
   BigInt getFee() {
-    if (_transactionFee != BigInt.zero) {
-      return _transactionFee;
+    if (_transactionFee != null) {
+      return _transactionFee!;
     }
 
     //if no change output set, fees should equal to all the unspent amount
@@ -558,7 +567,7 @@ class TransactionBuilder {
     //if fee is less that 256, set fee at 256 satoshis
     //this is current minimum we set automatically if no explicit fee given
     //FIXME: Make this configurable
-    if (fee.compareTo(BigInt.from(256)) == -1) {
+    if (fee < BigInt.from(256)) {
       fee = BigInt.from(256);
     }
 
@@ -590,18 +599,20 @@ class TransactionBuilder {
   }
 
   BigInt calcRecipientTotals() {
-    BigInt amount = BigInt.zero;
+    BigInt recipientAmounts = BigInt.zero;
+
+    //add up destination spends
     for (TransactionOutput output in _outputs) {
-      amount = amount + output.satoshis;
+      recipientAmounts = recipientAmounts + output.satoshis;
     };
 
-    //deduct change output
-    if (_changeScriptBuilder != null) {
-      TransactionOutput? changeOutput = getChangeOutput();
-      if (changeOutput != null)
-        amount = amount + changeOutput.satoshis;
-    }
+    //add change output
+    // if (_changeScriptBuilder != null) {
+    //   TransactionOutput? changeOutput = getChangeOutput();
+    //   if (changeOutput != null)
+    //     recipientAmounts = recipientAmounts + changeOutput.satoshis;
+    // }
 
-    return amount;
+    return recipientAmounts;
   }
 }

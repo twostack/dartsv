@@ -142,10 +142,11 @@ void main() {
             var scriptPubkey = P2PKHLockBuilder.fromAddress(fromAddress).getScriptPubkey();
             var utxo = {
                 "address": fromAddress,
-                "txId": 'a477af6b2667c29670467e4e0728b685ee07b240235771862318e29ddbe58458',
+                "transactionId": 'a477af6b2667c29670467e4e0728b685ee07b240235771862318e29ddbe58458',
                 "outputIndex": 0,
+                'sequenceNumber': TransactionInput.MAX_SEQ_NUMBER,
                 "scriptPubKey": scriptPubkey.toString(),
-                "satoshis": BigInt.from(100000)
+                "satoshis": 100000
             };
             var scriptSigBuilder = P2PKHUnlockBuilder(publicKey);
             var signer = TransactionSigner(1, privateKey);
@@ -164,7 +165,14 @@ void main() {
             var flags = ScriptFlags.SCRIPT_VERIFY_P2SH | ScriptFlags.SCRIPT_VERIFY_STRICTENC;
             var interpreter = Interpreter();
 
-            var verified = interpreter.verifyScript(scriptSig, scriptPubkey, tx: tx, nin: inputIndex, flags: flags, satoshis: utxo["satoshis"] as BigInt);
+            var verified = interpreter.verifyScript(
+                scriptSig,
+                scriptPubkey,
+                tx: tx,
+                nin: inputIndex,
+                flags: flags,
+                satoshis: BigInt.from(utxo["satoshis"] as int) );
+
             expect(interpreter.errstr, equals(""));
             expect(verified, isTrue);
         });
@@ -433,7 +441,7 @@ void main() {
             '0000000000000000000000000000000000000000000000000000000000000000',
             0xffffffff,
             0xffffffff,
-            coinbaseUnlockBuilder.script
+            scriptBuilder: coinbaseUnlockBuilder
         );
         credtx.addInput(txCredInput);
         credtx.serialize();
@@ -453,7 +461,7 @@ void main() {
             prevTxId,
             0,
             TransactionInput.MAX_SEQ_NUMBER,
-            scriptPubkey
+            scriptBuilder: defaultUnlockBuilder
         );
         spendtx.addInput(txSpendInput);
         var txSpendOutput = TransactionOutput(

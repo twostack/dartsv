@@ -8,6 +8,7 @@ import 'package:hex/hex.dart';
 import 'package:test/test.dart';
 
 main() {
+
     group("Script from ByteArray", () {
 
         test('should parse this buffer containing an OP code', () {
@@ -51,10 +52,10 @@ main() {
 
   group('fromString constructor', () {
     test('should parse these known scripts', () {
-      expect( SVScript.fromString('OP_0 OP_PUSHDATA4 3 0x010203 OP_0').toString(), equals('OP_0 OP_PUSHDATA4 3 0x010203 OP_0'));
-      expect( SVScript.fromString('OP_0 OP_PUSHDATA2 3 0x010203 OP_0').toString(), equals('OP_0 OP_PUSHDATA2 3 0x010203 OP_0'));
-      expect( SVScript.fromString('OP_0 OP_PUSHDATA1 3 0x010203 OP_0').toString(), equals('OP_0 OP_PUSHDATA1 3 0x010203 OP_0'));
-      expect(SVScript.fromString('OP_0 3 0x010203 OP_0').toString(), equals('OP_0 3 0x010203 OP_0'));
+      expect( SVScript.fromString('OP_0 OP_PUSHDATA4 3 0x010203 OP_0').toBitcoindString(), equals('OP_0 OP_PUSHDATA4 3 0x010203 OP_0'));
+      expect( SVScript.fromString('OP_0 OP_PUSHDATA2 3 0x010203 OP_0').toBitcoindString(), equals('OP_0 OP_PUSHDATA2 3 0x010203 OP_0'));
+      expect( SVScript.fromString('OP_0 OP_PUSHDATA1 3 0x010203 OP_0').toBitcoindString(), equals('OP_0 OP_PUSHDATA1 3 0x010203 OP_0'));
+      expect(SVScript.fromString('OP_0 3 0x010203 OP_0').toBitcoindString(), equals('OP_0 3 0x010203 OP_0'));
     });
   });
 

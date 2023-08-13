@@ -3,6 +3,7 @@ import 'package:buffer/buffer.dart';
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/script/scriptflags.dart';
+import 'package:dartsv/src/transaction/default_builder.dart';
 import 'package:dartsv/src/transaction/transaction.dart';
 import 'package:dartsv/src/transaction/transaction_input.dart';
 
@@ -128,7 +129,7 @@ class Sighash {
 
         //setup the input we wish to sign
         var tmpInput = txnCopy.inputs[inputNumber];
-        tmpInput = TransactionInput(tmpInput.prevTxnId, tmpInput.prevTxnOutputIndex,tmpInput.sequenceNumber, tmpInput.script);
+        tmpInput = TransactionInput(tmpInput.prevTxnId, tmpInput.prevTxnOutputIndex,tmpInput.sequenceNumber, scriptBuilder: DefaultUnlockBuilder.fromScript(tmpInput.script!));
         tmpInput.script = this._subScript!;
         txnCopy.inputs[inputNumber] = tmpInput;
 
@@ -180,6 +181,7 @@ class Sighash {
             txnCopy.inputs.add(keepTxn);
         }
 
+
         return this.toString();
     }
 
@@ -199,7 +201,10 @@ class Sighash {
         writer.write(HEX.decode(txnHex));
         writer.writeInt32(this._sighashType, Endian.little);
 
-        return sha256Twice(writer.toBytes().toList()).reversed.toList();
+
+        _preImage = writer.toBytes();
+        print(HEX.encode(_preImage!.toList()));
+        return sha256Twice(_preImage!.toList()).reversed.toList();
     }
 
 //    Transaction _prepareTransaction(Transaction tx) {

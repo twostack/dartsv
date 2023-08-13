@@ -30,7 +30,7 @@ class UnspendableDataLockBuilder extends LockingScriptBuilder {
         .opCode(OpCodes.OP_FALSE)
         .opCode(OpCodes.OP_RETURN);
 
-    if(_dataBuffer != null)
+    if(_dataBuffer != null && _dataBuffer!.length != 0)
       builder.addData(Uint8List.fromList(_dataBuffer!));
 
     return builder.build();
@@ -41,7 +41,7 @@ class UnspendableDataLockBuilder extends LockingScriptBuilder {
     if (script != null) {
       var chunkList = script.chunks;
 
-      if (chunkList.length < 3) return; //no need to proceed
+      if (chunkList.length < 2) throw ScriptException("Script must start with OP_FALSE OP_RETURN instructions"); //no need to proceed
 
       if (!chunkList[0].equalsOpCode(OpCodes.OP_FALSE) && chunkList[1].equalsOpCode(OpCodes.OP_RETURN)) {
         throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic + " - Script must start with OP_FALSE OP_RETURN instructions.");

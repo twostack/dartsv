@@ -39,7 +39,7 @@ class DefaultUnlockBuilder extends UnlockingScriptBuilder{
 
   @override
   void parse(SVScript script) {
-    // TODO: implement parse
+    _script = script;
   }
 
   SVScript get scriptSig => _script;

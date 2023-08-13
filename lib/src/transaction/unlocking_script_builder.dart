@@ -5,7 +5,7 @@ abstract class UnlockingScriptBuilder {
 
     List<SVSignature> _signatures = List.empty(growable: true);
 
-    List<SVSignature> get signatures => List.unmodifiable(_signatures);
+    List<SVSignature> get signatures => _signatures;
 
     SVScript? script;
 

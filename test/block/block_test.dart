@@ -5,6 +5,7 @@ import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/block/block.dart';
 import 'package:dartsv/src/block/blockheader.dart';
 import 'package:dartsv/src/script/svscript.dart';
+import 'package:dartsv/src/transaction/default_builder.dart';
 import 'package:dartsv/src/transaction/transaction_input.dart';
 import 'package:hex/hex.dart';
 import 'package:test/test.dart';
@@ -55,7 +56,7 @@ void main() {
             transaction.version = tx["version"];
             transaction.nLockTime = tx["nLockTime"];
             (tx["inputs"] as List).forEach((input) {
-                var tmpTx = TransactionInput(input["prevTxId"], input["outputIndex"], input["sequenceNumber"],SVScript.fromHex(input["script"]) );
+                var tmpTx = TransactionInput(input["prevTxId"], input["outputIndex"], input["sequenceNumber"], scriptBuilder: DefaultUnlockBuilder.fromScript(SVScript.fromHex(input["script"])));
                 transaction.inputs.add(tmpTx);
             });
 
