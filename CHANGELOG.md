@@ -1,3 +1,18 @@
+## 1.1.1
+- downgraded test dependencies to for Flutter compatibility
+
+## 1.1.0
+- Exposed the DUST LIMIT and default feePerKb settings on the Transaction so user can manually change these.
+- Also exported the TransactionInput class
+- Added a property on the Transaction class that exposes the SigHash Preimage after signing.
+- Add missing padding for Wif Format
+- Add Javascript target support for Flutter/Web
+- added additional test coverage for signatures
+- added typing and convenience methods to HD key management
+- Removed the inline code example
+- Dart Version bump to include the 3.x branch
+
+
 ## 1.0.2
 - Added convenience method on HDPublicKey for getting SVPublicKey
 - Strongly typed hexadecimal string returned for xprivkey in HDPrivateKey

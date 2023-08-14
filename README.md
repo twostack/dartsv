@@ -70,6 +70,6 @@ A debt of gratitude is owed to the developers acknowledged in the LICENSE file. 
 You can reach the author at :
 
 * @twostack_org on Twitter
-* beardpappa@moneybutton.com \(PayMail to buy me a beer\)
+* beardpappa@handcash.io \(PayMail to buy me a beer\)
 * stephan@twostack.org
 
