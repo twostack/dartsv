@@ -294,18 +294,41 @@ class OpCodes {
   static const int OP_PUBKEY = 254;
   static const int OP_INVALIDOPCODE = 255;
 
+
+  // static final Map<int, String> opCodeNameMap = Map<int, String>()
+  //     .addAll(opcodeMap.map((key, value) => MapEntry(value, key)))
+  //     .put("FALSE", OP_FALSE)
+  //     .put("TRUE", OP_TRUE)
+  //     .put("NOP2", OP_NOP2)
+  //     .build();
+
   static String fromNum(int opcodenum) {
     var codeList = opcodeMap.entries.where((element) => element.value == opcodenum);
     return codeList.last.key;
   }
 
+
+  /**
+   * Converts the given OpCode into a string (eg "0", "PUSHDATA", or "NON_OP(10)")
+   */
   static String getOpCodeName(int opcodenum){
+    // opcodeMap.map((key, value) => MapEntry(value, key)).;
     if (opcodeMap.containsValue(opcodenum)) {
       var entry = opcodeMap.entries.where((element) => element.value == opcodenum);
       return entry.first.key;
     }
 
     return "NON_OP(${opcodenum})";
+  }
+
+  /**
+   * Converts the given OpCodeName into an int
+   */
+  static int getOpCode(String opCodeName) {
+    if (opcodeMap.containsKey(opCodeName))
+      return opcodeMap[opCodeName]!;
+
+    return OP_INVALIDOPCODE;
   }
 
 }

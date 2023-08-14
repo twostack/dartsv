@@ -32,6 +32,8 @@ class TransactionBuilder {
 
   TransactionOutput? _changeOutput;
 
+  int _txVersion = 2;
+
   final int DEFAULT_FEE_PER_KB = 50; //amount in satoshis
 
   static final BigInt DUST_AMOUNT = BigInt.from(50); //set a safe dust limit
@@ -46,6 +48,7 @@ class TransactionBuilder {
   static final BigInt FEE_SECURITY_MARGIN = BigInt.from(50);
 
   int _feePerKb = 50; //initialize to default
+
 
   //FIXME: This does nothing at the moment
   BigInt? _transactionFee;
@@ -100,7 +103,7 @@ class TransactionBuilder {
 
     _spendingMap[mapKey] = BigInt.from(utxoMap["satoshis"] as int);
 
-    _inputs.add(input);
+    _addInput(input);
 
     return this;
   }
@@ -121,7 +124,7 @@ class TransactionBuilder {
 
     _spendingMap[mapKey] = BigInt.from(utxoMap["satoshis"] as int);
 
-    _inputs.add(input);
+    _addInput(input);
 
     return this;
   }
@@ -148,7 +151,7 @@ class TransactionBuilder {
 
     _spendingMap[mapKey] = txn.outputs[outputIndex].satoshis;
 
-    _inputs.add(input);
+    _addInput(input);
     return this;
   }
 
@@ -160,7 +163,7 @@ class TransactionBuilder {
     String mapKey = "${txn.id}:${outputIndex}";
     _spendingMap[mapKey] = txn.outputs[outputIndex].satoshis;
 
-    _inputs.add(input);
+    _addInput(input);
     return this;
   }
 
@@ -177,7 +180,7 @@ class TransactionBuilder {
 
     _spendingMap[mapKey] = outpoint.satoshis;
 
-    _inputs.add(input);
+    _addInput(input);
     return this;
   }
 
@@ -192,7 +195,7 @@ class TransactionBuilder {
     String mapKey = "${outpoint.transactionId}:${outpoint.outputIndex}";
     _spendingMap[mapKey] = outpoint.satoshis;
 
-    _inputs.add(input);
+    _addInput(input);
     return this;
   }
 
@@ -209,9 +212,15 @@ class TransactionBuilder {
     String mapKey = "${utxoTxnId}:${outputIndex}";
     _spendingMap[mapKey] = amount;
 
-    _inputs.add(input);
+    _addInput(input);
 
     return this;
+  }
+  
+  _addInput(TransactionInput input){
+    var existList = _inputs.where((element) => element.prevTxnOutputIndex == input.prevTxnOutputIndex && element.prevTxnId == input.prevTxnId);
+    if (existList.length == 0)
+      _inputs.add(input);
   }
 
   TransactionBuilder spendFromOutputWithSigner(TransactionSigner signer,
@@ -231,7 +240,7 @@ class TransactionBuilder {
 
     _spendingMap[mapKey] = amount;
 
-    _inputs.add(input);
+    _addInput(input);
 
     return this;
   }
@@ -294,6 +303,11 @@ class TransactionBuilder {
     return this;
   }
 
+  TransactionBuilder withTxVersion(int nVersion){
+    _txVersion = nVersion;
+    return this;
+  }
+
   TransactionBuilder withFee(BigInt value) {
     _transactionFee = value;
 
@@ -314,12 +328,15 @@ class TransactionBuilder {
   Transaction build(bool performChecks) {
 
     //make sure change calculations are in order
+    updateChangeOutput();
 
     if (performChecks) {
       runTransactionChecks();
     }
 
     Transaction tx = new Transaction();
+
+    tx.version = _txVersion;
 
     //add transaction inputs
     tx.addInputs(_inputs);
@@ -328,9 +345,16 @@ class TransactionBuilder {
     tx.addOutputs(_outputs);
 
     if (_changeScriptBuilder != null) {
-      TransactionOutput? changeOutput = getChangeOutput();
-      if (changeOutput != null)
-        tx.addOutput(changeOutput);
+
+      //only add change output if there is money left over
+      var inOutDiff = calcInputTotals() - calcRecipientTotals();
+      if (inOutDiff <= BigInt.zero) {
+        _changeOutput = null;
+      }else {
+        TransactionOutput? changeOutput = getChangeOutput();
+        if (changeOutput != null)
+          tx.addOutput(changeOutput);
+      }
     }
 
     tx.nLockTime = _nLockTime;
@@ -368,14 +392,17 @@ class TransactionBuilder {
       throw new TransactionException("Invalid quantity of satoshis");
     }
 
-    BigInt unspent = getUnspentValue();
-    if (unspent.compareTo(BigInt.zero) == -1) {
-      if (!_transactionOptions
-          .contains(TransactionOption.DISABLE_MORE_OUTPUT_THAN_INPUT)) {
-        throw new TransactionException("Invalid output sum of satoshis");
+    if (_changeOutput == null){
+      throw new TransactionFeeException("No change output was specified");
+    }
+
+    BigInt inOutDiff =  calcInputTotals() - calcRecipientTotals();
+    if (inOutDiff < BigInt.zero) {
+      if (!_transactionOptions.contains(TransactionOption.DISABLE_MORE_OUTPUT_THAN_INPUT)) {
+        throw new TransactionAmountException("Invalid output sum of satoshis");
       }
     } else {
-      checkForFeeErrors(unspent);
+      checkForFeeErrors(getUnspentValue());
     }
 
     checkForDustErrors();
@@ -390,39 +417,39 @@ class TransactionBuilder {
     }
 
     for (TransactionOutput output in _outputs) {
-      if (output.satoshis.compareTo(DUST_AMOUNT) == -1) {
-        throw new TransactionException(
+      if (output.satoshis < DUST_AMOUNT ) {
+        throw TransactionAmountException(
             "You have outputs with spending values below the dust limit of " +
                 DUST_AMOUNT.toString());
       }
     }
 
     //check for dust on change output
-    if (_changeOutput != null && _changeOutput!.satoshis < DUST_AMOUNT) {
-      throw new TransactionException(
+    if (_changeOutput != null && _changeOutput!.satoshis < DUST_AMOUNT && _changeOutput!.satoshis >= BigInt.zero) {
+      throw new TransactionAmountException(
           "You have a change output with spending value below the dust limit of " +
               DUST_AMOUNT.toString());
     }
   }
 
   checkForFeeErrors(BigInt unspent) {
-    if (_transactionFee != null && _transactionFee!.compareTo(unspent) != 0) {
+    if (_transactionFee != null && _transactionFee! != unspent) {
       String errorMessage = "Unspent value is " +
           unspent.toRadixString(10) +
           " but specified fee is " +
           _transactionFee!.toRadixString(10);
-      throw new TransactionException(errorMessage);
+      throw new TransactionFeeException(errorMessage);
     }
 
     if (!_transactionOptions.contains(TransactionOption.DISABLE_LARGE_FEES)) {
       BigInt maximumFee = FEE_SECURITY_MARGIN * estimateFee();
-      if (unspent.compareTo(maximumFee) == 1) {
+      if (unspent > maximumFee) {
         if (!_changeScriptFlag) {
-          throw new TransactionException(
+          throw new TransactionFeeException(
               "Fee is too large and no change address was provided");
         }
 
-        throw new TransactionException("expected less than " +
+        throw new TransactionFeeException("expected less than " +
             maximumFee.toString() +
             " but got " +
             unspent.toString());
@@ -495,6 +522,9 @@ class TransactionBuilder {
     BigInt inputAmount = calcInputTotals();
     BigInt outputAmount = calcRecipientTotals();
     BigInt unspent = inputAmount - outputAmount;
+
+    if (_changeOutput != null)
+      unspent = unspent - _changeOutput!.satoshis;
 
     return unspent;
   }
