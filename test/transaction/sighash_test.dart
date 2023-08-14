@@ -34,7 +34,7 @@ main() {
         var tx = Transaction.fromHex(txbuf as String);
 
         // make sure transacion to/from buffer is isomorphic
-        expect(tx.uncheckedSerialize(), equals(txbuf.toString()));
+        expect(tx.serialize(), equals(txbuf.toString()));
 
         // sighash ought to be correct
         expect(() => Sighash().hash(tx, nhashtype, nin, subscript, null).toString(), throwsException);
@@ -62,7 +62,7 @@ main() {
                     var tx = Transaction.fromHex(txbuf);
 
                     // make sure transaction serialize/deserialize is isomorphic
-                    expect(tx.uncheckedSerialize(), equals(txbuf));
+                    expect(tx.serialize(), equals(txbuf));
 
                     // sighash ought to be correct
                     expect(Sighash().hash(tx, nhashtype, nin, subscript, BigInt.zero), equals(sighashbuf));
@@ -92,7 +92,7 @@ main() {
                     var tx = Transaction.fromHex(txbuf);
 
                     // make sure transaction serialize/deserialize is isomorphic
-                    expect(tx.uncheckedSerialize(), equals(txbuf));
+                    expect(tx.serialize(), equals(txbuf));
 
                     // sighash ought to be correct
                     expect(Sighash().hash(tx, nhashtype, nin, subscript, BigInt.zero), equals(sighashbuf));

@@ -14,15 +14,15 @@ class OpCodes {
   //thanks for the OpCode Map MoneyButton/bsv ;)
   static const opcodeMap = {
     // push value
-    'OP_FALSE': 0,
     'OP_0': 0,
+    'OP_FALSE': 0,
     'OP_PUSHDATA1': 76,
     'OP_PUSHDATA2': 77,
     'OP_PUSHDATA4': 78,
     'OP_1NEGATE': 79,
     'OP_RESERVED': 80,
-    'OP_TRUE': 81,
     'OP_1': 81,
+    'OP_TRUE': 81,
     'OP_2': 82,
     'OP_3': 83,
     'OP_4': 84,
@@ -294,9 +294,41 @@ class OpCodes {
   static const int OP_PUBKEY = 254;
   static const int OP_INVALIDOPCODE = 255;
 
+
+  // static final Map<int, String> opCodeNameMap = Map<int, String>()
+  //     .addAll(opcodeMap.map((key, value) => MapEntry(value, key)))
+  //     .put("FALSE", OP_FALSE)
+  //     .put("TRUE", OP_TRUE)
+  //     .put("NOP2", OP_NOP2)
+  //     .build();
+
   static String fromNum(int opcodenum) {
     var codeList = opcodeMap.entries.where((element) => element.value == opcodenum);
     return codeList.last.key;
+  }
+
+
+  /**
+   * Converts the given OpCode into a string (eg "0", "PUSHDATA", or "NON_OP(10)")
+   */
+  static String getOpCodeName(int opcodenum){
+    // opcodeMap.map((key, value) => MapEntry(value, key)).;
+    if (opcodeMap.containsValue(opcodenum)) {
+      var entry = opcodeMap.entries.where((element) => element.value == opcodenum);
+      return entry.first.key;
+    }
+
+    return "NON_OP(${opcodenum})";
+  }
+
+  /**
+   * Converts the given OpCodeName into an int
+   */
+  static int getOpCode(String opCodeName) {
+    if (opcodeMap.containsKey(opCodeName))
+      return opcodeMap[opCodeName]!;
+
+    return OP_INVALIDOPCODE;
   }
 
 }

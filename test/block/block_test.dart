@@ -5,6 +5,7 @@ import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/block/block.dart';
 import 'package:dartsv/src/block/blockheader.dart';
 import 'package:dartsv/src/script/svscript.dart';
+import 'package:dartsv/src/transaction/default_builder.dart';
 import 'package:dartsv/src/transaction/transaction_input.dart';
 import 'package:hex/hex.dart';
 import 'package:test/test.dart';
@@ -55,15 +56,12 @@ void main() {
             transaction.version = tx["version"];
             transaction.nLockTime = tx["nLockTime"];
             (tx["inputs"] as List).forEach((input) {
-                var tmpTx = TransactionInput(input["prevTxId"], input["outputIndex"], SVScript(), BigInt.zero, input["sequenceNumber"]);
-                tmpTx.scriptBuilder.fromScript(SVScript.fromHex(input["script"]));
+                var tmpTx = TransactionInput(input["prevTxId"], input["outputIndex"], input["sequenceNumber"], scriptBuilder: DefaultUnlockBuilder.fromScript(SVScript.fromHex(input["script"])));
                 transaction.inputs.add(tmpTx);
             });
 
             (tx["outputs"] as List).forEach((output) {
-                var txOut = TransactionOutput();
-                txOut.satoshis = BigInt.from(output["satoshis"]);
-                txOut.script = SVScript.fromHex(output["script"]);
+                var txOut = TransactionOutput(BigInt.from(output["satoshis"]), SVScript.fromHex(output["script"]));
                 transaction.outputs.add(txOut);
             });
 

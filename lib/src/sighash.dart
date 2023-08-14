@@ -3,6 +3,7 @@ import 'package:buffer/buffer.dart';
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/script/scriptflags.dart';
+import 'package:dartsv/src/transaction/default_builder.dart';
 import 'package:dartsv/src/transaction/transaction.dart';
 import 'package:dartsv/src/transaction/transaction_input.dart';
 
@@ -78,7 +79,6 @@ class Sighash {
     Transaction? _txn;
     SVScript? _subScript;
     int _sighashType = 0;
-
     Uint8List? _preImage;
 
     Uint8List? get preImage => _preImage;
@@ -99,7 +99,7 @@ class Sighash {
 
     String hash(Transaction txn, int sighashType, int inputNumber, SVScript subscript, BigInt? satoshis, {flags = _DEFAULT_SIGN_FLAGS }) {
 
-        var txnCopy = Transaction.fromHex(txn.serialize(performChecks: false)); //make a copy
+        var txnCopy = Transaction.fromHex(txn.serialize()); //make a copy
         this._txn = txnCopy;
         var subscriptCopy = SVScript.fromHex(subscript.toHex()); //make a copy
 
@@ -116,11 +116,6 @@ class Sighash {
             return HEX.encode(this._sigHashForForkid(txnCopy, sighashType, inputNumber, subscriptCopy, satoshis));
         }
 
-//        if ((sighashType & SighashType.SIGHASH_FORKID == SighashType.SIGHASH_FORKID) &&
-//            (flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID == ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID)) {
-//            return HEX.encode(this.sigHashForForkid(txnCopy, sighashType, inputNumber, subscriptCopy, satoshis));
-//        }
-
         this._sighashType = sighashType;
 
         // For no ForkId sighash, separators need to be removed.
@@ -131,18 +126,14 @@ class Sighash {
             input.script = SVScript.fromString("");
         });
 
-//        this._subScript = _prepareSubScript(subscriptCopy);
-
 
         //setup the input we wish to sign
-//        txcopy.inputs[inputNumber] = new Input(txcopy.inputs[inputNumber]).setScript(subscript)
         var tmpInput = txnCopy.inputs[inputNumber];
-        tmpInput = TransactionInput(tmpInput.prevTxnId, tmpInput.prevTxnOutputIndex, tmpInput.script, tmpInput.satoshis, tmpInput.sequenceNumber);
+        tmpInput = TransactionInput(tmpInput.prevTxnId, tmpInput.prevTxnOutputIndex,tmpInput.sequenceNumber, scriptBuilder: DefaultUnlockBuilder.fromScript(tmpInput.script!));
         tmpInput.script = this._subScript!;
         txnCopy.inputs[inputNumber] = tmpInput;
-//        txnCopy.inputs[inputNumber].script = this._subScript;
 
-        txnCopy.serialize(performChecks: false);
+        txnCopy.serialize();
 
         if ((sighashType & 31) == SighashType.SIGHASH_NONE ||
             (sighashType & 31) == SighashType.SIGHASH_SINGLE) {
@@ -166,11 +157,7 @@ class Sighash {
                 return _SIGHASH_SINGLE_BUG;
             }
 
-            var txout = new TransactionOutput();
-            txout.script = txnCopy.outputs[inputNumber].script; //FIXME: What happens if there are not outputs !?
-            txout.satoshis = txnCopy.outputs[inputNumber].satoshis;
-            txout.outputIndex = txnCopy.outputs[inputNumber].outputIndex;
-            txout.transactionId = txnCopy.outputs[inputNumber].transactionId;
+            var txout = new TransactionOutput(txnCopy.outputs[inputNumber].satoshis, txnCopy.outputs[inputNumber].script);
 
             //resize outputs to current size of inputIndex + 1
 
@@ -178,10 +165,8 @@ class Sighash {
             txnCopy.outputs.removeWhere((elem) => true); //remove all the outputs
             //create new outputs up to inputnumer + 1
             for (var ndx = 0; ndx < inputNumber + 1; ndx++) {
-                var tx = new TransactionOutput();
-                tx.script = SVScript.fromString(""); //FIXME: What happens if there are no outputs !?
-                tx.satoshis = BigInt.parse(_BITS_64_ON, radix: 16);
-                txnCopy.outputs.add(tx);
+                var txOutput = new TransactionOutput(BigInt.parse(_BITS_64_ON, radix: 16), SVScript.fromString(""));
+                txnCopy.outputs.add(txOutput);
             }
 
             //add back the saved output in the corresponding position of inputIndex
@@ -196,6 +181,7 @@ class Sighash {
             txnCopy.inputs.add(keepTxn);
         }
 
+
         return this.toString();
     }
 
@@ -209,13 +195,16 @@ class Sighash {
 
     //by the time this function is called, all _prepare* scripts should have been run
     List<int> getHash() {
-        String txnHex = this._txn!.serialize(performChecks: false);
+        String txnHex = this._txn!.serialize();
 
         var writer = ByteDataWriter();
         writer.write(HEX.decode(txnHex));
         writer.writeInt32(this._sighashType, Endian.little);
 
-        return sha256Twice(writer.toBytes().toList()).reversed.toList();
+
+        _preImage = writer.toBytes();
+        print(HEX.encode(_preImage!.toList()));
+        return sha256Twice(_preImage!.toList()).reversed.toList();
     }
 
 //    Transaction _prepareTransaction(Transaction tx) {

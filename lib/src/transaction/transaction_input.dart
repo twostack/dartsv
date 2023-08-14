@@ -22,22 +22,17 @@ import 'transaction.dart';
 ///
 class TransactionInput {
 
-    UnlockingScriptBuilder? _scriptBuilder;
+    UnlockingScriptBuilder? _unlockingScriptBuilder;
 
     /// Maximum size an unsigned int can be. Used as value of [sequenceNumber] when we
     /// want to indicate that the transaction's [Transaction.nLockTime] should be ignored.
-    static int UINT_MAX =  0xFFFFFFFF;
-    bool _isSignedInput = false;
+    static int MAX_SEQ_NUMBER = 0xFFFFFFFF;
 
     int? _sequenceNumber;
 
     int? _prevTxnOutputIndex;
 
     String? _prevTxnId;
-
-    BigInt? _spendingAmount;
-
-    SVScript? _utxoScript;
 
     /// Constructs a new transaction input
     ///
@@ -52,16 +47,11 @@ class TransactionInput {
     /// purpose. At present this is only used to
     /// indicate whether nLockTime should be honored or ignored. Set this value to [UINT_MAX] to indicate
     /// that transaction's [Transaction.nLockTime] should be ignored.
-    TransactionInput(String? txId, int outputIndex, SVScript utxoScript, BigInt satoshis, int? seqNumber, {UnlockingScriptBuilder? scriptBuilder}) {
+    TransactionInput(String? txId, int outputIndex, int? seqNumber, {UnlockingScriptBuilder? scriptBuilder}) {
         _prevTxnId = txId;
         _prevTxnOutputIndex = outputIndex;
-        _utxoScript = utxoScript;
-        _sequenceNumber = seqNumber ??= UINT_MAX - 1;
-        _spendingAmount = satoshis;
-
-        _scriptBuilder = scriptBuilder ??= DefaultUnlockBuilder();
-
-        _isSignedInput = _scriptBuilder is SignedUnlockBuilder;
+        _sequenceNumber = seqNumber ??= MAX_SEQ_NUMBER;
+        _unlockingScriptBuilder = scriptBuilder ??= DefaultUnlockBuilder.fromScript(SVScript());
     }
 
 
@@ -78,41 +68,40 @@ class TransactionInput {
 
         var len = readVarIntNum(reader);
         var scriptSig = SVScript.fromBuffer(reader.read(len, copy: true));
-        _scriptBuilder = scriptBuilder ??= DefaultUnlockBuilder();
-        _scriptBuilder!.fromScript(scriptSig);
-
+        _unlockingScriptBuilder= scriptBuilder ??= DefaultUnlockBuilder.fromScript(scriptSig);
         _sequenceNumber = reader.readUint32(Endian.little);
-
-        _isSignedInput = scriptBuilder is SignedUnlockBuilder; //FIXME: do this elsewhere (also other constructor)
     }
 
     ///Returns a buffer containing the serialized bytearray for this TransactionInput
     List<int> serialize() {
+
+        if (_unlockingScriptBuilder == null) return Uint8List(0);
+
         var writer = ByteDataWriter();
 
         writer.write(HEX.decode(_prevTxnId!).reversed.toList(), copy: true);
 
         writer.writeUint32(_prevTxnOutputIndex!, Endian.little);
 
-        var scriptHex = HEX.decode(_scriptBuilder!.getScriptSig().toHex());
+        var scriptBytes = _unlockingScriptBuilder!.getScriptSig().buffer;
 
-        writer.write(varIntWriter(scriptHex.length).toList(), copy: true);
-        writer.write(scriptHex, copy: true);
+        writer.write(varIntWriter(scriptBytes.length).toList(), copy: true);
+        writer.write(scriptBytes, copy: true);
 
         writer.writeUint32(sequenceNumber, Endian.little);
 
         return writer.toBytes().toList();
     }
 
-    /// This is used by the Transaction during serialization checks.
-    /// It is only used in the context of P2PKH transaction types and
-    /// will likely be deprecated in future.
-    bool isFullySigned() {
-        //FIXME: Perform stronger check than this. We should be able to
-        //validate the _scriptBuilder Signatures. At the moment this is more
-        //of a check on where a signature is required.
-        return _isSignedInput;
-    }
+    // /// This is used by the Transaction during serialization checks.
+    // /// It is only used in the context of P2PKH transaction types and
+    // /// will likely be deprecated in future.
+    // bool isFullySigned() {
+    //     //FIXME: Perform stronger check than this. We should be able to
+    //     //validate the _scriptBuilder Signatures. At the moment this is more
+    //     //of a check on where a signature is required.
+    //     return _isSignedInput;
+    // }
 
     /// Returns the Transaction input as structured data to make
     /// working with JSON serializers easier.
@@ -121,18 +110,18 @@ class TransactionInput {
             'prevTxId': _prevTxnId,
             'outputIndex': _prevTxnOutputIndex,
             'sequenceNumber': sequenceNumber,
-            'script': _scriptBuilder!.getScriptSig().toHex()
+            'script': _unlockingScriptBuilder?.getScriptSig().toHex()
         };
     }
 
     /// Returns *true* if the sequence number has reached it's maximum
     /// limit and can no longer be updated.
     bool isFinal() {
-        return sequenceNumber == UINT_MAX;
+        return sequenceNumber == MAX_SEQ_NUMBER;
     }
 
     /// Returns the number of satoshis this input is spending.
-    BigInt get satoshis => _spendingAmount == null ? BigInt.zero : _spendingAmount!;
+    // BigInt get satoshis => _spendingAmount == null ? BigInt.zero : _spendingAmount!;
 
     /// Sets the number of satoshis this input is spending.
     ///
@@ -140,33 +129,32 @@ class TransactionInput {
     /// change [TransactionOutput]s must be generated as needed, and the difference
     /// between satoshis "consumed" by and input and those "locked" by the
     /// spending transaction's outputs goes to the miner as a fee reward.
-    set satoshis(BigInt value) {
-        _spendingAmount = value;
-    }
+    // set satoshis(BigInt value) {
+    //     _spendingAmount = value;
+    // }
 
     /// Returns the scriptSig (Input Script / Unlocking Script)
-    SVScript get script => _scriptBuilder!.getScriptSig();
+    SVScript? get script => _unlockingScriptBuilder?.getScriptSig();
 
-    /// Returns the script from the previous transaction's output
-    SVScript get subScript => _utxoScript!;
-
+    // /// Returns the script from the previous transaction's output
+    // SVScript get subScript => _utxoScript!;
+    //
     /// Set the script that represents the parent transaction's output (UTXO)
-    set script(SVScript script) {
-        _scriptBuilder!.fromScript(script);
+    set script(SVScript? script) {
+        if (script == null) {
+             _unlockingScriptBuilder?.parse(SVScript());
+        }else{
+             _unlockingScriptBuilder?.parse(script);
+        }
     }
 
-    /// Set the script that represents the UTXO's scriptPubKey
-    set subScript(SVScript script) {
-        _utxoScript = script;
-    }
+    UnlockingScriptBuilder? get scriptBuilder => _unlockingScriptBuilder;
 
-  /// Set the builder that represents the real builder
-    set scriptBuilder(UnlockingScriptBuilder builder) {
-        _scriptBuilder = builder;
-    }
+    // /// Set the script that represents the UTXO's scriptPubKey
+    // set subScript(SVScript script) {
+    //     _utxoScript = script;
+    // }
 
-    /// Returns the current instance of UnlockingScriptBuilder in use
-    UnlockingScriptBuilder get scriptBuilder => _scriptBuilder!;
 
     /// Returns the index value of the transaction output (UTXO) that this input is spending from.
     int get prevTxnOutputIndex => _prevTxnOutputIndex!;
@@ -177,7 +165,7 @@ class TransactionInput {
     }
 
     /// Returns the transaction Id of the transaction that this input is spending from
-    String get prevTxnId => _prevTxnId!;
+    String get prevTxnId => _prevTxnId ??= "";
 
     /// Sets the transaction Id of the transaction that this input is spending from
     set prevTxnId(String value) {

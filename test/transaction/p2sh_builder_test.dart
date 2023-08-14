@@ -18,8 +18,7 @@ void main() {
 
     test('should create scriptPubkey from another script', () {
       var inner = SVScript.fromString('OP_DUP OP_HASH160 20 0x06c06f6d931d7bfba2b5bd5ad0d19a8f257af3e3 OP_EQUALVERIFY OP_CHECKSIG');
-      var lockBuilder = P2SHLockBuilder("");
-      lockBuilder.fromScript(inner);
+      var lockBuilder = P2SHLockBuilder.fromScript(inner);
       var script = lockBuilder.getScriptPubkey();
       expect(script, isNotNull);
       expect(script.toString(), equals('OP_HASH160 20 0x45ea3f9133e7b1cef30ba606f8433f993e41e159 OP_EQUAL'));

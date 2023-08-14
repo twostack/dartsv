@@ -1,20 +1,23 @@
 
-import 'package:dartsv/src/exceptions.dart';
-import 'package:dartsv/src/script/opcodes.dart';
-import 'package:dartsv/src/transaction/signed_unlock_builder.dart';
+import 'package:dartsv/dartsv.dart';
 import 'package:hex/hex.dart';
 import 'package:sprintf/sprintf.dart';
 
-import '../../dartsv.dart';
 
 
-/// ** P2PMS (multisig) locking Script (output script / scriptPubkey) ***
-mixin P2MSLockMixin on _P2MSLockBuilder implements LockingScriptBuilder {
+class P2MSLockBuilder extends LockingScriptBuilder{
+
+  List<SVPublicKey> publicKeys = List.empty();
+  int requiredSigs = 0;
+  bool sorting = false;
+
+  P2MSLockBuilder(this.publicKeys, this.requiredSigs, {this.sorting = true});
+
+  P2MSLockBuilder.fromScript(SVScript script): super.fromScript(script);
 
   @override
-  SVScript getScriptPubkey(){
-
-    if (publicKeys == null || requiredSigs == 0) return SVScript();
+  SVScript getScriptPubkey() {
+    if (publicKeys.isEmpty || requiredSigs == 0) return SVScript();
 
     if (publicKeys.length > 15){
       throw ScriptException("Too many public keys. P2MS limit is 15 public keys");
@@ -34,18 +37,9 @@ mixin P2MSLockMixin on _P2MSLockBuilder implements LockingScriptBuilder {
     //OP_3 <pubKey1> <pubKey2> <pubKey3> <pubKey4> <pubKey5> OP_5 OP_CHECKMULTISIG
     return SVScript.fromString(scriptString);
   }
-}
-
-abstract class _P2MSLockBuilder implements LockingScriptBuilder {
-
-  List<SVPublicKey> publicKeys;
-  int requiredSigs;
-  bool sorting;
-
-  _P2MSLockBuilder(this.publicKeys, this.requiredSigs, this.sorting);
 
   @override
-  void fromScript(SVScript script) {
+  void parse(SVScript script) {
 
     if (script != null && script.buffer != null) {
       var chunkList = script.chunks;
@@ -66,18 +60,20 @@ abstract class _P2MSLockBuilder implements LockingScriptBuilder {
     }else{
       throw ScriptException("Invalid Script or Malformed Script.");
     }
+  }
 
 }
-}
-
-class P2MSLockBuilder extends _P2MSLockBuilder with P2MSLockMixin {
-  P2MSLockBuilder(List<SVPublicKey> publicKeys, int requiredSigs, {sorting = true})
-      : super(publicKeys, requiredSigs, sorting);
-}
 
 
-/// ** P2MS (multisig) unlocking Script (scriptSig / Input script) ***
-mixin P2MSUnlockMixin on _P2MSUnlockBuilder implements UnlockingScriptBuilder{
+class P2MSUnlockBuilder extends UnlockingScriptBuilder {
+
+  P2MSUnlockBuilder();
+
+  P2MSUnlockBuilder.fromSignatures(List<SVSignature> signatures) {
+      this.signatures.addAll(signatures);
+  }
+
+  P2MSUnlockBuilder.fromScript(SVScript script): super.fromScript(script);
 
   @override
   SVScript getScriptSig() {
@@ -87,21 +83,8 @@ mixin P2MSUnlockMixin on _P2MSUnlockBuilder implements UnlockingScriptBuilder{
     return SVScript.fromString('OP_0 ${multiSigs}');
   }
 
-}
-
-/// Signatures are injected by the framework when you call Transaction().signInput()
-/// Make consecutive calls to the signInput() function to had the signatures
-/// added to the [SignedUnlockBuilder] instance associated with the [Transaction].
-///
-abstract class _P2MSUnlockBuilder extends SignedUnlockBuilder implements UnlockingScriptBuilder {
-
   @override
-  List<SVSignature> signatures = <SVSignature>[];
-
-  _P2MSUnlockBuilder();
-
-  @override
-  void fromScript(SVScript script) {
+  void parse(SVScript script) {
     if (script != null && script.buffer != null) {
       var chunkList = script.chunks;
 
@@ -116,13 +99,6 @@ abstract class _P2MSUnlockBuilder extends SignedUnlockBuilder implements Unlocki
   }
 
   SVScript get scriptSig => getScriptSig();
-}
-
-class P2MSUnlockBuilder extends _P2MSUnlockBuilder with P2MSUnlockMixin{
-
-  //Expect the Signature to be injected after the fact. Input Signing is a
-  //weird one.
-  P2MSUnlockBuilder() : super();
 
 }
 

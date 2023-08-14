@@ -1,4 +1,5 @@
 
+import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/address.dart';
 import 'package:dartsv/src/privatekey.dart';
 import 'package:dartsv/src/publickey.dart';
@@ -32,17 +33,18 @@ void main() {
       var utxo = txWithUTXO.outputs[0]; //looking at the decoded JSON we can see that our UTXO in at vout[0]
       var pubkey = SVPublicKey.fromHex('022df8750480ad5b26950b25c7ba79d3e37d75f640f8e5d9bcd5b150a0f85014da');
       var lockBuilder = P2PKLockBuilder(pubkey);
+      var signer = TransactionSigner(  SighashType.SIGHASH_ALL | SighashType.SIGHASH_FORKID, privateKey );
 
       var locker = P2PKLockBuilder(pubkey);
-      var unlocker = P2PKUnlockBuilder();
-      var txn = Transaction();
-      txn.spendFromOutput(utxo, Transaction.NLOCKTIME_MAX_VALUE, scriptBuilder: unlocker) //set global sequenceNumber/nLocktime time for each Input created
-          .spendTo(recipientAddress, BigInt.from(50000000),scriptBuilder: locker) //spend half of a bitcoin (we should have 1 in the UTXO)
-          .sendChangeTo(changeAddress,scriptBuilder: locker) // spend change to myself
-          .withFeePerKb(100000);
+      var unlocker = P2PKUnlockBuilder(pubkey);
+      var txn = TransactionBuilder()
+          .spendFromOutputWithSigner(signer, txWithUTXO.id, 0, utxo.satoshis, TransactionInput.MAX_SEQ_NUMBER, unlocker) //set global sequenceNumber/nLocktime time for each Input created
+          .spendToLockBuilder(locker, BigInt.from(50000000)) //spend half of a bitcoin (we should have 1 in the UTXO)
+          .sendChangeToPKH(changeAddress) // spend change to myself
+          .withFeePerKb(50)
+          .build(false);
 
-      //Sign the Transaction Input
-      txn.signInput(0, privateKey, sighashType: SighashType.SIGHASH_ALL | SighashType.SIGHASH_FORKID);
+      //FIXME: Assert spends correctly
     });
   });
 }

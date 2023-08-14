@@ -109,6 +109,10 @@ class SVPublicKey {
 //        _publicKey = ECPublicKey(_point, _domainParams);
     }
 
+    SVPublicKey.fromBuffer(List<int> buffer){
+       SVPublicKey.fromHex(HEX.encode(buffer));
+    }
+
 
     /// Reconstruct a public key from the hexadecimal format of it's DER-encoding.
     ///

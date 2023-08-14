@@ -1,71 +1,47 @@
 
+import 'dart:typed_data';
+
 import 'package:dartsv/src/transaction/signed_unlock_builder.dart';
 import 'package:hex/hex.dart';
 import 'package:sprintf/sprintf.dart';
 
 import '../../dartsv.dart';
 
-mixin DefaultLockMixin on _DefaultLockBuilder implements LockingScriptBuilder {
 
-  @override
-  SVScript getScriptPubkey(){
-    return script;
-  }
-}
-
-abstract class _DefaultLockBuilder implements LockingScriptBuilder{
+class DefaultLockBuilder extends LockingScriptBuilder {
 
   SVScript _script = SVScript();
-  _DefaultLockBuilder();
+
+  DefaultLockBuilder.fromScript(SVScript script): super.fromScript(script);
 
   @override
-  SVScript get scriptPubkey => getScriptPubkey();
+  SVScript getScriptPubkey() {
+    return _script;
+  }
 
   @override
-  void fromScript(SVScript script) {
+  void parse(SVScript script) {
     _script = script;
   }
 
-  SVScript get script => _script;
-
-}
-
-class DefaultLockBuilder extends _DefaultLockBuilder with DefaultLockMixin{
-  DefaultLockBuilder() : super();
 }
 
 
-mixin DefaultUnlockMixin on _DefaultUnlockBuilder implements UnlockingScriptBuilder{
+class DefaultUnlockBuilder extends UnlockingScriptBuilder{
+  SVScript _script = SVScript();
+
+  DefaultUnlockBuilder.fromScript(SVScript script): super.fromScript(script);
 
   @override
   SVScript getScriptSig() {
-    return script;
+    return _script;
   }
 
-}
-
-abstract class _DefaultUnlockBuilder extends SignedUnlockBuilder implements UnlockingScriptBuilder{
-  SVScript _script = SVScript();
-
-  _DefaultUnlockBuilder();
-
   @override
-  List<SVSignature> signatures = <SVSignature>[];
-
-  @override
-  SVScript get scriptSig => getScriptSig();
-
-  @override
-  void fromScript(SVScript script) {
+  void parse(SVScript script) {
     _script = script;
   }
 
-  SVScript get script => _script;
-
-}
-
-class DefaultUnlockBuilder extends _DefaultUnlockBuilder with DefaultUnlockMixin{
-  DefaultUnlockBuilder() : super();
-
+  SVScript get scriptSig => _script;
 }
 

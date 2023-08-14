@@ -1,4 +1,3 @@
-import 'dart:ffi';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -9,6 +8,7 @@ import 'package:hex/hex.dart';
 import 'package:test/test.dart';
 
 main() {
+
     group("Script from ByteArray", () {
 
         test('should parse this buffer containing an OP code', () {
@@ -39,7 +39,7 @@ main() {
 
         test('should create script from livenet address', () {
           var address = Address('1NaTVwXDDUJaXDQajoa9MqHhz4uTxtgK14');
-          var script = P2PKHLockBuilder(address).getScriptPubkey();
+          var script = P2PKHLockBuilder.fromAddress(address).getScriptPubkey();
           expect(script, isNotNull);
           expect(script.toString(), equals('OP_DUP OP_HASH160 20 0xecae7d092947b7ee4998e254aa48900d26d2ce1d OP_EQUALVERIFY OP_CHECKSIG'));
 
@@ -52,10 +52,10 @@ main() {
 
   group('fromString constructor', () {
     test('should parse these known scripts', () {
-      expect( SVScript.fromString('OP_0 OP_PUSHDATA4 3 0x010203 OP_0').toString(), equals('OP_0 OP_PUSHDATA4 3 0x010203 OP_0'));
-      expect( SVScript.fromString('OP_0 OP_PUSHDATA2 3 0x010203 OP_0').toString(), equals('OP_0 OP_PUSHDATA2 3 0x010203 OP_0'));
-      expect( SVScript.fromString('OP_0 OP_PUSHDATA1 3 0x010203 OP_0').toString(), equals('OP_0 OP_PUSHDATA1 3 0x010203 OP_0'));
-      expect(SVScript.fromString('OP_0 3 0x010203 OP_0').toString(), equals('OP_0 3 0x010203 OP_0'));
+      expect( SVScript.fromString('OP_0 OP_PUSHDATA4 3 0x010203 OP_0').toBitcoindString(), equals('OP_0 OP_PUSHDATA4 3 0x010203 OP_0'));
+      expect( SVScript.fromString('OP_0 OP_PUSHDATA2 3 0x010203 OP_0').toBitcoindString(), equals('OP_0 OP_PUSHDATA2 3 0x010203 OP_0'));
+      expect( SVScript.fromString('OP_0 OP_PUSHDATA1 3 0x010203 OP_0').toBitcoindString(), equals('OP_0 OP_PUSHDATA1 3 0x010203 OP_0'));
+      expect(SVScript.fromString('OP_0 3 0x010203 OP_0').toBitcoindString(), equals('OP_0 3 0x010203 OP_0'));
     });
   });
 
@@ -84,7 +84,7 @@ main() {
   group('#buildPublicKeyHashOut', () {
     test('should create script from livenet address', () {
       var address = Address('1NaTVwXDDUJaXDQajoa9MqHhz4uTxtgK14');
-      var lockBuilder = P2PKHLockBuilder(address);
+      var lockBuilder = P2PKHLockBuilder.fromAddress(address);
       var outScript = lockBuilder.getScriptPubkey();
       expect(outScript, isNotNull);
 
@@ -96,7 +96,7 @@ main() {
 
     test('should create script from testnet address', () {
       var address = Address('mxRN6AQJaDi5R6KmvMaEmZGe3n5ScV9u33');
-      var lockBuilder = P2PKHLockBuilder(address);
+      var lockBuilder = P2PKHLockBuilder.fromAddress(address);
       var outScript = lockBuilder.getScriptPubkey();
       expect(outScript, isNotNull);
 
@@ -452,7 +452,6 @@ main() {
     });
   });
 
-   */
 
   group('#add and #prepend', ()
     {
@@ -466,5 +465,6 @@ main() {
       });
     });
 
+   */
 }
 

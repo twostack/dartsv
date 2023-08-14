@@ -1,70 +1,19 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:dartsv/src/encoding/utils.dart';
+import 'package:dartsv/src/transaction/preconditions.dart';
 import 'package:hex/hex.dart';
 import 'dart:math';
 import '../exceptions.dart';
 import 'opcodes.dart';
 import 'package:buffer/buffer.dart';
+import 'script_chunk.dart';
 
-/// Utility class to represent a parsed 'token' in the encoded script.
-class ScriptChunk {
-
-    List<int> _buf;
-    int _len;
-    int _opcodenum;
-
-    ///Construct a  ScriptChunk
-    ///
-    /// [_buf] - Buffer containing data in case of OP_PUSHDATA
-    ///
-    /// [_len] - length of _buf
-    ///
-    /// [_opcodenum] - Bitcoin script OpCode. See [OpCodes].
-    ///
-    ScriptChunk(this._buf, this._len, this._opcodenum);
-
-    /// Returns this script chunk's numeric opcode
-    ///
-    int get opcodenum => _opcodenum;
-
-    /// Sets this script chunk's numeric opcode
-    ///
-    set opcodenum(int value) {
-        _opcodenum = value;
-    }
-
-    /// Returns the length of the buffer in case of PUSHDATAx instruction. Zero otherwise.
-    ///
-    int get len => _len;
-
-    /// Sets the length of data contained in PUSHDATAx instruction. Zero otherwise.
-    ///
-    set len(int value) {
-        _len = value;
-    }
-
-    /// Returns the byte array containing the data from a PUSHDATAx instruction.
-    ///
-    List<int> get buf => _buf;
-
-    /// Sets the byte array of representing PUSHDATAx instruction.
-    ///
-    set buf(List<int> value) {
-        _buf = value;
-    }
-
-
-}
 
 mixin ScriptSig{
 }
 
 mixin ScriptPubkey {
-}
-
-mixin ScriptBuilder {
-    String buildScript();
 }
 
 
@@ -73,7 +22,7 @@ mixin ScriptBuilder {
 ///
 /// See : https://en.bitcoin.it/wiki/Script
 ///
-class SVScript with ScriptBuilder {
+class SVScript {
 
     final String _script = '';
 
@@ -125,10 +74,7 @@ class SVScript with ScriptBuilder {
     }
 
     /// Default constructor. Processing in this constructor is used by subclasses to bootstrap their internals.
-    SVScript() {
-        _processChunks(buildScript());
-        _convertChunksToByteArray();
-    }
+    SVScript() { }
 
     /// This constructor is *only* used by the Script Interpreter test vectors at the moment.
     /// Bitcoind test vectors are rather special snowflakes so we made a special constructor just for them.
@@ -360,17 +306,27 @@ class SVScript with ScriptBuilder {
     /// [type] - options are either 'hex' or 'asm'
     ///
     String toString({type='hex'}) {
-        if (_chunks.isNotEmpty) {
-            return _chunks.fold('', (String prev, ScriptChunk chunk) => prev + _chunkToString(chunk, type: type)).trim();
+        if (!_chunks.isEmpty) {
+          List<String> asmStrings = _chunks.map((chunk) => chunk.toEncodedString(type == 'asm')).toList();
+          return asmStrings.fold("", (previousValue, element) => "${previousValue} ${element}").trim();
+        } else {
+          return "<empty>";
         }
-
-        return _script;
     }
 
     /// Renders this script in it's hexadecimal form as a String
     String toHex() {
         _convertChunksToByteArray();
         return HEX.encode(_byteArray);
+    }
+
+    String toBitcoindString(){
+        if (!_chunks.isEmpty) {
+          List<String> asmStrings = _chunks.map((chunk) => chunk.toEncodedString(false)).toList();
+          return asmStrings.fold("", (previousValue, element) => "${previousValue} ${element}").trim();
+        } else {
+          return "<empty>";
+        }
     }
 
     /// Returns *true* if this script only performs PUSHDATA operations
@@ -401,37 +357,6 @@ class SVScript with ScriptBuilder {
     /// Returns this script's internal representation as a list of [ScriptChunk]s
     List<ScriptChunk> get chunks => _chunks;
 
-    /// Checks to see if the PUSHDATA instruction is using the *smallest* pushdata opcode it can.
-    ///
-    /// [i] - Index of ScriptChunk. This should be a pushdata instruction.
-    ///
-    /// Returns true if the *smallest* pushdata opcode was used.
-    bool checkMinimalPush(int i) {
-        var chunk = _chunks[i];
-        var buf = chunk.buf;
-        var opcodenum = chunk.opcodenum;
-
-        if (buf.isEmpty) {
-            // Could have used OP_0.
-            return (opcodenum == OpCodes.OP_0);
-        } else if (buf.length == 1 && buf[0] >= 1 && buf[0] <= 16) {
-            // Could have used OP_1 .. OP_16.
-            return opcodenum == OpCodes.OP_1 + (buf[0] - 1);
-        } else if (buf.length == 1 && buf[0] == 0x81) {
-            // Could have used OP_1NEGATE
-            return opcodenum == OpCodes.OP_1NEGATE;
-        } else if (buf.length <= 75) {
-            // Could have used a direct push (opcode indicating number of bytes pushed + those bytes).
-            return opcodenum == buf.length;
-        } else if (buf.length <= 255) {
-            // Could have used OP_PUSHDATA.
-            return opcodenum == OpCodes.OP_PUSHDATA1;
-        } else if (buf.length <= 65535) {
-            // Could have used OP_PUSHDATA2.
-            return opcodenum == OpCodes.OP_PUSHDATA2;
-        }
-        return true;
-    }
 
 
     /// Removes [ScriptChunk]s from the script and optionally inserts  [ScriptChunk]s.
@@ -508,59 +433,59 @@ class SVScript with ScriptBuilder {
         return this;
     }
 
-    String _chunkToString(ScriptChunk chunk, {type = 'hex'}) {
-        var opcodenum = chunk.opcodenum;
-        var asm = (type == 'asm');
-        var str = '';
-        if (chunk.buf.isEmpty) {
-            if (chunk.opcodenum == null) return "";
-
-            // no data chunk
-            if (OpCodes.opcodeMap.containsValue(opcodenum)) {
-                if (asm) {
-                    // A few cases where the opcode name differs from reverseMap
-                    // aside from 1 to 16 data pushes.
-                    if (opcodenum == 0) {
-                        // OP_0 -> 0
-                        str = str + ' 0';
-                    } else if (opcodenum == 79) {
-                        // OP_1NEGATE -> 1
-                        str = str + ' -1';
-                    } else {
-                        str = str + ' ' + OpCodes.fromNum(opcodenum);
-                    }
-                } else {
-                    str = str + ' ' + OpCodes.fromNum(opcodenum);
-                }
-            } else {
-                var numstr = opcodenum.toRadixString(16);
-                if (numstr.length % 2 != 0) {
-                    numstr = '0' + numstr;
-                }
-                if (asm) {
-                    str = str + ' ' + numstr;
-                } else {
-                    str = str + ' ' + '0x' + numstr;
-                }
-            }
-        } else {
-            // data chunk
-            if (!asm && (opcodenum == OpCodes.OP_PUSHDATA1 ||
-                opcodenum == OpCodes.OP_PUSHDATA2 ||
-                opcodenum == OpCodes.OP_PUSHDATA4)) {
-                str = str + ' ' + OpCodes.fromNum(opcodenum);
-            }
-            if (chunk.len > 0) {
-                if (asm) {
-                    str = str + ' ' + HEX.encode(chunk.buf);
-                } else {
-                    str = str + ' ' + chunk.len.toString() + ' ' + '0x' + HEX.encode(chunk.buf);
-                }
-            }
-        }
-        return str;
-    }
-
+    // String _chunkToString(ScriptChunk chunk, {type = 'hex'}) {
+    //     var opcodenum = chunk.opcodenum;
+    //     var asm = (type == 'asm');
+    //     var str = '';
+    //     if (chunk.buf.isEmpty) {
+    //         if (chunk.opcodenum == null) return "";
+    //
+    //         // no data chunk
+    //         if (OpCodes.opcodeMap.containsValue(opcodenum)) {
+    //             if (asm) {
+    //                 // A few cases where the opcode name differs from reverseMap
+    //                 // aside from 1 to 16 data pushes.
+    //                 if (opcodenum == 0) {
+    //                     // OP_0 -> 0
+    //                     str = str + ' 0';
+    //                 } else if (opcodenum == 79) {
+    //                     // OP_1NEGATE -> 1
+    //                     str = str + ' -1';
+    //                 } else {
+    //                     str = str + ' ' + OpCodes.fromNum(opcodenum);
+    //                 }
+    //             } else {
+    //                 str = str + ' ' + OpCodes.fromNum(opcodenum);
+    //             }
+    //         } else {
+    //             var numstr = opcodenum.toRadixString(16);
+    //             if (numstr.length % 2 != 0) {
+    //                 numstr = '0' + numstr;
+    //             }
+    //             if (asm) {
+    //                 str = str + ' ' + numstr;
+    //             } else {
+    //                 str = str + ' ' + '0x' + numstr;
+    //             }
+    //         }
+    //     } else {
+    //         // data chunk
+    //         if (!asm && (opcodenum == OpCodes.OP_PUSHDATA1 ||
+    //             opcodenum == OpCodes.OP_PUSHDATA2 ||
+    //             opcodenum == OpCodes.OP_PUSHDATA4)) {
+    //             str = str + ' ' + OpCodes.fromNum(opcodenum);
+    //         }
+    //         if (chunk.len > 0) {
+    //             if (asm) {
+    //                 str = str + ' ' + HEX.encode(chunk.buf);
+    //             } else {
+    //                 str = str + ' ' + chunk.len.toString() + ' ' + '0x' + HEX.encode(chunk.buf);
+    //             }
+    //         }
+    //     }
+    //     return str;
+    // }
+    //
 
 
     void _addByType(obj, prepend) {
@@ -624,10 +549,24 @@ class SVScript with ScriptBuilder {
         }
     }
 
-    /// Currently used by subclasses. A more elegant way is needed to build specialised Script subclasses.
-    @override
-    String buildScript() {
-        return '';
+
+    static int decodeFromOpN(int opcode) {
+      PreConditions.assertTrueWithMessage(opcode == 0 || opcode == 79 || opcode >= 81 && opcode <= 96, "decodeFromOpN called on non OP_N opcode:${OpCodes.fromNum(opcode)}");
+      if (opcode == 0) {
+        return 0;
+      } else {
+        return opcode == 79 ? -1 : opcode + 1 - 81;
+      }
     }
+
+    static int encodeToOpN(int value) {
+      PreConditions.assertTrueWithMessage(value >= -1 && value <= 16, "encodeToOpN called for ${value} which we cannot encode in an opcode.");
+      if (value == 0) {
+        return 0;
+      } else {
+        return value == -1 ? 79 : value - 1 + 81;
+      }
+    }
+
 }
 

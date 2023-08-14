@@ -1,6 +1,6 @@
 name: dartsv
 description: Dart Library for interacting with the Bitcoin network. This library is especially well-suited for use in developing Flutter applications.
-version: 1.1.1
+version: 2.0.0
 homepage: https://github.com/twostack/dartsv
 
 environment:
@@ -11,11 +11,11 @@ dependencies:
   resource_portable: ^3.1.0
   pointycastle: ^3.7.0
   sprintf: ^7.0.0
-  collection: ^1.17.1
   unorm_dart: ^0.2.0
   buffer: ^1.1.1
+  collection: ^1.17.1
 
 dev_dependencies:
   lints : ^2.1.1
-  test:
+  test: ^1.18.2
   mockito: ^5.0.16
