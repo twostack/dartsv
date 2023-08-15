@@ -383,7 +383,8 @@ Uint8List encodeMPI(BigInt value, bool includeLength) {
     Uint8List result;
     if (length != array.length) {
       result = Uint8List(length);
-      System.arraycopy(array, 0, result, 1, array.length);
+      result.setRange(0, array.length, array, 1);
+      // System.arraycopy(array, 0, result, 1, array.length);
 
     } else
       result = array;
@@ -470,4 +471,14 @@ bool checkMinimallyEncoded(List<int> bytes, int maxNumSize) {
   }
 
   return true;
+}
+
+/** Parse 2 bytes from the byte array (starting at the offset) as unsigned 16-bit integer in little endian format. */
+int readUint16(Uint8List bytes, int offset) {
+  return (bytes[offset] & 0xff) | ((bytes[offset + 1] & 0xff) << 8);
+}
+
+/** Parse 4 bytes from the byte array (starting at the offset) as unsigned 32-bit integer in little endian format. */
+int readUint32(Uint8List bytes, int offset) {
+  return (bytes[offset] & 0xff) | ((bytes[offset + 1] & 0xff) << 8) | ((bytes[offset + 2] & 0xff) << 16) | ((bytes[offset + 3] & 0xff) << 24);
 }

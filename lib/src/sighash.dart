@@ -153,8 +153,8 @@ class Sighash {
 
         txnCopy.serialize();
 
-        if ((sighashType & 31) == SighashType.SIGHASH_NONE ||
-            (sighashType & 31) == SighashType.SIGHASH_SINGLE) {
+        if ((sighashType & 31) == SighashType.SIGHASH_NONE.value ||
+            (sighashType & 31) == SighashType.SIGHASH_SINGLE.value) {
             // clear all sequenceNumbers
             var ndx = 0;
             txnCopy.inputs.forEach((elem) {
@@ -165,10 +165,10 @@ class Sighash {
             });
         }
 
-        if ((sighashType & 31) == SighashType.SIGHASH_NONE) {
+        if ((sighashType & 31) == SighashType.SIGHASH_NONE.value) {
             txnCopy.outputs.removeWhere((elem) => true); //remove the outputs
 
-        } else if ((sighashType & 31) == SighashType.SIGHASH_SINGLE) {
+        } else if ((sighashType & 31) == SighashType.SIGHASH_SINGLE.value) {
             // The SIGHASH_SINGLE bug.
             // https://bitcointalk.org/index.php?topic=260595.0
             if (inputNumber >= txnCopy.outputs.length) {
@@ -291,14 +291,14 @@ class Sighash {
         }
 
         if (!(sighashType & SighashType.SIGHASH_ANYONECANPAY.value > 0) &&
-            (sighashType & 31) != SighashType.SIGHASH_SINGLE &&
-            (sighashType & 31) != SighashType.SIGHASH_NONE) {
+            (sighashType & 31) != SighashType.SIGHASH_SINGLE.value &&
+            (sighashType & 31) != SighashType.SIGHASH_NONE.value) {
             hashSequence = GetSequenceHash(txn);
         }
 
-        if ((sighashType & 31) != SighashType.SIGHASH_SINGLE && (sighashType & 31) != SighashType.SIGHASH_NONE) {
+        if ((sighashType & 31) != SighashType.SIGHASH_SINGLE.value && (sighashType & 31) != SighashType.SIGHASH_NONE.value) {
             hashOutputs = GetOutputsHash(txn);
-        } else if ((sighashType & 31) == SighashType.SIGHASH_SINGLE && inputNumber < txn.outputs.length) {
+        } else if ((sighashType & 31) == SighashType.SIGHASH_SINGLE.value && inputNumber < txn.outputs.length) {
             hashOutputs = GetOutputsHash(txn, n: inputNumber);
         }
 

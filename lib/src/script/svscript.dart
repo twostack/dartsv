@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:collection/collection.dart';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/transaction/preconditions.dart';
 import 'package:hex/hex.dart';
@@ -616,8 +617,9 @@ class SVScript {
     var writer = ByteDataWriter(bufferLength : inputScript.length);
 
     int cursor = 0;
+    var reader = ByteDataReader();
     while (cursor < inputScript.length) {
-      bool skip = equalsRange(inputScript, cursor, chunkToRemove);
+      bool skip = ListEquality().equals(inputScript.sublist(cursor), chunkToRemove);
 
       int opcode = inputScript[cursor++] & 0xFF;
       int additionalBytes = 0;
@@ -626,9 +628,9 @@ class SVScript {
       } else if (opcode == OpCodes.OP_PUSHDATA1) {
         additionalBytes = (0xFF & inputScript[cursor]) + 1;
       } else if (opcode == OpCodes.OP_PUSHDATA2) {
-        additionalBytes = Utils.readUint16(inputScript, cursor) + 2;
+        additionalBytes = readUint16(Uint8List.fromList(inputScript), cursor) + 2;
       } else if (opcode == OpCodes.OP_PUSHDATA4) {
-        additionalBytes = Utils.readUint32(inputScript, cursor) + 4;
+        additionalBytes = readUint32(Uint8List.fromList(inputScript), cursor) + 4;
       }
       if (!skip) {
         writer.writeUint8(opcode);

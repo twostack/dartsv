@@ -379,13 +379,13 @@ class Interpreter {
             }
 
             if (!(flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID != 0) &&
-                (sig.nhashtype & SighashType.SIGHASH_FORKID != 0)) {
+                (sig.nhashtype & SighashType.SIGHASH_FORKID.value != 0)) {
                 errStr = 'SCRIPT_ERR_ILLEGAL_FORKID';
                 return false;
             }
 
             if ((flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID != 0) &&
-                !(sig.nhashtype & SighashType.SIGHASH_FORKID != 0)) {
+                !(sig.nhashtype & SighashType.SIGHASH_FORKID.value != 0)) {
                 errStr = 'SCRIPT_ERR_MUST_USE_FORKID';
                 return false;
             }

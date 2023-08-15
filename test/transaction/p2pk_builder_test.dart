@@ -33,7 +33,7 @@ void main() {
       var utxo = txWithUTXO.outputs[0]; //looking at the decoded JSON we can see that our UTXO in at vout[0]
       var pubkey = SVPublicKey.fromHex('022df8750480ad5b26950b25c7ba79d3e37d75f640f8e5d9bcd5b150a0f85014da');
       var lockBuilder = P2PKLockBuilder(pubkey);
-      var signer = TransactionSigner(  SighashType.SIGHASH_ALL | SighashType.SIGHASH_FORKID, privateKey );
+      var signer = TransactionSigner(  SighashType.SIGHASH_ALL.value | SighashType.SIGHASH_FORKID.value, privateKey );
 
       var locker = P2PKLockBuilder(pubkey);
       var unlocker = P2PKUnlockBuilder(pubkey);
