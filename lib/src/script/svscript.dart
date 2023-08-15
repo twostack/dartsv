@@ -10,10 +10,24 @@ import 'package:buffer/buffer.dart';
 import 'script_chunk.dart';
 
 
-mixin ScriptSig{
-}
-
-mixin ScriptPubkey {
+enum VerifyFlag {
+  P2SH, // Enable BIP16-style subscript evaluation.
+  STRICTENC, // Passing a non-strict-DER signature or one with undefined hashtype to a checksig operation causes script failure.
+  DERSIG, // Passing a non-strict-DER signature to a checksig operation causes script failure (softfork safe, BIP66 rule 1)
+  LOW_S, // Passing a non-strict-DER signature or one with S > order/2 to a checksig operation causes script failure
+  NULLDUMMY, // Verify dummy stack item consumed by CHECKMULTISIG is of zero-length.
+  SIGPUSHONLY, // Using a non-push operator in the scriptSig causes script failure (softfork safe, BIP62 rule 2).
+  MINIMALDATA, // Require minimal encodings for all push operations and number encodings
+  DISCOURAGE_UPGRADABLE_NOPS, // Discourage use of NOPs reserved for upgrades (NOP1-10)
+  CLEANSTACK, // Require that only a single stack element remains after evaluation.
+  CHECKLOCKTIMEVERIFY, // Enable CHECKLOCKTIMEVERIFY operation
+  CHECKSEQUENCEVERIFY,
+  SIGHASH_FORKID,
+  MONOLITH_OPCODES, // May 15, 2018 Hard fork
+  UTXO_AFTER_GENESIS,
+  MINIMALIF,
+  NULLFAIL,
+  COMPRESSED_PUBKEYTYPE
 }
 
 
@@ -109,7 +123,7 @@ class SVScript {
                 bw.writeUint8(opcodenum);
             } else if (BigInt.tryParse(token) != null) {
                 var script = SVScript()
-                    ..add(Uint8List.fromList(toScriptNumBuffer(BigInt.parse(token))));
+                    ..add(Uint8List.fromList(castToBuffer(BigInt.parse(token))));
                 tbuf = script.buffer;
                 bw.write(tbuf);
             } else {
@@ -567,6 +581,34 @@ class SVScript {
         return value == -1 ? 79 : value - 1 + 81;
       }
     }
+
+  static int getSigOpCount(List<ScriptChunk> chunks, bool accurate) {
+    int sigOps = 0;
+    int lastOpCode = OpCodes.OP_INVALIDOPCODE;
+    for (ScriptChunk chunk in chunks) {
+      if (chunk.isOpCode()) {
+        switch (chunk.opcodenum) {
+          case OpCodes.OP_CHECKSIG:
+          case OpCodes.OP_CHECKSIGVERIFY:
+            sigOps++;
+            break;
+          case OpCodes.OP_CHECKMULTISIG:
+          case OpCodes.OP_CHECKMULTISIGVERIFY:
+            if (accurate && lastOpCode >= OpCodes.OP_1 && lastOpCode <= OpCodes.OP_16)
+              sigOps += decodeFromOpN(lastOpCode);
+            else
+              sigOps += 20;
+            break;
+          default:
+            break;
+        }
+        lastOpCode = chunk.opcodenum;
+      }
+    }
+    return sigOps;
+  }
+
+
 
 }
 

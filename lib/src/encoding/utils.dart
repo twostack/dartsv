@@ -219,12 +219,12 @@ Uint8List encodeBigInt(BigInt number) {
 }
 
 
-toScriptNumBuffer(BigInt value) {
+List<int> castToBuffer(BigInt value) {
     return toSM(value, endian: Endian.little);
 }
 
 
-BigInt fromScriptNumBuffer(Uint8List buf, bool fRequireMinimal, {int nMaxNumSize = 4}) {
+BigInt castToBigInt(Uint8List buf, bool fRequireMinimal, {int nMaxNumSize = 4}) {
     if (!(buf.length <= nMaxNumSize)) {
         throw new ScriptException('script number overflow');
     }
@@ -251,7 +251,7 @@ BigInt fromScriptNumBuffer(Uint8List buf, bool fRequireMinimal, {int nMaxNumSize
 }
 
 
-toSM(BigInt value, {Endian endian = Endian.big}) {
+List<int> toSM(BigInt value, {Endian endian = Endian.big}) {
     var buf = toSMBigEndian(value);
 
     if (endian == Endian.little) {
@@ -338,3 +338,70 @@ List<int> toBuffer(BigInt value, {int size = 0, Endian endian = Endian.big}) {
 }
 
 
+/**
+ * MPI encoded numbers are produced by the OpenSSL BN_bn2mpi function. They consist of
+ * a 4 byte big endian length field, followed by the stated number of bytes representing
+ * the number in big endian format (with a sign bit).
+ * @param hasLength can be set to false if the given array is missing the 4 byte length field
+ */
+BigInt decodeMPI(Uint8List mpi, bool hasLength) {
+    ByteDataReader reader = ByteDataReader()
+        ..add(mpi);
+    Uint8List buf;
+    if (hasLength) {
+        int length = reader.readUint32(Endian.big);
+        buf = Uint8List(length);
+// arraycopy(mpi, 4, buf, 0, length);
+        buf.setRange(0, length, mpi.getRange(4, length));
+    } else
+        buf = mpi;
+    if (buf.length == 0)
+        return BigInt.zero;
+    bool isNegative = (buf[0] & 0x80) == 0x80;
+    if (isNegative)
+        buf[0] &= 0x7f;
+    BigInt result = castToBigInt(buf, false);
+    return isNegative ? -result : result;
+}
+
+/**
+ * MPI encoded numbers are produced by the OpenSSL BN_bn2mpi function. They consist of
+ * a 4 byte big endian length field, followed by the stated number of bytes representing
+ * the number in big endian format (with a sign bit).
+ * @param includeLength indicates whether the 4 byte length field should be included
+ */
+Uint8List encodeMPI(BigInt value, bool includeLength) {
+    if (value == BigInt.zero) {
+        if (!includeLength)
+            return Uint8List.fromList([]);
+        else
+            return Uint8List.fromList([0x00, 0x00, 0x00, 0x00]);
+    }
+    bool isNegative = value.isNegative;
+    if (isNegative)
+        value = -value;
+    Uint8List array = Uint8List.fromList(castToBuffer(value));
+    int length = array.length;
+    if ((array[0] & 0x80) == 0x80)
+        length++;
+    if (includeLength) {
+        Uint8List result = Uint8List(length + 4);
+// System.arraycopy(array, 0, result, length - array.length + 3, array.length);
+        result.setRange(0, array.length, array.getRange(length - array.length + 3, array.length));
+// buf.setRange(0, length, mpi.getRange(4, length));
+        uint32ToByteArrayBE(length, result, 0);
+        if (isNegative)
+            result[4] |= 0x80;
+        return result;
+    } else {
+        Uint8List result;
+        if (length != array.length) {
+            result = Uint8List(length);
+            System.arraycopy(array, 0, result, 1, array.length);
+        } else
+            result = array;
+        if (isNegative)
+            result[0] |= 0x80;
+        return result;
+    }
+}

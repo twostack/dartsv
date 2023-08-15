@@ -55,6 +55,12 @@ class SighashType {
     /// `SIGHASH_SINGLE | SIGHASH_ANYONECANPAY` - Signature applies to *only* the [TransactionInput that
     /// the signature is part *AND ONLY* the one corresponding [TransactionOutput] (same index).
     static const SIGHASH_ANYONECANPAY = 0x00000080;
+
+    static const ANYONECANPAY_NONE = 0x00000082;
+
+    static const ANYONECANPAY_SINGLE = 0x00000083;
+
+    static const UNSET = 0x00; // Caution: Using this type in isolation is non-standard. Treated similar to ALL.
 }
 
 

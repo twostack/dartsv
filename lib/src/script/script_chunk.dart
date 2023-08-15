@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:dartsv/dartsv.dart';
+import 'package:dartsv/src/transaction/preconditions.dart';
 import 'package:hex/hex.dart';
 
 /// Utility class to represent a parsed 'token' in the encoded script.
@@ -89,10 +90,9 @@ class ScriptChunk {
 
   /// Checks to see if the PUSHDATA instruction is using the *smallest* pushdata opcode it can.
   ///
-  /// [i] - Index of ScriptChunk. This should be a pushdata instruction.
-  ///
   /// Returns true if the *smallest* pushdata opcode was used.
-  bool checkMinimalPush(int i) {
+  bool checkMinimalPush() {
+    PreConditions.assertTrue(isPushData());
 
     if (_buf.isEmpty) {
       // Could have used OP_0.

@@ -27,11 +27,39 @@ class Interpreter {
     static List<int> TRUE = <int>[1];
     static List<int> FALSE = <int>[];
 
-    static final MAX_SCRIPT_ELEMENT_SIZE = 520;
-    static const MAXIMUM_ELEMENT_SIZE = 4;
+    static final int ONE_KILOBYTE = 1000;
+
+    static final MAX_SCRIPT_ELEMENT_SIZE = 2147483647;
+    static const DEFAULT_MAXIMUM_ELEMENT_SIZE = 4;
+
+    // Maximum number of non-push operations per script after GENESIS
+    // Maximum number of non-push operations per script before GENESIS
+    static final int MAX_OPS_PER_SCRIPT_BEFORE_GENESIS = 500;
+
+    // Maximum number of non-push operations per script after GENESIS
+    static final int UINT32_MAX = 4294967295;
+    static final int MAX_OPS_PER_SCRIPT_AFTER_GENESIS = UINT32_MAX;
 
     static final LOCKTIME_THRESHOLD = 500000000;
     static final LOCKTIME_THRESHOLD_BN = BigInt.from(LOCKTIME_THRESHOLD);
+
+    static final int MAX_STACK_SIZE = 1000;
+    static final int DEFAULT_MAX_NUM_ELEMENT_SIZE = 4;
+    static final int MAX_PUBKEYS_PER_MULTISIG = 20;
+    static final int MAX_SCRIPT_SIZE = 10000;
+    static final int SIG_SIZE = 75;
+    /** Max number of sigops allowed in a standard p2sh redeem script */
+    static final int MAX_P2SH_SIGOPS = 15;
+
+    //Maximum script number length after Genesis
+    static final int MAX_SCRIPT_NUM_LENGTH_AFTER_GENESIS = 750 * ONE_KILOBYTE;
+
+    static final int MAX_SCRIPT_NUM_LENGTH_BEFORE_GENESIS = 4;
+    static final int DEFAULT_SCRIPT_NUM_LENGTH_POLICY_AFTER_GENESIS = 250 * 1024;
+
+    static final int MAX_SCRIPT_ELEMENT_SIZE_BEFORE_GENESIS = 520;
+
+    ////////////////////// Script verification and helpers ////////////////////////////////
 
 
     InterpreterStack _stack =  InterpreterStack();
@@ -101,7 +129,7 @@ class Interpreter {
 
 
     /// Check the buffer is minimally encoded (see https://github.com/bitcoincashorg/spec/blob/master/may-2018-reenabled-opcodes.md#op_bin2num)
-    bool _isMinimallyEncoded(buf, {nMaxNumSize = MAXIMUM_ELEMENT_SIZE}) {
+    bool _isMinimallyEncoded(buf, nMaxNumSize) {
         if (buf.length > nMaxNumSize) {
             return false;
         }
@@ -373,6 +401,8 @@ class Interpreter {
     /// bitcoind commit: b5d1b1092998bc95313856d535c632ea5a8f9104
     ///
     bool evaluate() {
+
+
         // TODO: script size should be configurable. no magic numbers
         if (_script
             !.buffer.length > 10000) { //FIXME: Does BSV still limit script size to 10k ???
@@ -464,32 +494,8 @@ class Interpreter {
             switch (opcode) {
                 case OpCodes.OP_2MUL:
                 case OpCodes.OP_2DIV:
-                // Disabled opcodes.
-                    return true;
+                   return true;
 
-                case OpCodes.OP_INVERT:
-                case OpCodes.OP_MUL:
-                case OpCodes.OP_LSHIFT:
-                case OpCodes.OP_RSHIFT:
-                // OpCodess that have been reenabled.
-                    if ((_flags & ScriptFlags.SCRIPT_ENABLE_MAGNETIC_OPCODES) == 0) {
-                        return true;
-                    }
-                    break;
-                case OpCodes.OP_DIV:
-                case OpCodes.OP_MOD:
-                case OpCodes.OP_SPLIT:
-                case OpCodes.OP_CAT:
-                case OpCodes.OP_AND:
-                case OpCodes.OP_OR:
-                case OpCodes.OP_XOR:
-                case OpCodes.OP_BIN2NUM:
-                case OpCodes.OP_NUM2BIN:
-                // OpCodes that have been reenabled.
-                    if ((_flags & ScriptFlags.SCRIPT_ENABLE_MONOLITH_OPCODES) == 0) {
-                        return true;
-                    }
-                    break;
                 default:
                     break;
             }
@@ -497,7 +503,10 @@ class Interpreter {
             return false;
         }
 
-        var fRequireMinimal = (flags & ScriptFlags.SCRIPT_VERIFY_MINIMALDATA) != 0; //FIXME: This is somehow used in JS BigNumber class
+
+        final bool fRequireMinimal = (flags & ScriptFlags.SCRIPT_VERIFY_MINIMALDATA) != 0;
+        final bool utxoAfterGenesis = ((flags & ScriptFlags.SCRIPT_UTXO_AFTER_GENESIS) != 0);
+        final int maxScriptNumLength = getMaxScriptNumLength(utxoAfterGenesis);
 
         var fExec = !vfExec.contains(false);
         var spliced, n, x1, x2, subscript;
@@ -566,7 +575,7 @@ class Interpreter {
                 // ( -- value)
                 // ScriptNum bn((int)opcode - (int)(OpCodes.OP_1 - 1));
                     n = opcodenum - (OpCodes.OP_1 - 1);
-                    buf = toScriptNumBuffer(BigInt.from(n));
+                    buf = castToBuffer(BigInt.from(n));
                     _stack.push(buf);
                     // The result of these opcodes should always be the minimal way to push the data
                     // they push, so no need for a CheckMinimalPush here.
@@ -608,7 +617,7 @@ class Interpreter {
                     // Thus as a special case we tell CScriptNum to accept up
                     // to 5-byte bignums, which are good until 2**39-1, well
                     // beyond the 2**32-1 limit of the nLockTime field itself.
-                    var nLockTime = fromScriptNumBuffer(Uint8List.fromList(_stack.peek()), fRequireMinimal, nMaxNumSize: 5);
+                    var nLockTime = castToBigInt(Uint8List.fromList(_stack.peek()), fRequireMinimal, nMaxNumSize: 5);
 
                     // In the rare event that the argument may be < 0 due to
                     // some arithmetic being done first, you can always use
@@ -645,7 +654,7 @@ class Interpreter {
                     // integer field. See the comment in CHECKLOCKTIMEVERIFY
                     // regarding 5-byte numeric operands.
 
-                    var nSequence = fromScriptNumBuffer(Uint8List.fromList(_stack.peek()), fRequireMinimal, nMaxNumSize: 5);
+                    var nSequence = castToBigInt(Uint8List.fromList(_stack.peek()), fRequireMinimal, nMaxNumSize: 5);
 
                     // In the rare event that the argument may be < 0 due to
                     // some arithmetic being done first, you can always use
@@ -856,7 +865,7 @@ class Interpreter {
 
                 case OpCodes.OP_DEPTH:
                 // -- stacksize
-                    buf = toScriptNumBuffer(BigInt.from(_stack.length));
+                    buf = castToBuffer(BigInt.from(_stack.length));
 //                    buf = HEX.decode(BigInt.from(_stack.length).toRadixString(16));
                     if (_stack.length == 0) {
                         buf = []; //don't push array with zero value, push empty string instead
@@ -910,7 +919,7 @@ class Interpreter {
                         return false;
                     }
                     buf = _stack.peek();
-                    bn = fromScriptNumBuffer(Uint8List.fromList(buf), fRequireMinimal);
+                    bn = castToBigInt(Uint8List.fromList(buf), fRequireMinimal);
                     n = bn.toInt();
                     _stack.pop();
                     if (n < 0 || n >= _stack.length) {
@@ -970,8 +979,7 @@ class Interpreter {
                     bn = BigInt.from(stack
                         .peek()
                         .length);
-                    stack.push(toScriptNumBuffer(bn));
-//                    _stack.push(HEX.decode(bn.toRadixString(16)));
+                    stack.push(castToBuffer(bn));
                     break;
 
             //
@@ -1048,7 +1056,7 @@ class Interpreter {
 //                        bn2 = BigInt.tryParse(HEX.encode(stack.peek()), radix: 16) ?? BigInt.zero;
 
                         bn1 = decodeBigInt(buf1);
-                        bn2 = fromScriptNumBuffer(Uint8List.fromList(stack.peek()), fRequireMinimal);
+                        bn2 = castToBigInt(Uint8List.fromList(stack.peek()), fRequireMinimal);
 
                         n = bn2.toInt();
                         if (n < 0) {
@@ -1122,7 +1130,7 @@ class Interpreter {
                         return false;
                     }
                     buf = stack.peek();
-                    bn = fromScriptNumBuffer(Uint8List.fromList(buf), fRequireMinimal);
+                    bn = castToBigInt(Uint8List.fromList(buf), fRequireMinimal);
 //                    bn = BigInt.parse(HEX.encode(buf), radix: 16);
                     switch (opcodenum) {
                         case OpCodes.OP_1ADD:
@@ -1160,7 +1168,7 @@ class Interpreter {
                     }
 
                     _stack.pop();
-                    _stack.push(toScriptNumBuffer(bn));
+                    _stack.push(castToBuffer(bn));
 //                    _stack.push(HEX.decode(bn.toRadixString(16)));
                     break;
 
@@ -1185,8 +1193,8 @@ class Interpreter {
                         _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
                         return false;
                     }
-                    bn1 = fromScriptNumBuffer(Uint8List.fromList(stack.peek(index: -2)), fRequireMinimal);
-                    bn2 = fromScriptNumBuffer(Uint8List.fromList(stack.peek()), fRequireMinimal);
+                    bn1 = castToBigInt(Uint8List.fromList(stack.peek(index: -2)), fRequireMinimal);
+                    bn2 = castToBigInt(Uint8List.fromList(stack.peek()), fRequireMinimal);
 
                     if (bn1 == null) {
                         bn1 = BigInt.zero;
@@ -1285,7 +1293,7 @@ class Interpreter {
                     }
                     _stack.pop();
                     _stack.pop();
-                    _stack.push(toScriptNumBuffer(bn));
+                    _stack.push(castToBuffer(bn));
 
                     if (opcodenum == OpCodes.OP_NUMEQUALVERIFY) {
                         // if (CastToBool(stacktop(-1)))
@@ -1305,9 +1313,9 @@ class Interpreter {
                         return false;
                     }
 
-                    bn1 = fromScriptNumBuffer(Uint8List.fromList(stack.peek(index: -3)), fRequireMinimal);
-                    bn2 = fromScriptNumBuffer(Uint8List.fromList(stack.peek(index: -2)), fRequireMinimal);
-                    var bn3 = fromScriptNumBuffer(Uint8List.fromList(stack.peek()), fRequireMinimal);
+                    bn1 = castToBigInt(Uint8List.fromList(stack.peek(index: -3)), fRequireMinimal);
+                    bn2 = castToBigInt(Uint8List.fromList(stack.peek(index: -2)), fRequireMinimal);
+                    var bn3 = castToBigInt(Uint8List.fromList(stack.peek()), fRequireMinimal);
                     fValue = (bn2.compareTo(bn1) <= 0) && (bn1.compareTo(bn3) < 0);
                     stack.pop();
                     stack.pop();
@@ -1414,7 +1422,7 @@ class Interpreter {
                         return false;
                     }
 
-                    var nKeysCount = fromScriptNumBuffer(Uint8List.fromList(stack.peek(index: -i)), fRequireMinimal).toInt();
+                    var nKeysCount = castToBigInt(Uint8List.fromList(stack.peek(index: -i)), fRequireMinimal).toInt();
 //                    var nKeysCount = BigInt.parse(HEX.encode(stack.peek(index: -i)), radix: 16).toInt();
                     // TODO: Keys and opcount are parameterized in client. No magic numbers!
                     if (nKeysCount < 0 || nKeysCount > 20) {
@@ -1441,7 +1449,7 @@ class Interpreter {
                         return false;
                     }
 
-                    var nSigsCount = fromScriptNumBuffer(Uint8List.fromList(stack.peek(index: -i)), fRequireMinimal).toInt();
+                    var nSigsCount = castToBigInt(Uint8List.fromList(stack.peek(index: -i)), fRequireMinimal).toInt();
 //                    var nSigsCount = BigInt.parse(HEX.encode(stack.peek(index: -i)), radix: 16).toInt();
                     if (nSigsCount < 0 || nSigsCount > nKeysCount) {
                         _errStr = 'SCRIPT_ERR_SIG_COUNT';
@@ -1573,7 +1581,7 @@ class Interpreter {
                     buf1 = stack.peek(index: -2);
 
                     // Make sure the split point is apropriate.
-                    var position = fromScriptNumBuffer(Uint8List.fromList(stack.peek()), fRequireMinimal).toInt();
+                    var position = castToBigInt(Uint8List.fromList(stack.peek()), fRequireMinimal).toInt();
 //                    var position = BigInt.parse(HEX.encode(stack.peek()), radix: 16).toInt();
                     if (position < 0 || position > buf1.length) {
                         _errStr = 'SCRIPT_ERR_INVALID_SPLIT_RANGE';
@@ -1603,7 +1611,7 @@ class Interpreter {
                     //FIXME: This is probably wrong!
                     // https://www.bitcoincash.org/spec/may-2018-reenabled-opcodes.html
 
-                    var size = fromScriptNumBuffer(Uint8List.fromList(stack.peek()), fRequireMinimal).toInt();
+                    var size = castToBigInt(Uint8List.fromList(stack.peek()), fRequireMinimal).toInt();
 //                    var size = BigInt.parse(HEX.encode(stack.peek()), radix: 16).toInt();
                     if (size > Interpreter.MAX_SCRIPT_ELEMENT_SIZE) {
                         _errStr = 'SCRIPT_ERR_PUSH_SIZE';
@@ -1665,7 +1673,7 @@ class Interpreter {
                     _stack.replaceAt(_stack.length - 1, buf2);
 
                     // The resulting number must be a valid number.
-                    if (!_isMinimallyEncoded(buf2)) {
+                    if (!_isMinimallyEncoded(buf2,  maxScriptNumLength)) {
                         _errStr = 'SCRIPT_ERR_INVALID_NUMBER_RANGE';
                         return false;
                     }
@@ -1793,4 +1801,26 @@ class Interpreter {
     }
 
 
+    static int getMaxScriptNumLength(bool isGenesisEnabled) {
+        if (!isGenesisEnabled) {
+            return MAX_SCRIPT_NUM_LENGTH_BEFORE_GENESIS;
+        }
+
+        return MAX_SCRIPT_NUM_LENGTH_AFTER_GENESIS; // use new limit after genesis
+    }
+
+    static int getMaxOpsPerScript(bool isGenesisEnabled) {
+        if (!isGenesisEnabled) {
+            return MAX_OPS_PER_SCRIPT_BEFORE_GENESIS; // no changes before genesis
+        }
+
+        return MAX_OPS_PER_SCRIPT_AFTER_GENESIS; // use new limit after genesis
+    }
+
+    static bool isValidMaxOpsPerScript(int nOpCount, bool isGenesisEnabled) {
+        return (nOpCount <= getMaxOpsPerScript(isGenesisEnabled));
+    }
 }
+
+
+

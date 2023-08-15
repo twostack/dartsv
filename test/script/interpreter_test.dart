@@ -72,8 +72,8 @@ void main() {
             flags = flags | ScriptFlags.SCRIPT_ENABLE_MONOLITH_OPCODES;
         }
 
-        if (flagstr.indexOf('MAGNETIC') != -1) {
-            flags = flags | ScriptFlags.SCRIPT_ENABLE_MAGNETIC_OPCODES;
+        if (flagstr.indexOf('UTXO_AFTER_GENESIS') != -1) {
+            flags = flags | ScriptFlags.SCRIPT_UTXO_AFTER_GENESIS;
         }
 
         if (flagstr.indexOf('MINIMALIF') != -1) {
@@ -208,7 +208,7 @@ void main() {
     };
 
     var evaluateScript = (List<int> arraySig, List<int> arrayPubKey, int op) {
-        var flags = ScriptFlags.SCRIPT_VERIFY_P2SH | ScriptFlags.SCRIPT_ENABLE_MAGNETIC_OPCODES | ScriptFlags.SCRIPT_ENABLE_MONOLITH_OPCODES;
+        var flags = ScriptFlags.SCRIPT_VERIFY_P2SH | ScriptFlags.SCRIPT_UTXO_AFTER_GENESIS | ScriptFlags.SCRIPT_ENABLE_MONOLITH_OPCODES;
         Interpreter interp = Interpreter.fromScript(SVScript().add(arraySig).add(arrayPubKey), flags);
         interp.script?.add(op);
         interp.evaluate();
@@ -479,7 +479,7 @@ void main() {
 
 
     test('bitcoind script evaluation fixtures', () async {
-        await File("${Directory.current.path}/test/data/bitcoind/script_tests.json")
+        await File("${Directory.current.path}/test/data/bitcoind/script_tests_svnode.json")
             .readAsString()
             .then((contents) => jsonDecode(contents))
             .then((jsonData) {
