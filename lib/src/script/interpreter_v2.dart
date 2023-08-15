@@ -109,7 +109,7 @@ class InterpreterV2 {
    * sizes.
    * @throws ScriptException if the chunk is longer than 4 bytes.
    */
-  BigInt castToBigInt32(Uint8List chunk, final bool requireMinimal) {
+  BigInt castToBigInt32(List<int> chunk, final bool requireMinimal) {
     return castToBigInt(chunk, 4, requireMinimal);
   }
 
@@ -123,7 +123,7 @@ class InterpreterV2 {
    * @throws ScriptException if the chunk is inter than the specified maximum.
    */
   /* package  */
-  static BigInt castToBigInt(final Uint8List chunk, final int maxLength, final bool requireMinimal) {
+  static BigInt castToBigInt(final List<int> chunk, final int maxLength, final bool requireMinimal) {
     if (chunk.length > maxLength) {
       throw ScriptException(ScriptError.SCRIPT_ERR_NUMBER_OVERFLOW.mnemonic + "Script attempted to use an integer larger than ${maxLength} bytes");
     }
@@ -147,7 +147,7 @@ class InterpreterV2 {
       }
     }
 
-    return decodeMPI(Uint8List.fromList(chunk.reversed.toList()), false);
+    return decodeMPI(chunk.reversed.toList(), false);
   }
 
 
@@ -448,7 +448,7 @@ class InterpreterV2 {
           case OpCodes.OP_ROLL:
             if (stack.size() < 1)
               throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_PICK/OpCodes.OP_ROLL on an empty stack");
-            int val = castToBigInt(Uint8List.fromList(stack.pollLast()), maxScriptNumLength, verifyFlags.contains(VerifyFlag.MINIMALDATA)).toInt();
+            int val = castToBigInt(stack.pollLast(), maxScriptNumLength, verifyFlags.contains(VerifyFlag.MINIMALDATA)).toInt();
             if (val < 0 || val >= stack.size())
               throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"OpCodes.OP_PICK/OpCodes.OP_ROLL attempted to get data deeper than stack size");
 
@@ -505,7 +505,7 @@ class InterpreterV2 {
             if (stack.size() < 2)
               throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Invalid stack operation.");
 
-            int numSize = castToBigInt(Uint8List.fromList(stack.pollLast()), maxScriptNumLength, enforceMinimal).toInt();
+            int numSize = castToBigInt(stack.pollLast(), maxScriptNumLength, enforceMinimal).toInt();
 
             if (!verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && numSize > MAX_SCRIPT_ELEMENT_SIZE_BEFORE_GENESIS)
               throw new ScriptException(ScriptError.SCRIPT_ERR_PUSH_SIZE.mnemonic +"Push value size limit exceeded.");
@@ -544,7 +544,7 @@ class InterpreterV2 {
             if (stack.size() < 2)
               throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Invalid stack operation.");
 
-            BigInt biSplitPos = castToBigInt(Uint8List.fromList(stack.pollLast()), maxScriptNumLength, enforceMinimal);
+            BigInt biSplitPos = castToBigInt(stack.pollLast(), maxScriptNumLength, enforceMinimal);
 
             //sanity check in case we aren't enforcing minimal number encoding
             //we will check that the biSplitPos value can be safely held in an int
@@ -602,7 +602,7 @@ class InterpreterV2 {
             if (valueToShiftBuf.length == 0) {
               stack.pop();
             } else {
-              final BigInt shiftCount = castToBigInt(Uint8List.fromList(shiftCountBuf), 5, verifyFlags.contains(VerifyFlag.MINIMALDATA));
+              final BigInt shiftCount = castToBigInt(shiftCountBuf, 5, verifyFlags.contains(VerifyFlag.MINIMALDATA));
 
               int n = shiftCount.toInt();
               if (n < 0)
@@ -715,7 +715,7 @@ class InterpreterV2 {
           case OpCodes.OP_0NOTEQUAL:
             if (stack.size() < 1)
               throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic + "Attempted a numeric op on an empty stack");
-            BigInt numericOPnum = castToBigInt(Uint8List.fromList(stack.pollLast()), maxScriptNumLength, verifyFlags.contains(VerifyFlag.MINIMALDATA));
+            BigInt numericOPnum = castToBigInt(stack.pollLast(), maxScriptNumLength, verifyFlags.contains(VerifyFlag.MINIMALDATA));
 
             switch (opcode) {
               case OpCodes.OP_1ADD:
@@ -766,8 +766,8 @@ class InterpreterV2 {
           case OpCodes.OP_MAX:
             if (stack.size() < 2)
               throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted a numeric op on a stack with size < 2");
-            BigInt numericOPnum2 = castToBigInt(Uint8List.fromList(stack.pollLast()), maxScriptNumLength, verifyFlags.contains(VerifyFlag.MINIMALDATA));
-            BigInt numericOPnum1 = castToBigInt(Uint8List.fromList(stack.pollLast()), maxScriptNumLength, verifyFlags.contains(VerifyFlag.MINIMALDATA));
+            BigInt numericOPnum2 = castToBigInt(stack.pollLast(), maxScriptNumLength, verifyFlags.contains(VerifyFlag.MINIMALDATA));
+            BigInt numericOPnum1 = castToBigInt(stack.pollLast(), maxScriptNumLength, verifyFlags.contains(VerifyFlag.MINIMALDATA));
 
             BigInt numericOPresult;
             switch (opcode) {
@@ -876,8 +876,8 @@ class InterpreterV2 {
           case OpCodes.OP_NUMEQUALVERIFY:
             if (stack.size() < 2)
               throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_NUMEQUALVERIFY on a stack with size < 2");
-            BigInt OPNUMEQUALVERIFYnum2 = castToBigInt(Uint8List.fromList(stack.pollLast()), maxScriptNumLength, verifyFlags.contains(VerifyFlag.MINIMALDATA));
-            BigInt OPNUMEQUALVERIFYnum1 = castToBigInt(Uint8List.fromList(stack.pollLast()), maxScriptNumLength, verifyFlags.contains(VerifyFlag.MINIMALDATA));
+            BigInt OPNUMEQUALVERIFYnum2 = castToBigInt(stack.pollLast(), maxScriptNumLength, verifyFlags.contains(VerifyFlag.MINIMALDATA));
+            BigInt OPNUMEQUALVERIFYnum1 = castToBigInt(stack.pollLast(), maxScriptNumLength, verifyFlags.contains(VerifyFlag.MINIMALDATA));
 
             if (!(OPNUMEQUALVERIFYnum1 == OPNUMEQUALVERIFYnum2))
               throw new ScriptException(ScriptError.SCRIPT_ERR_NUMEQUALVERIFY.mnemonic +"OpCodes.OP_NUMEQUALVERIFY failed");
@@ -885,9 +885,9 @@ class InterpreterV2 {
           case OpCodes.OP_WITHIN:
             if (stack.size() < 3)
               throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic + "Attempted OpCodes.OP_WITHIN on a stack with size < 3");
-            BigInt OPWITHINnum3 = castToBigInt(Uint8List.fromList(stack.pollLast()), maxScriptNumLength, verifyFlags.contains(VerifyFlag.MINIMALDATA));
-            BigInt OPWITHINnum2 = castToBigInt(Uint8List.fromList(stack.pollLast()), maxScriptNumLength, verifyFlags.contains(VerifyFlag.MINIMALDATA));
-            BigInt OPWITHINnum1 = castToBigInt(Uint8List.fromList(stack.pollLast()), maxScriptNumLength, verifyFlags.contains(VerifyFlag.MINIMALDATA));
+            BigInt OPWITHINnum3 = castToBigInt(stack.pollLast(), maxScriptNumLength, verifyFlags.contains(VerifyFlag.MINIMALDATA));
+            BigInt OPWITHINnum2 = castToBigInt(stack.pollLast(), maxScriptNumLength, verifyFlags.contains(VerifyFlag.MINIMALDATA));
+            BigInt OPWITHINnum1 = castToBigInt(stack.pollLast(), maxScriptNumLength, verifyFlags.contains(VerifyFlag.MINIMALDATA));
             if (OPWITHINnum2.compareTo(OPWITHINnum1) <= 0 && OPWITHINnum1.compareTo(OPWITHINnum3) < 0)
               stack.add(encodeMPI(BigInt.one, false).reversed.toList());
             else
@@ -1020,7 +1020,7 @@ class InterpreterV2 {
 
     // Thus as a special case we tell CScriptNum to accept up
     // to 5-byte bignums to avoid year 2038 issue.
-    final BigInt nLockTime = castToBigInt(Uint8List.fromList(stack.getLast()), 5, verifyFlags.contains(VerifyFlag.MINIMALDATA));
+    final BigInt nLockTime = castToBigInt(stack.getLast(), 5, verifyFlags.contains(VerifyFlag.MINIMALDATA));
 
     if (nLockTime.compareTo(BigInt.zero) < 0)
       throw new ScriptException(ScriptError.SCRIPT_ERR_NEGATIVE_LOCKTIME.mnemonic +"Negative locktime");
@@ -1459,7 +1459,7 @@ class InterpreterV2 {
     stack.size() < 1)
       throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_CHECKMULTISIG(VERIFY) on a stack with size < 2");
 
-    int pubKeyCount = castToBigInt(Uint8List.fromList(stack.pollLast()), getMaxScriptNumLength(utxoAfterGenesis), enforceMinimal).toInt();
+    int pubKeyCount = castToBigInt(stack.pollLast(), getMaxScriptNumLength(utxoAfterGenesis), enforceMinimal).toInt();
     if (pubKeyCount < 0 || (!verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && pubKeyCount > 20)
         || (verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && pubKeyCount > UINT32_MAX))
       throw new ScriptException(ScriptError.SCRIPT_ERR_PUBKEY_COUNT.mnemonic +"OpCodes.OP_CHECKMULTISIG(VERIFY) with pubkey count out of range");
@@ -1478,7 +1478,7 @@ class InterpreterV2 {
       pubkeys.add(pubKey);
     }
 
-    int sigCount = castToBigInt(Uint8List.fromList(stack.pollLast()), getMaxScriptNumLength(utxoAfterGenesis), enforceMinimal).toInt();
+    int sigCount = castToBigInt(stack.pollLast(), getMaxScriptNumLength(utxoAfterGenesis), enforceMinimal).toInt();
     if (sigCount < 0 || sigCount > pubKeyCount)
       throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_COUNT.mnemonic +"OpCodes.OP_CHECKMULTISIG(VERIFY) with sig count out of range");
     if (stack.size() < sigCount + 1)
@@ -1622,7 +1622,7 @@ class InterpreterV2 {
 // Thus as a special case we tell CScriptNum to accept up
 // to 5-byte bignums, which are good until 2**39-1, well
 // beyond the 2**32-1 limit of the nSequence field itself.
-    final int nSequence = castToBigInt(Uint8List.fromList(stack.getLast()), 5, verifyFlags.contains(VerifyFlag.MINIMALDATA)).toInt();
+    final int nSequence = castToBigInt(stack.getLast(), 5, verifyFlags.contains(VerifyFlag.MINIMALDATA)).toInt();
 
 // In the rare event that the argument may be < 0 due to
 // some arithmetic being done first, you can always use

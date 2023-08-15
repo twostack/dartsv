@@ -140,14 +140,14 @@ class InterpreterStack <T> {
      * Copy the element at index to top of stack
      */
   void copyToTop(int index) {
-    add(_list[index]);
+    add(_list[_list.length - index -1]);
   }
 
     /**
      * Move the element at index to top of the stack
      */
   void moveToTop(int index) {
-    var item = _list.removeAt(index);
+    var item = _list.removeAt(_list.length - index -1);
     _list.add(item);
   }
 

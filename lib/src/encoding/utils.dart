@@ -213,7 +213,7 @@ List<int> castToBuffer(BigInt value) {
   return toSM(value, endian: Endian.little);
 }
 
-BigInt castToBigInt(Uint8List buf, bool fRequireMinimal,
+BigInt castToBigInt(List<int> buf, bool fRequireMinimal,
     {int nMaxNumSize = 4}) {
   if (!(buf.length <= nMaxNumSize)) {
     throw new ScriptException('script number overflow');
@@ -271,7 +271,7 @@ List<int> toSMBigEndian(BigInt value) {
   return buf;
 }
 
-BigInt fromSM(Uint8List buf, {Endian endian = Endian.big}) {
+BigInt fromSM(List<int> buf, {Endian endian = Endian.big}) {
   BigInt ret;
   List<int> localBuffer = buf.toList();
   if (localBuffer.length == 0) {
@@ -331,12 +331,12 @@ List<int> toBuffer(BigInt value, {int size = 0, Endian endian = Endian.big}) {
  * the number in big endian format (with a sign bit).
  * @param hasLength can be set to false if the given array is missing the 4 byte length field
  */
-BigInt decodeMPI(Uint8List mpi, bool hasLength) {
+BigInt decodeMPI(List<int> mpi, bool hasLength) {
   ByteDataReader reader = ByteDataReader()..add(mpi);
-  Uint8List buf;
+  List<int> buf;
   if (hasLength) {
     int length = reader.readUint32(Endian.big);
-    buf = Uint8List(length);
+    buf = List<int>.generate(length, (i) => 0);
 // arraycopy(mpi, 4, buf, 0, length);
     buf.setRange(0, length, mpi.getRange(4, length));
   } else
@@ -354,20 +354,20 @@ BigInt decodeMPI(Uint8List mpi, bool hasLength) {
  * the number in big endian format (with a sign bit).
  * @param includeLength indicates whether the 4 byte length field should be included
  */
-Uint8List encodeMPI(BigInt value, bool includeLength) {
+List<int> encodeMPI(BigInt value, bool includeLength) {
   if (value == BigInt.zero) {
     if (!includeLength)
-      return Uint8List.fromList([]);
+      return [];
     else
-      return Uint8List.fromList([0x00, 0x00, 0x00, 0x00]);
+      return [0x00, 0x00, 0x00, 0x00];
   }
   bool isNegative = value.isNegative;
   if (isNegative) value = -value;
-  Uint8List array = Uint8List.fromList(castToBuffer(value));
+  List<int> array = castToBuffer(value);
   int length = array.length;
   if ((array[0] & 0x80) == 0x80) length++;
   if (includeLength) {
-    Uint8List result = Uint8List(length + 4);
+    List<int> result = List<int>.generate(length + 4, (i) => 0);
 // System.arraycopy(array, 0, result, length - array.length + 3, array.length);
     result.setRange(0, array.length,
         array.getRange(length - array.length + 3, array.length));
@@ -380,9 +380,9 @@ Uint8List encodeMPI(BigInt value, bool includeLength) {
     if (isNegative) result[4] |= 0x80;
     return result;
   } else {
-    Uint8List result;
+    List<int> result;
     if (length != array.length) {
-      result = Uint8List(length);
+      result = List<int>.generate(length, (i) => 0);
       result.setRange(0, array.length, array, 1);
       // System.arraycopy(array, 0, result, 1, array.length);
 
@@ -474,11 +474,11 @@ bool checkMinimallyEncoded(List<int> bytes, int maxNumSize) {
 }
 
 /** Parse 2 bytes from the byte array (starting at the offset) as unsigned 16-bit integer in little endian format. */
-int readUint16(Uint8List bytes, int offset) {
+int readUint16(List<int> bytes, int offset) {
   return (bytes[offset] & 0xff) | ((bytes[offset + 1] & 0xff) << 8);
 }
 
 /** Parse 4 bytes from the byte array (starting at the offset) as unsigned 32-bit integer in little endian format. */
-int readUint32(Uint8List bytes, int offset) {
+int readUint32(List<int> bytes, int offset) {
   return (bytes[offset] & 0xff) | ((bytes[offset + 1] & 0xff) << 8) | ((bytes[offset + 2] & 0xff) << 16) | ((bytes[offset + 3] & 0xff) << 24);
 }

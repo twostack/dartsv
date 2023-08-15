@@ -20,6 +20,28 @@ import 'package:hex/hex.dart';
 import 'package:test/test.dart';
 
 void main() {
+
+    Set<VerifyFlag> parseVerifyFlags(String str) {
+        Set<VerifyFlag> flags = Set.identity();
+        if (!("NONE" == str)) {
+            for (String flag in str.split(",")) {
+                try {
+                    var flagToAdd = VerifyFlag
+                        .values
+                        .where((element) => element.toString() == "VerifyFlag.${flag}")
+                        .firstOrNull;
+                    if (flagToAdd != null)
+                        flags.add( flagToAdd );
+                    // flags.add(VerifyFlag.valueOf(flag));
+                } on IllegalArgumentException catch (x) {
+                    print("Cannot handle verify flag {} -- ignored.");
+                }
+            }
+        }
+        return flags;
+    }
+
+
     getFlags(flagstr) {
         var flags = 0;
         if (flagstr.indexOf('NONE') != -1) {
@@ -433,7 +455,6 @@ void main() {
     var testFixture = (vector, bool expected, extraData) {
         var scriptSig = SVScript.fromBitcoindString(vector[0]);
         var scriptPubkey = SVScript.fromBitcoindString(vector[1]);
-        var flags = getFlags(vector[2]);
         var inputAmount = 0.0;
         if (extraData != null) {
             inputAmount = extraData[0] * 1e8;
@@ -475,9 +496,22 @@ void main() {
             SVScript());
         spendtx.addOutput(txSpendOutput);
 
-        var interp = new Interpreter();
-        var verified = interp.verifyScript(scriptSig, scriptPubkey, tx: spendtx, nin: 0, flags: flags, satoshis: BigInt.from(inputAmount));
-        expect(verified, equals(expected), reason: interp.errstr);
+        // var interp = new Interpreter();
+        // var verified = interp.verifyScript(scriptSig, scriptPubkey, tx: spendtx, nin: 0, flags: flags, satoshis: BigInt.from(inputAmount));
+
+        var flags = parseVerifyFlags(vector[2]);
+
+        var interp = InterpreterV2();
+        var verified = true;
+        try {
+            // interp.correctlySpends(scriptSig!, scriptPubkey, tx, index, flags, Coin.ZERO);
+            interp.correctlySpends(scriptSig, scriptPubkey,  spendtx,  0,  flags, Coin.valueOf(BigInt.from(inputAmount)));
+        } on Exception catch (e) {
+            print(e);
+            verified = false;
+        }
+
+        expect(verified, equals(expected));
     };
 
 
@@ -510,81 +544,56 @@ void main() {
         });
     });
 
-  Set<VerifyFlag> parseVerifyFlags(String str) {
-    Set<VerifyFlag> flags = Set.identity();
-    if (!("NONE" == str)) {
-      for (String flag in str.split(",")) {
-        try {
-            var flagToAdd = VerifyFlag
-                .values
-                .where((element) => element.toString() == flag)
-                .firstOrNull;
-            if (flagToAdd != null)
-                flags.add( flagToAdd );
-          // flags.add(VerifyFlag.valueOf(flag));
-        } on IllegalArgumentException catch (x) {
-          print("Cannot handle verify flag {} -- ignored.");
-        }
+
+  void testTransaction(List<dynamic> vector, bool expected) {
+    if (vector.length == 1) {
+      return;
+    };
+
+    print(vector[0]);
+
+    var inputs = vector[0];
+    var txhex = vector[1];
+
+    var flags = parseVerifyFlags(vector[2]);
+
+    var map = {};
+    inputs.forEach((input) {
+      var txid = input[0];
+      var txoutnum = input[1];
+      var scriptPubKeyStr = input[2];
+      if (txoutnum == -1) {
+        txoutnum = 0xffffffff; // bitcoind casts -1 to an unsigned int
       }
-    }
-    return flags;
+      map[txid + ':' + txoutnum.toString()] = SVScript.fromBitcoindString(scriptPubKeyStr);
+    });
+
+    var tx = Transaction.fromHex(txhex);
+    var allInputsVerified = true;
+    int index = 0;
+    tx.inputs.forEach((TransactionInput txin) {
+      var scriptSig = txin.script;
+      var txidhex = txin.prevTxnId;
+      var txoutnum = txin.prevTxnOutputIndex;
+      var scriptPubkey = map[txidhex + ':' + txoutnum.toString()];
+      expect(scriptPubkey, isNotNull);
+      expect(scriptSig, isNotNull);
+      var interp = InterpreterV2();
+      try {
+        interp.correctlySpends(scriptSig!, scriptPubkey, tx, index, flags, Coin.ZERO);
+      } on ScriptException catch (e) {
+        print(e.cause);
+        allInputsVerified = false;
+      }
+      index++;
+    });
+
+    var txVerified = tx.verify().isEmpty;
+    allInputsVerified = allInputsVerified && txVerified;
+    expect(allInputsVerified, equals(expected));
   }
 
-  void testTransaction(List<dynamic> vector, bool expected){
-        int c = 0;
-        if (vector.length == 1) {
-          return;
-        };
-
-        print(vector[0]);
-
-        c++;
-        var cc = c; // copy to local
-
-//        it('should pass tx_' + (expected ? '' : 'in') + 'valid vector ' + cc, function () {
-          var inputs = vector[0];
-          var txhex = vector[1];
-
-          // var flags = getFlags(vector[2]);
-
-         var flags = parseVerifyFlags(vector[2]);
-      var map = {};
-          inputs.forEach((input) {
-            var txid = input[0];
-            var txoutnum = input[1];
-            var scriptPubKeyStr = input[2];
-            if (txoutnum == -1) {
-              txoutnum = 0xffffffff; // bitcoind casts -1 to an unsigned int
-            }
-            map[txid + ':' + txoutnum.toString()] = SVScript.fromBitcoindString(scriptPubKeyStr);
-          });
-
-          var tx = Transaction.fromHex(txhex);
-          var allInputsVerified = true;
-          int index = 0;
-          tx.inputs.forEach((TransactionInput txin) {
-            var scriptSig = txin.script;
-            var txidhex = txin.prevTxnId;
-            var txoutnum = txin.prevTxnOutputIndex;
-            var scriptPubkey = map[txidhex + ':' + txoutnum.toString()];
-            expect(scriptPubkey, isNotNull);
-            expect(scriptSig, isNotNull);
-            var interp = InterpreterV2();
-            try {
-                interp.correctlySpends(scriptSig!, scriptPubkey, tx, index, flags, Coin.ZERO);
-            }on ScriptException catch(e){
-                print(e.cause);
-                allInputsVerified = false;
-            }
-            index++;
-          });
-
-          var txVerified = tx.verify().isEmpty;
-          allInputsVerified = allInputsVerified && txVerified;
-          expect(allInputsVerified, equals(expected));
-    }
-
-    test('bitcoind valid transaction evaluation fixtures', () async {
+  test('bitcoind valid transaction evaluation fixtures', () async {
         await File("${Directory.current.path}/test/data/bitcoind/tx_valid.json")
             .readAsString()
             .then((contents) => jsonDecode(contents))
@@ -708,7 +717,6 @@ void main() {
       expect(NegativeValtype([0xff, 0x00]),equals([0xff, 0x80]));
     });
   });
-
 
 
     /*
