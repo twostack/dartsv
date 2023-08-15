@@ -126,3 +126,27 @@ class MerkleTreeException implements Exception {
 
     MerkleTreeException(this.cause);
 }
+
+class SignatureDecodeException implements Exception {
+    String cause;
+
+    SignatureDecodeException(this.cause);
+}
+
+class SignatureEncodingException implements Exception {
+    String cause;
+
+    SignatureEncodingException(this.cause);
+}
+
+class PubKeyEncodingException implements Exception {
+    String cause;
+
+    PubKeyEncodingException(this.cause);
+}
+
+class IllegalStateException implements Exception {
+    String cause;
+
+    IllegalStateException(this.cause);
+}

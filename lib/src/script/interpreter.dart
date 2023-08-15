@@ -62,8 +62,8 @@ class Interpreter {
     ////////////////////// Script verification and helpers ////////////////////////////////
 
 
-    InterpreterStack _stack =  InterpreterStack();
-    InterpreterStack _altStack =  InterpreterStack();
+    InterpreterStack<List<int>> _stack =  InterpreterStack<List<int>>();
+    InterpreterStack<List<int>> _altStack =  InterpreterStack<List<int>>();
     int _pc = 0;
     int _pbegincodehash = 0;
     int _nOpCount = 0;
@@ -79,12 +79,12 @@ class Interpreter {
     /// The interpreter's internal stack
     ///
     /// Bitcoin Script is also known as a two-stack PDA (pushdown automata)
-    InterpreterStack get stack => _stack;
+    InterpreterStack<List<int>> get stack => _stack;
 
     /// The interpreter's alternate stack
     ///
     /// Bitcoin Script is also known as a two-stack PDA (pushdown automata)
-    InterpreterStack get altStack => _altStack;
+    InterpreterStack<List<int>> get altStack => _altStack;
 
     /// Global index/pointer into which Script Chunk is currently being evaluated.
     ///
@@ -448,8 +448,8 @@ class Interpreter {
     }
 
     void _initialize() {
-        _stack =  InterpreterStack.fromQueue(Queue<List<int>>());
-        _altStack =  InterpreterStack.fromQueue(Queue<List<int>>());
+        _stack =  InterpreterStack<List<int>>();
+        _altStack =  InterpreterStack<List<int>>();
         _pc = 0;
         _pbegincodehash = 0;
         _nOpCount = 0;
@@ -541,7 +541,7 @@ class Interpreter {
         }
 
         if (fExec && opcodenum >= 0 && opcodenum <= OpCodes.OP_PUSHDATA4) {
-            if (fRequireMinimal && !chunk.checkMinimalPush(_pc - 1)) {
+            if (fRequireMinimal && !chunk.checkMinimalPush()) {
                 _errStr = 'SCRIPT_ERR_MINIMALDATA';
                 return false;
             }

@@ -608,7 +608,45 @@ class SVScript {
     return sigOps;
   }
 
+    /**
+     * Returns the script bytes of inputScript with all instances of the specified script object removed
+     */
+  static List<int> removeAllInstancesOf( List<int> inputScript, List<int> chunkToRemove) {
+    // We usually don't end up removing anything
+    var writer = ByteDataWriter(bufferLength : inputScript.length);
 
+    int cursor = 0;
+    while (cursor < inputScript.length) {
+      bool skip = equalsRange(inputScript, cursor, chunkToRemove);
 
+      int opcode = inputScript[cursor++] & 0xFF;
+      int additionalBytes = 0;
+      if (opcode >= 0 && opcode < OpCodes.OP_PUSHDATA1) {
+        additionalBytes = opcode;
+      } else if (opcode == OpCodes.OP_PUSHDATA1) {
+        additionalBytes = (0xFF & inputScript[cursor]) + 1;
+      } else if (opcode == OpCodes.OP_PUSHDATA2) {
+        additionalBytes = Utils.readUint16(inputScript, cursor) + 2;
+      } else if (opcode == OpCodes.OP_PUSHDATA4) {
+        additionalBytes = Utils.readUint32(inputScript, cursor) + 4;
+      }
+      if (!skip) {
+        try {
+          writer.writeUint8(opcode);
+          writer.write(Arrays.copyOfRange( inputScript, cursor, cursor + additionalBytes));
+        } on IOException catch (e) {
+          throw new RuntimeException(e);
+        }
+      }
+      cursor += additionalBytes;
+    }
+    return writer.toBytes();
+  }
+
+  /**
+     * Returns the script bytes of inputScript with all instances of the given op code removed
+     */
+  static List<int> removeAllInstancesOfOp(List<int> inputScript, int opCode) {
+    return removeAllInstancesOf(inputScript, [opCode]);
+  }
 }
-

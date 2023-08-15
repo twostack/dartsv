@@ -25,23 +25,23 @@ import 'script/opcodes.dart';
 ///
 /// [SighashType.SIGHASH_FORKID]
 ///
-class SighashType {
+enum SighashType {
     /// The signature in the [TransactionInput] applies to all the [TransactionInput]s *and all* the [TransactionOutput]s
-    static const SIGHASH_ALL = 0x00000001;
+    SIGHASH_ALL(0x00000001),
 
     /// The signature in the [TransactionInput] applies *only* to *all* the [TransactionInput]s
-    static const SIGHASH_NONE = 0x00000002;
+    SIGHASH_NONE(0x00000002),
 
     /// The signature in the [TransactionInput] applies to *all* the
     /// [TransactionInput]s and *only* the corresponding [TransactionOutput] with the *same index* as
     /// the [TransactionInput] containing the signature.
-    static const SIGHASH_SINGLE = 0x00000003;
+    SIGHASH_SINGLE(0x00000003),
 
     /// A flag to provide replay-protection after the Bitcoin-Cash hard-fork.
     /// A bitwise-OR e.g. `SIGHASH_FORKID | SIGHASH_ALL`
     /// is required to spend outputs on the BCH and BSV networks
     /// subsequent to the Bitcoin-Cash fork in 2017.
-    static const SIGHASH_FORKID = 0x00000040;
+    SIGHASH_FORKID(0x00000040),
 
 
     /// This flag is used in combination with any of the *ALL*, *NONE* or *SINGLE* flags.
@@ -54,13 +54,25 @@ class SighashType {
     ///
     /// `SIGHASH_SINGLE | SIGHASH_ANYONECANPAY` - Signature applies to *only* the [TransactionInput that
     /// the signature is part *AND ONLY* the one corresponding [TransactionOutput] (same index).
-    static const SIGHASH_ANYONECANPAY = 0x00000080;
+    SIGHASH_ANYONECANPAY(0x00000080),
 
-    static const ANYONECANPAY_NONE = 0x00000082;
+    ANYONECANPAY_NONE(0x00000082),
 
-    static const ANYONECANPAY_SINGLE = 0x00000083;
+    ANYONECANPAY_SINGLE(0x00000083),
 
-    static const UNSET = 0x00; // Caution: Using this type in isolation is non-standard. Treated similar to ALL.
+    UNSET(0x00);
+
+    final int value;
+
+    const SighashType(this.value);
+
+  static bool hasValue(int sigHashType) {
+    for (SighashType t in values) {
+      if (t.value == sigHashType) return true;
+    }
+
+    return false;
+  } // Caution: Using this type in isolation is non-standard. Treated similar to ALL.
 }
 
 

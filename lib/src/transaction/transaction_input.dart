@@ -24,6 +24,21 @@ class TransactionInput {
 
     UnlockingScriptBuilder? _unlockingScriptBuilder;
 
+    /**
+     * BIP68: If this flag set, sequence is NOT interpreted as a relative lock-time.
+     */
+    static final int SEQUENCE_LOCKTIME_DISABLE_FLAG = 1 << 31;
+    /**
+     * BIP68: If sequence encodes a relative lock-time and this flag is set, the relative lock-time has units of 512
+     * seconds, otherwise it specifies blocks with a granularity of 1.
+     */
+    static final int SEQUENCE_LOCKTIME_TYPE_FLAG = 1 << 22;
+    /**
+     * BIP68: If sequence encodes a relative lock-time, this mask is applied to extract that lock-time from the sequence
+     * field.
+     */
+    static final int SEQUENCE_LOCKTIME_MASK = 0x0000ffff;
+
     /// Maximum size an unsigned int can be. Used as value of [sequenceNumber] when we
     /// want to indicate that the transaction's [Transaction.nLockTime] should be ignored.
     static int MAX_SEQ_NUMBER = 0xFFFFFFFF;

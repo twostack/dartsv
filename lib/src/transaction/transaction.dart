@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:math';
 
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
@@ -92,6 +93,20 @@ class Transaction {
   /// max amount of satoshis in circulation
   static final MAX_MONEY = BigInt.from(21000000 * 1e8);
 
+  static final int MAX_COINS = 21000000;
+  /// max amount of bitcoins in circulation
+
+  static final int SMALLEST_UNIT_EXPONENT = 8;
+  static final BigInt COIN_VALUE = BigInt.from(pow(10, SMALLEST_UNIT_EXPONENT));
+
+  /** Threshold for lockTime: below this value it is interpreted as block number, otherwise as timestamp. **/
+  static final int LOCKTIME_THRESHOLD = 500000000; // Tue Nov  5 00:53:20 1985 UTC
+
+  /** TODO: Same but as a BigInteger for CHECKLOCKTIMEVERIFY */
+  static final BigInt LOCKTIME_THRESHOLD_BIG = BigInt.from(LOCKTIME_THRESHOLD);
+
+  /** How many bytes a transaction can be before it won't be relayed anymore. Currently 100kb. */
+  static final int MAX_STANDARD_TX_SIZE = 100000;
 
 
   /// Max value for an unsigned 32 bit value
