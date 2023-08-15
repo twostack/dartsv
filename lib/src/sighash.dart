@@ -130,7 +130,7 @@ class Sighash {
             sighashType = (newForkValue << 8) | (sighashType & 0xff);
         }
 
-        if ((sighashType & SighashType.SIGHASH_FORKID != 0) && (flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID != 0)) {
+        if ((sighashType & SighashType.SIGHASH_FORKID.value != 0) && (flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID != 0)) {
             return HEX.encode(this._sigHashForForkid(txnCopy, sighashType, inputNumber, subscriptCopy, satoshis));
         }
 
@@ -193,7 +193,7 @@ class Sighash {
         }
 
 
-        if (this._sighashType & SighashType.SIGHASH_ANYONECANPAY > 0) {
+        if (this._sighashType & SighashType.SIGHASH_ANYONECANPAY.value > 0) {
             var keepTxn = this._txn!.inputs[inputNumber];
             txnCopy.inputs.removeWhere((elem) => true); //delete all inputs
             txnCopy.inputs.add(keepTxn);
@@ -286,11 +286,11 @@ class Sighash {
         var hashSequence = List<int>.filled(32, 0);
         var hashOutputs = List<int>.filled(32, 0);
 
-        if (!(sighashType & SighashType.SIGHASH_ANYONECANPAY > 0)) {
+        if (!(sighashType & SighashType.SIGHASH_ANYONECANPAY.value > 0)) {
             hashPrevouts = GetPrevoutHash(txn);
         }
 
-        if (!(sighashType & SighashType.SIGHASH_ANYONECANPAY > 0) &&
+        if (!(sighashType & SighashType.SIGHASH_ANYONECANPAY.value > 0) &&
             (sighashType & 31) != SighashType.SIGHASH_SINGLE &&
             (sighashType & 31) != SighashType.SIGHASH_NONE) {
             hashSequence = GetSequenceHash(txn);

@@ -631,17 +631,17 @@ class SVScript {
         additionalBytes = Utils.readUint32(inputScript, cursor) + 4;
       }
       if (!skip) {
-        try {
-          writer.writeUint8(opcode);
-          writer.write(Arrays.copyOfRange( inputScript, cursor, cursor + additionalBytes));
-        } on IOException catch (e) {
-          throw new RuntimeException(e);
-        }
+        writer.writeUint8(opcode);
+        // Arrays.copyOfRange( inputScript, cursor, cursor + additionalBytes);
+        List<int> rangeCopy = List<int>.empty(growable: true);
+        rangeCopy.setRange(0, cursor + additionalBytes, inputScript, cursor);
+        writer.write(rangeCopy.toList());
       }
       cursor += additionalBytes;
     }
     return writer.toBytes();
   }
+
 
   /**
      * Returns the script bytes of inputScript with all instances of the given op code removed

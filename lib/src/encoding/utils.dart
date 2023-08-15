@@ -372,7 +372,11 @@ Uint8List encodeMPI(BigInt value, bool includeLength) {
     result.setRange(0, array.length,
         array.getRange(length - array.length + 3, array.length));
 // buf.setRange(0, length, mpi.getRange(4, length));
-    uint32ToByteArrayBE(length, result, 0);
+//     uint32ToByteArrayBE(length, result, 0);
+    var writer = ByteDataWriter();
+    writer.writeUint32(length, Endian.big);
+    result = writer.toBytes();
+
     if (isNegative) result[4] |= 0x80;
     return result;
   } else {
@@ -380,6 +384,7 @@ Uint8List encodeMPI(BigInt value, bool includeLength) {
     if (length != array.length) {
       result = Uint8List(length);
       System.arraycopy(array, 0, result, 1, array.length);
+
     } else
       result = array;
     if (isNegative) result[0] |= 0x80;

@@ -19,15 +19,22 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:buffer/buffer.dart';
+import 'package:collection/collection.dart';
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/exceptions.dart';
 import 'package:dartsv/src/script/opcodes.dart';
 import 'package:dartsv/src/script/script_chunk.dart';
 import 'package:dartsv/src/script/script_error.dart';
+import 'package:dartsv/src/script/script_pattern.dart';
 import 'package:dartsv/src/script/svscript.dart';
 import 'package:decimal/decimal.dart';
 import 'package:hex/hex.dart';
+import 'package:pointycastle/digests/sha256.dart';
+import 'package:pointycastle/ecc/api.dart';
+import 'package:pointycastle/macs/hmac.dart';
+import 'package:pointycastle/pointycastle.dart';
+import 'package:pointycastle/signers/ecdsa_signer.dart';
 
 import '../transaction/script_builder.dart';
 import '../transaction/transaction.dart';
@@ -79,6 +86,10 @@ class Interpreter {
   static final int DEFAULT_SCRIPT_NUM_LENGTH_POLICY_AFTER_GENESIS = 250 * 1024;
 
   static final int MAX_SCRIPT_ELEMENT_SIZE_BEFORE_GENESIS = 520;
+
+  static final SHA256Digest _sha256Digest = SHA256Digest();
+  static final ECDSASigner _dsaSigner = ECDSASigner(null, HMac(_sha256Digest, 64));
+  static final ECDomainParameters _domainParams = ECDomainParameters('secp256k1');
 
   ////////////////////// Script verification and helpers ////////////////////////////////
 
@@ -242,7 +253,7 @@ class Interpreter {
                 throw ScriptException(ScriptError.SCRIPT_ERR_UNBALANCED_CONDITIONAL.mnemonic + "Attempted OpCodes.OP_IF on an empty stack");
               }
 
-              Uint8List stacktop = stack.last;
+              List<int> stacktop = stack.getLast();
               if (verifyFlags.contains(VerifyFlag.MINIMALIF)) {
                 if (stacktop.length > 1) {
                   throw ScriptException(ScriptError.SCRIPT_ERR_MINIMALIF.mnemonic + "Argument for OpCodes.OP_IF/NOT_IF must be 0x01 or empty");
@@ -253,7 +264,7 @@ class Interpreter {
                 }
               }
 
-              fValue = castToBool(stacktop);
+              fValue = castToBool(Uint8List.fromList(stacktop));
               if (opcode == OpCodes.OP_NOTIF) {
                 fValue = !fValue;
               }
@@ -278,7 +289,7 @@ class Interpreter {
 
         // OpCodes.OP_0 is no opcode
           case OpCodes.OP_1NEGATE:
-            stack.add(encodeMPI(BigInt.one.negate(), false).reversed);
+            stack.add(encodeMPI(-BigInt.one, false).reversed.toList());
             break;
           case OpCodes.OP_1:
           case OpCodes.OP_2:
@@ -340,8 +351,10 @@ class Interpreter {
             if (stack.size() < 2)
               throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic + "Attempted OpCodes.OP_2DUP on a stack with size < 2");
             Iterator<List<int>> it2DUP = stack.descendingIterator();
-            Uint8List OP2DUPtmpChunk2 = it2DUP.next();
-            stack.add(it2DUP.next());
+            it2DUP.moveNext();
+            List<int> OP2DUPtmpChunk2 = it2DUP.current;
+            it2DUP.moveNext();
+            stack.add(it2DUP.current);
             stack.add(OP2DUPtmpChunk2);
             break;
           case OpCodes.OP_3DUP:
@@ -438,14 +451,13 @@ class Interpreter {
             int val = castToBigInt(Uint8List.fromList(stack.pollLast()), maxScriptNumLength, verifyFlags.contains(VerifyFlag.MINIMALDATA)).intValue();
             if (val < 0 || val >= stack.size())
               throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"OpCodes.OP_PICK/OpCodes.OP_ROLL attempted to get data deeper than stack size");
-            Iterator<List<int>> itPICK = stack.descendingIterator();
-            for (int i = 0; i < val; i++)
-              itPICK.moveNext();
-            itPICK.moveNext();
-            List<int> OPROLLtmpChunk = itPICK.current;
-            if (opcode == OpCodes.OP_ROLL)
-              itPICK.remove();
-            stack.add(OPROLLtmpChunk);
+
+            if (opcode == OpCodes.OP_PICK){
+              stack.copyToTop(val);
+            }else if (opcode == OpCodes.OP_ROLL){
+              stack.moveToTop(val);
+            }
+
             break;
           case OpCodes.OP_ROT:
             if (stack.size() < 3)
@@ -480,9 +492,11 @@ class Interpreter {
             if (!verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && len > MAX_SCRIPT_ELEMENT_SIZE_BEFORE_GENESIS)
               throw new ScriptException(ScriptError.SCRIPT_ERR_PUSH_SIZE.mnemonic +"Push value size limit exceeded.");
 
-            Uint8List catOut = Uint8List(len);
-            System.arraycopy(catBytes1, 0, catOut, 0, catBytes1.length);
-            System.arraycopy(catBytes2, 0, catOut, catBytes1.length, catBytes2.length);
+            List<int> catOut = List<int>.empty(growable: true);
+            catOut.setRange(0, catBytes1.length, catBytes1);
+            // System.arraycopy(catBytes1, 0, catOut, 0, catBytes1.length);
+            catOut.setRange(catBytes1.length, catBytes2.length, catBytes2);
+            // System.arraycopy(catBytes2, 0, catOut, catBytes1.length, catBytes2.length);
             stack.add(catOut.toList());
 
             break;
@@ -518,9 +532,10 @@ class Interpreter {
                 minimalNumBytes[minimalNumBytes.length - 1] &= 0x7f;
               }
               int minimalBytesToCopy = minimalNumBytes.length > numSize ? numSize : minimalNumBytes.length;
-              Uint8List expandedNumBytes = new byte[numSize]; //initialized to all zeroes
-              System.arraycopy(minimalNumBytes, 0, expandedNumBytes, 0, minimalBytesToCopy);
-              expandedNumBytes[expandedNumBytes.length - 1] = (byte) signBit;
+              List<int> expandedNumBytes = List<int>.empty()..fillRange(0, numSize, 0); //initialized to all zeroes
+              expandedNumBytes.setRange(0, minimalBytesToCopy, minimalNumBytes);
+              // System.arraycopy(minimalNumBytes, 0, expandedNumBytes, 0, minimalBytesToCopy);
+              expandedNumBytes[expandedNumBytes.length - 1] =  signBit;
               stack.add(expandedNumBytes);
             }
             break;
@@ -548,8 +563,10 @@ class Interpreter {
             Uint8List splitOut1 = Uint8List(splitPos);
             Uint8List splitOut2 = Uint8List(splitBytes.length - splitPos);
 
-            System.arraycopy(splitBytes, 0, splitOut1, 0, splitPos);
-            System.arraycopy(splitBytes, splitPos, splitOut2, 0, splitOut2.length);
+            splitOut1.setRange(0, splitPos, splitBytes);
+            // System.arraycopy(splitBytes, 0, splitOut1, 0, splitPos);
+            splitOut2.setRange(0, splitOut2.length, splitBytes, splitPos);
+            // System.arraycopy(splitBytes, splitPos, splitOut2, 0, splitOut2.length);
 
             stack.add(splitOut1);
             stack.add(splitOut2);
@@ -594,25 +611,29 @@ class Interpreter {
               stack.pop();
               stack.pop();
 
+              late BigInt shifted;
               //using the Bytes lib. In-place byte-ops.
-              Bytes shifted = Bytes.wrap(valueToShiftBuf, ByteOrder.BIG_ENDIAN);
+              // Bytes shifted = Bytes.wrap(valueToShiftBuf, ByteOrder.BIG_ENDIAN);
+
+              var valueToShift = decodeBigInt(valueToShiftBuf);
 
               if (opcode == OpCodes.OP_LSHIFT) {
                 //Dart BigInt automagically right-pads the shifted bits
-                shifted = shifted.leftShift(n);
+                shifted = valueToShift << n; // bn1.ushln(n);
               }
               if (opcode == OpCodes.OP_RSHIFT) {
-                shifted = shifted.rightShift(n);
+                shifted = valueToShift >> n;
               }
 
               if (n > 0) {
                 //shift occured
-                stack.push(shifted.array());
+                stack.push(castToBuffer(shifted));
               } else {
                 //no shift, just push original value back onto stack
                 stack.push(valueToShiftBuf);
               }
             }
+
             break;
           case OpCodes.OP_INVERT:
             {
@@ -678,12 +699,12 @@ class Interpreter {
           case OpCodes.OP_EQUAL:
             if (stack.size() < 2)
               throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_EQUAL on a stack with size < 2");
-            stack.add(Arrays.equals(stack.pollLast(), stack.pollLast()) ? [1] : []);
+            stack.add(ListEquality().equals(stack.pollLast(), stack.pollLast()) ? [1] : []);
             break;
           case OpCodes.OP_EQUALVERIFY:
             if (stack.size() < 2)
               throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_EQUALVERIFY on a stack with size < 2");
-            if (!Arrays.equals(stack.pollLast(), stack.pollLast()))
+            if (!ListEquality().equals(stack.pollLast(), stack.pollLast()))
               throw new ScriptException(ScriptError.SCRIPT_ERR_EQUALVERIFY.mnemonic +"OpCodes.OP_EQUALVERIFY: non-equal data");
             break;
           case OpCodes.OP_1ADD:
@@ -847,7 +868,7 @@ class Interpreter {
                   numericOPresult = numericOPnum2;
                 break;
               default:
-                throw new RuntimeException("Opcode switched at runtime?");
+                throw new Exception("Opcode switched at runtime?");
             }
 
             stack.add(encodeMPI(numericOPresult, false).reversed.toList());
@@ -941,7 +962,7 @@ class Interpreter {
             if (!verifyFlags.contains(VerifyFlag.CHECKLOCKTIMEVERIFY) || verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS)) {
               // not enabled; treat as a NOP2
               if (verifyFlags.contains(VerifyFlag.DISCOURAGE_UPGRADABLE_NOPS)) {
-                throw new ScriptException(ScriptError.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS.mnemonic +"Script used a reserved opcode " + opcode);
+                throw new ScriptException(ScriptError.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS.mnemonic +"Script used a reserved opcode ${opcode}");
               }
               break;
             }
@@ -952,7 +973,7 @@ class Interpreter {
             if (!verifyFlags.contains(VerifyFlag.CHECKSEQUENCEVERIFY) || verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS)) {
               // not enabled; treat as a NOP3
               if (verifyFlags.contains(VerifyFlag.DISCOURAGE_UPGRADABLE_NOPS)) {
-                throw new ScriptException(ScriptError.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS.mnemonic +"Script used a reserved opcode " + opcode);
+                throw new ScriptException(ScriptError.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS.mnemonic +"Script used a reserved opcode ${opcode}");
               }
               break;
             }
@@ -999,13 +1020,13 @@ class Interpreter {
 
     // Thus as a special case we tell CScriptNum to accept up
     // to 5-byte bignums to avoid year 2038 issue.
-    final BigInt nLockTime = castToBigInt(stack.getLast(), 5, verifyFlags.contains(VerifyFlag.MINIMALDATA));
+    final BigInt nLockTime = castToBigInt(Uint8List.fromList(stack.getLast()), 5, verifyFlags.contains(VerifyFlag.MINIMALDATA));
 
     if (nLockTime.compareTo(BigInt.zero) < 0)
       throw new ScriptException(ScriptError.SCRIPT_ERR_NEGATIVE_LOCKTIME.mnemonic +"Negative locktime");
 
     // There are two kinds of nLockTime: lock-by-blockheight and
-    / lock-by-blocktime, distinguished by whether nLockTime <
+    // lock-by-blocktime, distinguished by whether nLockTime <
     // LOCKTIME_THRESHOLD.
     //
     // We want to compare apples to apples, so fail the script unless the type
@@ -1038,9 +1059,9 @@ class Interpreter {
   }
 
 
-  void correctlySpends(SVScript scriptSig, SVScript scriptPubKey, Transaction txn, int scriptSigIndex, Set<VerifyFlag> verifyFlags) {
-    correctlySpends(scriptSig, scriptPubKey, txn, scriptSigIndex, verifyFlags, Coin.ZERO);
-  }
+  // void correctlySpends(SVScript scriptSig, SVScript scriptPubKey, Transaction txn, int scriptSigIndex, Set<VerifyFlag> verifyFlags) {
+  //   correctlySpends(scriptSig, scriptPubKey, txn, scriptSigIndex, verifyFlags, Coin.ZERO);
+  // }
 
   /**
    * Verifies that this script (interpreted as a scriptSig) correctly spends the given scriptPubKey.
@@ -1059,18 +1080,11 @@ class Interpreter {
 // Clone the transaction because executing the script involves editing it, and if we die, we'll leave
 // the tx half broken (also it's not so thread safe to work on it directly.
 
-    if (verifyFlags.contains(VerifyFlag.SIGPUSHONLY) && !SVScript.isPushOnly(scriptSig)) {
+    if (verifyFlags.contains(VerifyFlag.SIGPUSHONLY) && !scriptSig.isPushOnly()) {
       throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_PUSHONLY.mnemonic +"No pushdata operations allowed in scriptSig");
     }
 
-    Transaction transaction;
-    try {
-      transaction = Transaction.fromHex(txn.serialize());
-    } on ProtocolException catch (e) {
-      throw new RuntimeException(e); // Should not happen unless we were given a totally broken transaction.
-    } on IOException catch (e) {
-      throw new RuntimeException(e); // Should not happen unless we were given a totally broken transaction.
-    }
+    Transaction transaction = Transaction.fromHex(txn.serialize());
 
     if (verifyFlags.contains(VerifyFlag.P2SH) && verifyFlags.contains(VerifyFlag.STRICTENC)) {
       if (scriptSig
@@ -1081,12 +1095,12 @@ class Interpreter {
         throw new ScriptException(ScriptError.SCRIPT_ERR_SCRIPT_SIZE.mnemonic +"Script larger than 10,000 bytes");
     }
 
-    InterpreterStack<List<int>> stack = new InterpreterStack<List<int>>();
-    InterpreterStack<List<int>> p2shStack = null;
+    InterpreterStack<List<int>> stack = InterpreterStack<List<int>>();
+    InterpreterStack<List<int>> p2shStack = InterpreterStack<List<int>>.fromList(List.empty());
 
     executeScript(transaction, scriptSigIndex, scriptSig, stack, coinSats.getValue(), verifyFlags);
     if (verifyFlags.contains(VerifyFlag.P2SH) && !(verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS))) {
-      p2shStack = new InterpreterStack<Uint8List>(stack);
+      p2shStack = InterpreterStack.fromList(stack.iterator.toList());
     }
 
     executeScript(transaction, scriptSigIndex, scriptPubKey, stack, coinSats.getValue(), verifyFlags);
@@ -1094,8 +1108,8 @@ class Interpreter {
     if (stack.size() == 0)
       throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE.mnemonic +"Stack empty at end of script execution.");
 
-    if (!castToBool(stack.getLast()))
-      throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE.mnemonic +"Script resulted in a non-true stack: " + stack);
+    if (!castToBool(Uint8List.fromList(stack.getLast())))
+      throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE.mnemonic +"Script resulted in a non-true stack:  ${stack}");
 
 // P2SH is pay to script hash. It means that the scriptPubKey has a special form which is a valid
 // program but it has "useless" form that if evaluated as a normal program always returns true.
@@ -1117,22 +1131,22 @@ class Interpreter {
     if (chunk.isOpCode() && chunk.opcodenum > OpCodes.OP_16)
     throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_PUSHONLY.mnemonic +"Attempted to spend a P2SH scriptPubKey with a script that contained script ops");
 
-    stack = InterpreterStack<List<int>>(p2shStack); //restore stack
+    stack = InterpreterStack<List<int>>.fromList(p2shStack.iterator.toList()); //restore stack
 // stack cannot be empty here, because if it was the P2SH  HASH <> EQUAL
 // scriptPubKey would be evaluated with an empty stack and the
 // EvalScript above would return false.
     assert(!stack.isEmpty);
 
-    Uint8List scriptPubKeyBytes = stack.pollLast();
-    Script scriptPubKeyP2SH = new Script(scriptPubKeyBytes);
+    List<int> scriptPubKeyBytes = stack.pollLast();
+    SVScript scriptPubKeyP2SH = SVScript.fromBuffer(Uint8List.fromList(scriptPubKeyBytes));
 
-    executeScript(transaction, scriptSigIndex, scriptPubKeyP2SH, stack, coinSats, verifyFlags);
+    executeScript(transaction, scriptSigIndex, scriptPubKeyP2SH, stack, coinSats.getValue(), verifyFlags);
 
     if (stack.isEmpty)
     throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE.mnemonic +"P2SH stack empty at end of script execution.");
 
-    if (!castToBool(stack.getLast()))
-    throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE.mnemonic +"P2SH script execution resulted in a non-true stack");
+    if (!castToBool(Uint8List.fromList(stack.getLast())))
+      throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE.mnemonic +"P2SH script execution resulted in a non-true stack");
     }
 
 // The CLEANSTACK check is only performed after potential P2SH evaluation,
@@ -1151,34 +1165,40 @@ class Interpreter {
   }
 
 
-  static void executeCheckSig(Transaction txContainingThis, int index, SVScript script, InterpreterStack<List<int>> stack,
-      int lastCodeSepLocation, int opcode, Coin value,
+  static void executeCheckSig(
+      Transaction txContainingThis,
+      int index,
+      SVScript script,
+      InterpreterStack<List<int>> stack,
+      int lastCodeSepLocation,
+      int opcode,
+      Coin coinValue,
       Set<VerifyFlag> verifyFlags) {
     final bool requireCanonical = verifyFlags.contains(VerifyFlag.STRICTENC)
         || verifyFlags.contains(VerifyFlag.LOW_S);
 
     if (stack.size() < 2)
-      throw new ScriptException(SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_CHECKSIG(VERIFY) on a stack with size < 2");
-    Uint8List pubKey = stack.pollLast();
-    Uint8List sigBytes = stack.pollLast();
+      throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_CHECKSIG(VERIFY) on a stack with size < 2");
+    List<int> pubKeyBuffer = stack.pollLast();
+    List<int> sigBytes = stack.pollLast();
 
-    Uint8List prog = script.getProgram();
-    Uint8List connectedScript = Arrays.copyOfRange(prog, lastCodeSepLocation, prog.length);
+    List<int> prog = script.buffer;
 
-    UnsafeByteArrayOutputStream outStream = new UnsafeByteArrayOutputStream(sigBytes.length + 1);
+    List<int> connectedScript = prog.getRange(lastCodeSepLocation, prog.length).toList();
+    var outStream = ByteDataWriter();
     try {
-      writeBytes(outStream, sigBytes);
+      outStream.write(sigBytes);
     } on IOException catch (e) {
-      throw new RuntimeException(e); // Cannot happen
+      throw new Exception(e); // Cannot happen
     }
-    connectedScript = removeAllInstancesOf(connectedScript, outStream.toByteArray());
+    connectedScript = SVScript.removeAllInstancesOf(connectedScript, outStream.toBytes());
 
 // TODO: Use int for indexes everywhere, we can't have that many inputs/outputs
     bool sigValid = false;
 
 
     checkSignatureEncoding(sigBytes, verifyFlags);
-    checkPubKeyEncoding(pubKey, verifyFlags);
+    checkPubKeyEncoding(pubKeyBuffer, verifyFlags);
 
 //default to 1 in case of empty Sigs
     int sigHashType = SighashType.UNSET.value;
@@ -1194,22 +1214,26 @@ class Interpreter {
         }
       }
 
-      SVSignature sig = SVSignature.fromTxFormat(sigBytes);
-      Script subScript = new Script(connectedScript);
+      SVSignature sig = SVSignature.fromTxFormat(HEX.encode(sigBytes));
+      SVScript subScript = SVScript.fromBuffer(Uint8List.fromList(connectedScript));
 
-// TODO: Should check hash type is known
       Sighash sigHash = new Sighash();
+      String hash = sigHash.hash(txContainingThis, sig.nhashtype, index, subScript, coinValue.getValue());
 
-      Uint8List hash = sigHash.createHash(txContainingThis, sig.sighashFlags, index, subScript, BigInt.valueOf(value.value));
-      sigValid = ECKey.verify(hash, sig, pubKey);
+      var pubKey = SVPublicKey.fromHex(HEX.encode(pubKeyBuffer), strict: false);
+      var ecPubKey=  ECPublicKey(pubKey.point, _domainParams);
+      _dsaSigner.init(false, PublicKeyParameter(ecPubKey));
+      sigValid = _dsaSigner.verifySignature(Uint8List.fromList((HEX.decode(hash))),ECSignature(sig.r, sig.s));
+
+
     } on Exception catch (e1) {
 // There is (at least) one exception that could be hit here (EOFException, if the sig is too short)
 // Because I can't verify there aren't more, we use a very generic Exception catch
 
-// This RuntimeException occurs when signing as we run partial/invalid scripts to see if they need more
+// This Exception occurs when signing as we run partial/invalid scripts to see if they need more
 // signing work to be done inside LocalTransactionSigner.signInputs.
-      if (!e1.getMessage().contains("Reached past end of ASN.1 stream"))
-        log.warn("Signature checking failed!", e1);
+//       if (!e1.getMessage().contains("Reached past end of ASN.1 stream"))
+//         log.warn("Signature checking failed!", e1);
     }
 
     if (!sigValid && verifyFlags.contains(VerifyFlag.NULLFAIL) && sigBytes.length > 0) {
@@ -1309,10 +1333,11 @@ class Interpreter {
   ///See also ECDSA signature algorithm which enforces
   ///See also BIP 62, 'low S values in signatures'
   static bool hasLowS(Uint8List sigBytes) {
-    BigInt maxVal = BigInt.parse("7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0", 16);
+    BigInt maxVal = BigInt.parse("7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0",radix: 16);
 
     try {
-      ECKey.ECDSASignature sig = ECKey.ECDSASignature.decodeFromDER(sigBytes);
+      SVSignature sig = SVSignature.fromDER(HEX.encode(sigBytes));
+      // ECKey.ECDSASignature sig = ECKey.ECDSASignature.decodeFromDER(sigBytes);
       if ((sig.s.compareTo(BigInt.one) == -1) || (sig.s.compareTo(maxVal) == 1)) {
         return false;
       }
@@ -1328,8 +1353,10 @@ class Interpreter {
     if (!isValidSignatureEncoding(sigBytes)) {
       throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_DER.mnemonic + "Invalid signature encoding");
     }
-    Uint8List sigCopy = Arrays.copyOf(sigBytes, sigBytes.length - 1); //drop Sighash flag
-    if (!hasLowS(sigCopy)) {
+    List<int> sigCopy = List<int>.empty(growable: true);
+    sigCopy.setRange(0, sigBytes.length, sigBytes);
+    // Uint8List sigCopy = Arrays.copyOf(sigBytes, sigBytes.length - 1); //drop Sighash flag
+    if (!hasLowS(Uint8List.fromList(sigCopy))) {
       throw ScriptException(ScriptError.SCRIPT_ERR_SIG_HIGH_S.mnemonic +"Signature has high S. Low S expected.");
     }
   }
@@ -1465,14 +1492,15 @@ class Interpreter {
     }
 
     List<int> prog = script.buffer;
-    List<int> connectedScript = Arrays.copyOfRange(prog, lastCodeSepLocation, prog.length);
+    List<int> connectedScript = List<int>.empty(growable: true);
+    connectedScript.setRange(0, prog.length, prog, lastCodeSepLocation);
 
     sigs.iterator.forEach((sig) {
       var outStream = ByteDataWriter();
       try {
         outStream.write(sig);
       } on Exception catch (e) {
-        throw RuntimeException(e); // Cannot happen
+        throw Exception(e); // Cannot happen
       }
       connectedScript = SVScript.removeAllInstancesOf(connectedScript, outStream.toBytes());
     });
@@ -1512,13 +1540,18 @@ class Interpreter {
         Sighash sigHash = new Sighash();
 
         int sighashMode = sig.nhashtype;
-        if (sig.useForkId()) {
+        if (SVSignature.hasForkId(sigBytes)) {
           sighashMode = sig.nhashtype | SighashType.SIGHASH_FORKID.value;
         }
 
         //FIXME: Use Coin instead ?
         String hash = sigHash.hash(txContainingThis, sighashMode, index, subScript, coinValue.getValue());
-        if (ECKey.verify(hash, sigBytes, pubKey)) {
+        var svPubKey = SVPublicKey.fromBuffer(pubKey);
+        var publicKey =  ECPublicKey(svPubKey.point, _domainParams);
+        _dsaSigner.init(false, PublicKeyParameter(publicKey));
+        var verified = _dsaSigner.verifySignature(Uint8List.fromList((HEX.decode(hash))),ECSignature(sig.r, sig.s));
+
+        if (verified) {
           sigs.pollFirst(); //pop a successfully validated sig
         }
 

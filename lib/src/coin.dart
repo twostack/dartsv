@@ -40,17 +40,17 @@ class Coin {
   /**
    * 0.01 Bitcoins. This unit is not really used much.
    */
-  static final Coin CENT = COIN.divide(100);
+  static final Coin CENT = COIN.divide(BigInt.from(100));
 
   /**
    * 0.001 Bitcoins, also known as 1 mBTC.
    */
-  static final Coin MILLICOIN = COIN.divide(1000);
+  static final Coin MILLICOIN = COIN.divide(BigInt.from(1000));
 
   /**
    * 0.000001 Bitcoins, also known as 1 µBTC or 1 uBTC.
    */
-  static final Coin MICROCOIN = MILLICOIN.divide(1000);
+  static final Coin MICROCOIN = MILLICOIN.divide(BigInt.from(1000));
 
   /**
    * A satoshi is the smallest unit that can be transferred. 100 million of them fit into a Bitcoin.
@@ -62,7 +62,7 @@ class Coin {
   /**
    * Represents a monetary value of minus one satoshi.
    */
-  static final Coin NEGATIVE_SATOSHI = Coin.valueOf(-1);
+  static final Coin NEGATIVE_SATOSHI = Coin.valueOf(-BigInt.one);
 
 
   static Coin valueOf(final BigInt satoshis) {
@@ -184,7 +184,7 @@ class Coin {
   }
 
   Coin add(final Coin value) {
-    return Coin(LongMath.checkedAdd(this._satoshis, value.getValue()));
+    return Coin(this._satoshis + value.getValue());
   }
 
   /** Alias for add */
@@ -193,7 +193,7 @@ class Coin {
   }
 
   Coin subtract(final Coin value) {
-    return new Coin(LongMath.checkedSubtract(this._satoshis, value.getValue()));
+    return Coin(this._satoshis - value.getValue());
   }
 
   /** Alias for subtract */
@@ -202,7 +202,7 @@ class Coin {
   }
 
   Coin multiply(final int factor) {
-    return new Coin(LongMath.checkedMultiply(this._satoshis, factor));
+    return Coin(this._satoshis * BigInt.from(factor));
   }
 
   /** Alias for multiply */

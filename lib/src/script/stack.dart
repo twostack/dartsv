@@ -22,7 +22,7 @@ class InterpreterStack <T> {
 
     bool get isEmpty => _list.isEmpty;
 
-    Iterable get iterator => List.unmodifiable(_list);
+    Iterable<T> get iterator => List.unmodifiable(_list);
 
 
     /// push an element onto the stack
@@ -130,5 +130,27 @@ class InterpreterStack <T> {
   T getAt(int index) {
     return _list[index];
   }
+
+  String toString(){
+    return _list.fold("", (previousValue, element) => " ${previousValue} ${element}");
+  }
+
+
+    /**
+     * Copy the element at index to top of stack
+     */
+  void copyToTop(int index) {
+    add(_list[index]);
+  }
+
+    /**
+     * Move the element at index to top of the stack
+     */
+  void moveToTop(int index) {
+    var item = _list.removeAt(index);
+    _list.add(item);
+  }
+
+
 }
 

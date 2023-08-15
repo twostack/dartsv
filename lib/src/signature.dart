@@ -347,7 +347,7 @@ class SVSignature {
         // accept with or without Signature.SIGHASH_ANYONECANPAY by ignoring the bit
         try {
             var temp = _nhashtype & 0x1F;
-            if (temp < SighashType.SIGHASH_ALL || temp > SighashType.SIGHASH_SINGLE) {
+            if (temp < SighashType.SIGHASH_ALL.value || temp > SighashType.SIGHASH_SINGLE.value) {
                 return false;
             }
         } catch (ex) {
@@ -500,4 +500,13 @@ class SVSignature {
     /// Returns the signature's *R* value as a hexadecimal string
     String get rHex => _rHex!;
 
+  static bool hasForkId(List<int> sigBytes) {
+    if (sigBytes.length == 0) {
+      return false;
+    }
+
+    int forkId = (sigBytes[sigBytes.length - 1] & 0xff) & SighashType.SIGHASH_FORKID.value; // mask the byte to prevent sign-extension hurting us
+
+    return forkId == SighashType.SIGHASH_FORKID.value;
+  }
 }
