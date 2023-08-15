@@ -1083,8 +1083,12 @@ class InterpreterV2 {
     if (verifyFlags.contains(VerifyFlag.SIGPUSHONLY) && !scriptSig.isPushOnly()) {
       throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_PUSHONLY.mnemonic +"No pushdata operations allowed in scriptSig");
     }
-
-    Transaction transaction = Transaction.fromHex(txn.serialize());
+    Transaction transaction;
+    try {
+      transaction = Transaction.fromHex(txn.serialize());
+    } on Exception catch(e){
+        throw TransactionException("Transaction serialize/parse failure");
+    }
 
     if (verifyFlags.contains(VerifyFlag.P2SH) && verifyFlags.contains(VerifyFlag.STRICTENC)) {
       if (scriptSig

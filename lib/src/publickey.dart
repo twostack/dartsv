@@ -2,6 +2,7 @@ import 'package:dartsv/dartsv.dart';
 import 'package:hex/hex.dart';
 import 'package:pointycastle/pointycastle.dart';
 
+import 'package:pointycastle/src/utils.dart';
 import 'encoding/utils.dart';
 import 'exceptions.dart';
 

@@ -1,13 +1,11 @@
 import 'package:dartsv/src/exceptions.dart';
 import 'package:hex/hex.dart';
-import 'package:pointycastle/digests/ripemd160.dart';
-import 'package:pointycastle/digests/sha256.dart';
 import 'dart:typed_data';
 import 'package:buffer/buffer.dart';
 import 'dart:math';
 
-//import 'package:pointycastle/src/utils.dart';
 import 'package:pointycastle/export.dart';
+import 'package:pointycastle/src/utils.dart';
 
 List<int> sha256Twice(List<int> bytes) {
   var first = new SHA256Digest().process(Uint8List.fromList(bytes));
@@ -197,24 +195,23 @@ BigInt decodeBigInt(List<int> bytes) {
 var _byteMask = new BigInt.from(0xff);
 
 /// Encode a BigInt into bytes using big-endian encoding.
-Uint8List encodeBigInt(BigInt number) {
-  int size = (number.bitLength + 7) >> 3;
-
-  var result = Uint8List(size);
-  for (int i = 0; i < size; i++) {
-    result[size - i - 1] = (number & _byteMask).toInt();
-    number = number >> 8;
-  }
-
-  return result;
-}
+// Uint8List encodeBigInt(BigInt number) {
+//   int size = (number.bitLength + 7) >> 3;
+//
+//   var result = Uint8List(size);
+//   for (int i = 0; i < size; i++) {
+//     result[size - i - 1] = (number & _byteMask).toInt();
+//     number = number >> 8;
+//   }
+//
+//   return result;
+// }
 
 List<int> castToBuffer(BigInt value) {
   return toSM(value, endian: Endian.little);
 }
 
-BigInt castToBigInt(List<int> buf, bool fRequireMinimal,
-    {int nMaxNumSize = 4}) {
+BigInt castToBigInt(List<int> buf, bool fRequireMinimal, {int nMaxNumSize = 4}) {
   if (!(buf.length <= nMaxNumSize)) {
     throw new ScriptException('script number overflow');
   }
@@ -344,8 +341,12 @@ BigInt decodeMPI(List<int> mpi, bool hasLength) {
   if (buf.length == 0) return BigInt.zero;
   bool isNegative = (buf[0] & 0x80) == 0x80;
   if (isNegative) buf[0] &= 0x7f;
-  BigInt result = castToBigInt(buf, false);
-  return isNegative ? -result : result;
+  // BigInt result = castToBigInt(buf, false);
+
+  var result = BigInt.parse(HEX.encode(buf), radix: 16);
+  var bigResult = isNegative ? -result : result;
+
+  return bigResult;
 }
 
 /**
@@ -363,7 +364,8 @@ List<int> encodeMPI(BigInt value, bool includeLength) {
   }
   bool isNegative = value.isNegative;
   if (isNegative) value = -value;
-  List<int> array = castToBuffer(value);
+  List<int> array = encodeBigInt(value);
+  // List<int> array = HEX.decode(value.toRadixString(16));
   int length = array.length;
   if ((array[0] & 0x80) == 0x80) length++;
   if (includeLength) {
@@ -383,7 +385,7 @@ List<int> encodeMPI(BigInt value, bool includeLength) {
     List<int> result;
     if (length != array.length) {
       result = List<int>.generate(length, (i) => 0);
-      result.setRange(0, array.length, array, 1);
+      result.setRange(0, array.length -1, array, 1);
       // System.arraycopy(array, 0, result, 1, array.length);
 
     } else

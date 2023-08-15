@@ -1,5 +1,7 @@
 
 
+import 'package:pointycastle/pointycastle.dart';
+import 'package:pointycastle/src/utils.dart';
 import 'package:dartsv/dartsv.dart';
 import 'encoding/ckdserializer.dart';
 import 'package:hex/hex.dart';
@@ -7,7 +9,6 @@ import 'crypto/hdutils.dart';
 import 'dart:convert';
 import 'crypto/childnumber.dart';
 import 'dart:typed_data';
-import 'package:pointycastle/pointycastle.dart';
 import 'encoding/utils.dart';
 import 'exceptions.dart';
 
@@ -79,7 +80,8 @@ class HDPrivateKey extends CKDSerializer{
         var masterKey = I.sublist(0, 32);
         var masterChainCode = I.sublist(32,64);
 
-        if (decodeBigInt(masterKey) == BigInt.zero || decodeBigInt(masterKey) > _domainParams.n)
+        if (BigInt.parse(HEX.encode(masterKey), radix: 16) == BigInt.zero
+            || BigInt.parse(HEX.encode(masterKey), radix: 16) > _domainParams.n)
             throw DerivationException("Invalid master key was generated.");
 
         var paddedKey = Uint8List(33);

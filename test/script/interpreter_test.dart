@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:buffer/buffer.dart';
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/privatekey.dart';
@@ -20,6 +21,43 @@ import 'package:hex/hex.dart';
 import 'package:test/test.dart';
 
 void main() {
+
+    SVScript parseScriptString(String string) {
+        List<String> words = string.split(" ");
+
+        var out = ByteDataWriter();
+
+        for(String w in words) {
+            if (w == "")
+                continue;
+            if (RegExp(r"^-?[0-9]*$").hasMatch(w)) {
+                // Number
+                int val = int.parse(w);
+                if (val >= -1 && val <= 16) {
+                    out.writeUint8(SVScript.encodeToOpN(val));
+                } else {
+                    SVScript.writeBytes(out, encodeMPI(BigInt.from(val), false).reversed.toList());
+                }
+            } else if (RegExp(r"^0x[0-9a-fA-F]*").hasMatch(w)) {
+                // Raw hex data, inserted NOT pushed onto stack:
+                out.write(HEX.decode(w.substring(2).toLowerCase()));
+            } else if (w.length >= 2 && w.startsWith("'") && w.endsWith("'")) {
+                // Single-quoted string, pushed as data. NOTE: this is poor-man's
+                // parsing, spaces/tabs/newlines in single-quoted strings won't work.
+                SVScript.writeBytes(out, Utf8Encoder().convert( w.substring(1, w.length - 1)));
+            } else if (OpCodes.getOpCode("OP_${w}") != OpCodes.OP_INVALIDOPCODE) {
+                // opcode, e.g. OP_ADD or OP_1:
+                out.writeUint8(OpCodes.getOpCode("OP_${w}"));
+            } else if (w.startsWith("OP_") && OpCodes.getOpCode(w.substring(3)) != OpCodes.OP_INVALIDOPCODE) {
+                // opcode, e.g. OP_ADD or OP_1:
+                out.writeUint8(OpCodes.getOpCode(w.substring(3)));
+            } else {
+                throw Exception("Invalid word: '" + w + "'");
+            }
+        }
+
+        return SVScript.fromBuffer(out.toBytes());
+    }
 
     Set<VerifyFlag> parseVerifyFlags(String str) {
         Set<VerifyFlag> flags = Set.identity();
@@ -235,7 +273,7 @@ void main() {
     var evaluateScript = (List<int> arraySig, List<int> arrayPubKey, int op) {
         var flags = ScriptFlags.SCRIPT_VERIFY_P2SH | ScriptFlags.SCRIPT_UTXO_AFTER_GENESIS | ScriptFlags.SCRIPT_ENABLE_MONOLITH_OPCODES;
         Interpreter interp = Interpreter.fromScript(SVScript().add(arraySig).add(arrayPubKey), flags);
-        interp.script?.add(op);
+        interp.script.add(op);
         interp.evaluate();
         return interp;
     };
@@ -452,9 +490,10 @@ void main() {
         });
     });
 
+
     var testFixture = (vector, bool expected, extraData) {
-        var scriptSig = SVScript.fromBitcoindString(vector[0]);
-        var scriptPubkey = SVScript.fromBitcoindString(vector[1]);
+        var scriptSig = parseScriptString(vector[0]);
+        var scriptPubkey = parseScriptString(vector[1]);
         var inputAmount = 0.0;
         if (extraData != null) {
             inputAmount = extraData[0] * 1e8;
@@ -491,9 +530,7 @@ void main() {
             scriptBuilder: defaultUnlockBuilder
         );
         spendtx.addInput(txSpendInput);
-        var txSpendOutput = TransactionOutput(
-            BigInt.from(inputAmount),
-            SVScript());
+        var txSpendOutput = TransactionOutput( BigInt.zero, SVScript());
         spendtx.addOutput(txSpendOutput);
 
         // var interp = new Interpreter();
