@@ -94,7 +94,7 @@ class SVPublicKey {
             throw  BadParameterException('Empty compressed DER buffer');
         }
 
-        _point = _transformDER(buffer, strict);
+        this._point = _transformDER(buffer, strict);
 
         if (_point!.isInfinity) {
             throw InvalidPointException('That public key generates point at infinity');
@@ -110,29 +110,32 @@ class SVPublicKey {
     }
 
     SVPublicKey.fromBuffer(List<int> buffer){
-       SVPublicKey.fromHex(HEX.encode(buffer));
+       _buildFromHex(HEX.encode(buffer), true);
     }
-
 
     /// Reconstruct a public key from the hexadecimal format of it's DER-encoding.
     ///
     /// [pubkey] - The DER-encoded public key as a hexadecimal string
     ///
     /// [strict] - If *true* then we enforce strict DER encoding rules. Defaults to *true*.
-    SVPublicKey.fromHex(String pubkey, {bool strict = true}) {
+    SVPublicKey.fromHex(String pubkey, {bool strict = true}){
+        _buildFromHex(pubkey, strict);
+    }
+
+    _buildFromHex(String pubkey, bool strict) {
 
         if (pubkey.trim() == '') {
             throw  BadParameterException('Empty compressed public key string');
         }
 
 //        _parseHexString(pubkey);
-        _point = _transformDER(HEX.decode(pubkey), strict);
+        this._point = _transformDER(HEX.decode(pubkey), strict);
 
-        if (_point!.isInfinity) {
+        if (this._point!.isInfinity) {
             throw InvalidPointException('That public key generates point at infinity');
         }
 
-        if (_point!.y!.toBigInteger() == BigInt.zero) {
+        if (this._point!.y!.toBigInteger() == BigInt.zero) {
             throw InvalidPointException('Invalid Y value for this public key');
         }
 
@@ -185,7 +188,7 @@ class SVPublicKey {
     /// for the encoding, you can use the [getEncoded()] function instead.
     @override
     String toString() {
-        if (_point == null) {
+        if (this._point == null) {
             return '';
         }
 
@@ -308,7 +311,7 @@ class SVPublicKey {
     /// The author dislikes leaking the wrapped PointyCastle implementation, but is too
     /// lazy to write his own Point implementation.
     ECPoint get point {
-        return _point!;
+        return this._point!;
     }
 
     /// Returns *true* if this public key will render using EC point compression by

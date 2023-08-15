@@ -6,8 +6,11 @@ import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/privatekey.dart';
 import 'package:dartsv/src/script/interpreter.dart';
+import 'package:dartsv/src/script/interpreter_v2.dart';
 import 'package:dartsv/src/script/opcodes.dart';
 import 'package:dartsv/src/script/scriptflags.dart';
+import 'package:dartsv/src/script/svscript.dart';
+import 'package:dartsv/src/script/svscript.dart';
 import 'package:dartsv/src/script/svscript.dart';
 import 'package:dartsv/src/transaction/default_builder.dart';
 import 'package:dartsv/src/transaction/transaction_builder.dart';
@@ -507,8 +510,27 @@ void main() {
         });
     });
 
-    void testTransaction(List<dynamic> vector, bool expected){
+  Set<VerifyFlag> parseVerifyFlags(String str) {
+    Set<VerifyFlag> flags = Set.identity();
+    if (!("NONE" == str)) {
+      for (String flag in str.split(",")) {
+        try {
+            var flagToAdd = VerifyFlag
+                .values
+                .where((element) => element.toString() == flag)
+                .firstOrNull;
+            if (flagToAdd != null)
+                flags.add( flagToAdd );
+          // flags.add(VerifyFlag.valueOf(flag));
+        } on IllegalArgumentException catch (x) {
+          print("Cannot handle verify flag {} -- ignored.");
+        }
+      }
+    }
+    return flags;
+  }
 
+  void testTransaction(List<dynamic> vector, bool expected){
         int c = 0;
         if (vector.length == 1) {
           return;
@@ -523,8 +545,10 @@ void main() {
           var inputs = vector[0];
           var txhex = vector[1];
 
-          var flags = getFlags(vector[2]);
-          var map = {};
+          // var flags = getFlags(vector[2]);
+
+         var flags = parseVerifyFlags(vector[2]);
+      var map = {};
           inputs.forEach((input) {
             var txid = input[0];
             var txoutnum = input[1];
@@ -539,19 +563,18 @@ void main() {
           var allInputsVerified = true;
           int index = 0;
           tx.inputs.forEach((TransactionInput txin) {
-//            if (txin.isNull()) {
-//              return;
-//            }
             var scriptSig = txin.script;
             var txidhex = txin.prevTxnId;
             var txoutnum = txin.prevTxnOutputIndex;
             var scriptPubkey = map[txidhex + ':' + txoutnum.toString()];
             expect(scriptPubkey, isNotNull);
             expect(scriptSig, isNotNull);
-            var interp = Interpreter();
-            var verified = interp.verifyScript(scriptSig!, scriptPubkey, tx: tx, nin: index, flags: flags);
-            if (!verified) {
-              allInputsVerified = false;
+            var interp = InterpreterV2();
+            try {
+                interp.correctlySpends(scriptSig!, scriptPubkey, tx, index, flags, Coin.ZERO);
+            }on ScriptException catch(e){
+                print(e.cause);
+                allInputsVerified = false;
             }
             index++;
           });

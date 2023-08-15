@@ -51,7 +51,7 @@ class BoolItem extends LinkedListEntry<BoolItem> {
   BoolItem(this.option);
 }
 
-class Interpreter {
+class InterpreterV2 {
 
   // Maximum script number length after Genesis
   //consensus.h in node client
@@ -123,7 +123,7 @@ class Interpreter {
    * @throws ScriptException if the chunk is inter than the specified maximum.
    */
   /* package  */
-  static castToBigInt(final Uint8List chunk, final int maxLength, final bool requireMinimal) {
+  static BigInt castToBigInt(final Uint8List chunk, final int maxLength, final bool requireMinimal) {
     if (chunk.length > maxLength) {
       throw ScriptException(ScriptError.SCRIPT_ERR_NUMBER_OVERFLOW.mnemonic + "Script attempted to use an integer larger than ${maxLength} bytes");
     }
@@ -239,7 +239,7 @@ class Interpreter {
           throw ScriptException(ScriptError.SCRIPT_ERR_MINIMALDATA.mnemonic + "Script included a not minimal push operation.");
 
         if (opcode == OpCodes.OP_0) {
-          stack.add(List<int>.empty());
+          stack.add([]);
         } else {
           stack.add(List<int>.from(chunk.buf));
         }
@@ -448,7 +448,7 @@ class Interpreter {
           case OpCodes.OP_ROLL:
             if (stack.size() < 1)
               throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_PICK/OpCodes.OP_ROLL on an empty stack");
-            int val = castToBigInt(Uint8List.fromList(stack.pollLast()), maxScriptNumLength, verifyFlags.contains(VerifyFlag.MINIMALDATA)).intValue();
+            int val = castToBigInt(Uint8List.fromList(stack.pollLast()), maxScriptNumLength, verifyFlags.contains(VerifyFlag.MINIMALDATA)).toInt();
             if (val < 0 || val >= stack.size())
               throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"OpCodes.OP_PICK/OpCodes.OP_ROLL attempted to get data deeper than stack size");
 
@@ -492,7 +492,7 @@ class Interpreter {
             if (!verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && len > MAX_SCRIPT_ELEMENT_SIZE_BEFORE_GENESIS)
               throw new ScriptException(ScriptError.SCRIPT_ERR_PUSH_SIZE.mnemonic +"Push value size limit exceeded.");
 
-            List<int> catOut = List<int>.empty(growable: true);
+            List<int> catOut = List<int>.generate(len, (index) => 0);
             catOut.setRange(0, catBytes1.length, catBytes1);
             // System.arraycopy(catBytes1, 0, catOut, 0, catBytes1.length);
             catOut.setRange(catBytes1.length, catBytes2.length, catBytes2);
@@ -505,7 +505,7 @@ class Interpreter {
             if (stack.size() < 2)
               throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Invalid stack operation.");
 
-            int numSize = castToBigInt(Uint8List.fromList(stack.pollLast()), maxScriptNumLength, enforceMinimal).intValue();
+            int numSize = castToBigInt(Uint8List.fromList(stack.pollLast()), maxScriptNumLength, enforceMinimal).toInt();
 
             if (!verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && numSize > MAX_SCRIPT_ELEMENT_SIZE_BEFORE_GENESIS)
               throw new ScriptException(ScriptError.SCRIPT_ERR_PUSH_SIZE.mnemonic +"Push value size limit exceeded.");
@@ -524,7 +524,7 @@ class Interpreter {
               //already the right size so just push it to stack
               stack.add(minimalNumBytes);
             } else if (numSize == 0) {
-              stack.add(List<int>.empty());
+              stack.add([]);
             } else {
               int signBit = 0x00;
               if (minimalNumBytes.length > 0) {
@@ -532,7 +532,7 @@ class Interpreter {
                 minimalNumBytes[minimalNumBytes.length - 1] &= 0x7f;
               }
               int minimalBytesToCopy = minimalNumBytes.length > numSize ? numSize : minimalNumBytes.length;
-              List<int> expandedNumBytes = List<int>.empty()..fillRange(0, numSize, 0); //initialized to all zeroes
+              List<int> expandedNumBytes = List<int>.generate(numSize,(i) => 0); //initialized to all zeroes
               expandedNumBytes.setRange(0, minimalBytesToCopy, minimalNumBytes);
               // System.arraycopy(minimalNumBytes, 0, expandedNumBytes, 0, minimalBytesToCopy);
               expandedNumBytes[expandedNumBytes.length - 1] =  signBit;
@@ -932,10 +932,10 @@ class Interpreter {
                   txContainingThis,
                   index, script, stack, lastCodeSepLocation, opcode, Coin.valueOf(value), verifyFlags);
             } on SignatureEncodingException catch (ex) {
-              stack.add(List<int>.empty()); //push false onto stack
+              stack.add([]); //push false onto stack
               throw ScriptException(ex.cause);
             } catch (ex) {
-              stack.add(List<int>.empty()); //push false onto stack
+              stack.add([]); //push false onto stack
               throw ScriptException(ex.toString());
             }
 
@@ -950,10 +950,10 @@ class Interpreter {
                   txContainingThis,
                    index, script, stack, opCount, lastCodeSepLocation, opcode, Coin.valueOf(value), verifyFlags);
             } on SignatureEncodingException catch (ex) {
-              stack.add(List<int>.empty()); //push false onto stack
+              stack.add([]); //push false onto stack
               throw ScriptException(ex.cause);
             } on PubKeyEncodingException catch (ex) {
-              stack.add(List<int>.empty()); //push false onto stack
+              stack.add([]); //push false onto stack
               throw new ScriptException(ex.cause);
             }
             break;
@@ -1353,8 +1353,8 @@ class Interpreter {
     if (!isValidSignatureEncoding(sigBytes)) {
       throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_DER.mnemonic + "Invalid signature encoding");
     }
-    List<int> sigCopy = List<int>.empty(growable: true);
-    sigCopy.setRange(0, sigBytes.length, sigBytes);
+    List<int> sigCopy = List<int>.generate(sigBytes.length - 1, (i) => 0);
+    sigCopy.setRange(0, sigBytes.length - 1, sigBytes);//drop Sighash flag
     // Uint8List sigCopy = Arrays.copyOf(sigBytes, sigBytes.length - 1); //drop Sighash flag
     if (!hasLowS(Uint8List.fromList(sigCopy))) {
       throw ScriptException(ScriptError.SCRIPT_ERR_SIG_HIGH_S.mnemonic +"Signature has high S. Low S expected.");
@@ -1459,7 +1459,7 @@ class Interpreter {
     stack.size() < 1)
       throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_CHECKMULTISIG(VERIFY) on a stack with size < 2");
 
-    int pubKeyCount = castToBigInt(Uint8List.fromList(stack.pollLast()), getMaxScriptNumLength(utxoAfterGenesis), enforceMinimal).intValue();
+    int pubKeyCount = castToBigInt(Uint8List.fromList(stack.pollLast()), getMaxScriptNumLength(utxoAfterGenesis), enforceMinimal).toInt();
     if (pubKeyCount < 0 || (!verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && pubKeyCount > 20)
         || (verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && pubKeyCount > UINT32_MAX))
       throw new ScriptException(ScriptError.SCRIPT_ERR_PUBKEY_COUNT.mnemonic +"OpCodes.OP_CHECKMULTISIG(VERIFY) with pubkey count out of range");
@@ -1478,7 +1478,7 @@ class Interpreter {
       pubkeys.add(pubKey);
     }
 
-    int sigCount = castToBigInt(Uint8List.fromList(stack.pollLast()), getMaxScriptNumLength(utxoAfterGenesis), enforceMinimal).intValue();
+    int sigCount = castToBigInt(Uint8List.fromList(stack.pollLast()), getMaxScriptNumLength(utxoAfterGenesis), enforceMinimal).toInt();
     if (sigCount < 0 || sigCount > pubKeyCount)
       throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_COUNT.mnemonic +"OpCodes.OP_CHECKMULTISIG(VERIFY) with sig count out of range");
     if (stack.size() < sigCount + 1)
@@ -1492,7 +1492,7 @@ class Interpreter {
     }
 
     List<int> prog = script.buffer;
-    List<int> connectedScript = List<int>.empty(growable: true);
+    List<int> connectedScript = List<int>.generate(prog.length, (index) => 0);
     connectedScript.setRange(0, prog.length, prog, lastCodeSepLocation);
 
     sigs.iterator.forEach((sig) {
@@ -1622,7 +1622,7 @@ class Interpreter {
 // Thus as a special case we tell CScriptNum to accept up
 // to 5-byte bignums, which are good until 2**39-1, well
 // beyond the 2**32-1 limit of the nSequence field itself.
-    final int nSequence = castToBigInt(Uint8List.fromList(stack.getLast()), 5, verifyFlags.contains(VerifyFlag.MINIMALDATA)).intValue();
+    final int nSequence = castToBigInt(Uint8List.fromList(stack.getLast()), 5, verifyFlags.contains(VerifyFlag.MINIMALDATA)).toInt();
 
 // In the rare event that the argument may be < 0 due to
 // some arithmetic being done first, you can always use

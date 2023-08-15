@@ -635,9 +635,9 @@ class SVScript {
       if (!skip) {
         writer.writeUint8(opcode);
         // Arrays.copyOfRange( inputScript, cursor, cursor + additionalBytes);
-        List<int> rangeCopy = List<int>.empty(growable: true);
-        rangeCopy.setRange(0, cursor + additionalBytes, inputScript, cursor);
-        writer.write(rangeCopy.toList());
+        // List<int> rangeCopy = List<int>.generate(cursor + additionalBytes, (i) => 0);
+        // rangeCopy.setRange(0, cursor + additionalBytes, inputScript, cursor);
+        writer.write(inputScript.sublist(cursor, cursor + additionalBytes));
       }
       cursor += additionalBytes;
     }
