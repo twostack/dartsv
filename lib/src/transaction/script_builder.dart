@@ -30,7 +30,7 @@ class ScriptBuilder {
 
   ScriptBuilder opCodeAtIndex(int index, int opcode) {
     PreConditions.assertTrue(opcode == 0 || opcode > 78);
-    return insertChunk(index, ScriptChunk(List.empty(), 0, opcode));
+    return insertChunk(index, ScriptChunk(null, 0, opcode));
   }
 
   ScriptBuilder addData(Uint8List data) {
@@ -93,7 +93,7 @@ class ScriptBuilder {
     PreConditions.assertTrueWithMessage(
         num <= 16, "Cannot encode numbers larger than 16 with smallNum");
     return insertChunk(
-        index, ScriptChunk(List.empty(), 0, SVScript.encodeToOpN(num)));
+        index, ScriptChunk(null, 0, SVScript.encodeToOpN(num)));
   }
 
   ScriptBuilder bigNumAtIndex(int index, int num) {

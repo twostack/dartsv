@@ -1196,7 +1196,10 @@ class InterpreterV2 {
       var pubKey = SVPublicKey.fromHex(HEX.encode(pubKeyBuffer), strict: false);
       var ecPubKey=  ECPublicKey(pubKey.point, _domainParams);
       _dsaSigner.init(false, PublicKeyParameter(ecPubKey));
-      sigValid = _dsaSigner.verifySignature(Uint8List.fromList((HEX.decode(hash))),ECSignature(sig.r, sig.s));
+
+      //TODO: How odd that my hashes are upside-down
+      var reversedHash = Uint8List.fromList(HEX.decode(hash).reversed.toList());
+      sigValid = _dsaSigner.verifySignature(reversedHash, ECSignature(sig.r, sig.s));
 
 
     } on RangeError catch (r1) {
@@ -1315,7 +1318,7 @@ class InterpreterV2 {
     try {
       SVSignature sig = SVSignature.fromDER(HEX.encode(sigBytes));
       // ECKey.ECDSASignature sig = ECKey.ECDSASignature.decodeFromDER(sigBytes);
-      if ((sig.s.compareTo(BigInt.one) == -1) || (sig.s.compareTo(maxVal) == 1)) {
+      if ((sig.s < BigInt.one) || (sig.s > maxVal)) {
         return false;
       }
     } on SignatureDecodeException catch(ex) {
@@ -1526,7 +1529,8 @@ class InterpreterV2 {
         var svPubKey = SVPublicKey.fromBuffer(pubKey);
         var publicKey =  ECPublicKey(svPubKey.point, _domainParams);
         _dsaSigner.init(false, PublicKeyParameter(publicKey));
-        var verified = _dsaSigner.verifySignature(Uint8List.fromList((HEX.decode(hash))),ECSignature(sig.r, sig.s));
+        var reversedHash = Uint8List.fromList((HEX.decode(hash).reversed.toList()));
+        var verified = _dsaSigner.verifySignature(reversedHash,ECSignature(sig.r, sig.s));
 
         if (verified) {
           sigs.pollFirst(); //pop a successfully validated sig

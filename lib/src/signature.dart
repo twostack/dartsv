@@ -539,6 +539,8 @@ class SVSignature {
         throw new SignatureDecodeException("Length of signature incorrect");
     }
 
+    _r = r;
+    _s = s;
     _signature = ECSignature(r, s);
 
 //            const obj = {
