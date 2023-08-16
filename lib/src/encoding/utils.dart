@@ -1,4 +1,5 @@
 import 'package:dartsv/src/exceptions.dart';
+import 'package:dartsv/src/varint.dart';
 import 'package:hex/hex.dart';
 import 'dart:typed_data';
 import 'package:buffer/buffer.dart';
@@ -127,27 +128,8 @@ List<int> calcVarInt(int? length) {
 
 //Implementation from bsv lib
 int readVarIntNum(ByteDataReader reader) {
-  var first = reader.readUint8();
-  switch (first) {
-    case 0xFD:
-      return reader.readUint16(Endian.little);
-      break;
-    case 0xFE:
-      return reader.readUint32(Endian.little);
-      break;
-    case 0xFF:
-      var bn = BigInt.from(reader.readUint64(Endian.little));
-      var n = bn.toInt();
-      if (n <= pow(2, 53)) {
-        return n;
-      } else {
-        throw new Exception(
-            'number too large to retain precision - use readVarintBN');
-      }
-      break;
-    default:
-      return first;
-  }
+  var varint = VarInt.fromStream(reader);
+  return varint.value;
 }
 
 //FIXME: Should probably have two versions of this function. One for BigInt, one for Int

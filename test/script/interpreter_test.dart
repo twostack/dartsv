@@ -510,12 +510,12 @@ void main() {
             scriptBuilder: coinbaseUnlockBuilder
         );
         credtx.addInput(txCredInput);
-        credtx.serialize();
 
         //add output to spent Transaction
         var txOutLockBuilder = DefaultLockBuilder.fromScript(scriptPubkey);
         var txCredOut = TransactionOutput(BigInt.from(inputAmount), scriptPubkey);
         credtx.addOutput(txCredOut);
+        credtx.serialize();
 
         //setup transaction ID of spent Transaction
         String prevTxId = credtx.id;

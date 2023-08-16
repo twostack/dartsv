@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:collection/collection.dart';
 import 'package:dartsv/src/encoding/utils.dart';
+import 'package:dartsv/src/script/interpreter_v2.dart';
 import 'package:dartsv/src/script/script_error.dart';
 import 'package:dartsv/src/transaction/preconditions.dart';
 import 'package:hex/hex.dart';
@@ -240,30 +241,59 @@ class SVScript {
 
   _convertChunksToByteArray() {
 
-        var bw =  ByteDataWriter();
+        var stream =  ByteDataWriter();
 
-        for (var i = 0; i < _chunks.length; i++) {
-            var chunk = _chunks[i];
-            var opcodenum = chunk.opcodenum;
-            bw.writeUint8(chunk.opcodenum);
-            if (chunk.buf.isNotEmpty) {
-                if (opcodenum < OpCodes.OP_PUSHDATA1) {
-                    bw.write(chunk.buf);
-                } else if (opcodenum == OpCodes.OP_PUSHDATA1) {
-                    bw.writeUint8(chunk.len);
-                    bw.write(chunk.buf);
-                } else if (opcodenum == OpCodes.OP_PUSHDATA2) {
-                    bw.writeUint16(chunk.len, Endian.little);
-                    bw.write(chunk.buf);
-                } else if (opcodenum == OpCodes.OP_PUSHDATA4) {
-                    bw.writeUint32(chunk.len, Endian.little);
-                    bw.write(chunk.buf);
-                }
+        // for (var i = 0; i < _chunks.length; i++) {
+        //     var chunk = _chunks[i];
+        //     var opcodenum = chunk.opcodenum;
+        //     bw.writeUint8(chunk.opcodenum);
+        //     if (chunk.buf.isNotEmpty) {
+        //         if (opcodenum < OpCodes.OP_PUSHDATA1) {
+        //             bw.write(chunk.buf);
+        //         } else if (opcodenum == OpCodes.OP_PUSHDATA1) {
+        //             bw.writeUint8(chunk.len);
+        //             bw.write(chunk.buf);
+        //         } else if (opcodenum == OpCodes.OP_PUSHDATA2) {
+        //             bw.writeUint16(chunk.len, Endian.little);
+        //             bw.write(chunk.buf);
+        //         } else if (opcodenum == OpCodes.OP_PUSHDATA4) {
+        //             bw.writeUint32(chunk.len, Endian.little);
+        //             bw.write(chunk.buf);
+        //         }
+        //     }
+        //
+        // }
+        //
+        for (ScriptChunk chunk in _chunks) {
+          if (chunk.isOpCode()) {
+            PreConditions.assertTrue(chunk.buf == null);
+            stream.writeUint8(chunk.opcodenum);
+          } else if (chunk.buf != null) {
+            if (chunk.opcodenum < OpCodes.OP_PUSHDATA1) {
+              PreConditions.assertTrue(chunk.buf.length == chunk.opcodenum);
+              stream.writeUint8(chunk.opcodenum);
+            } else if (chunk.opcodenum == OpCodes.OP_PUSHDATA1) {
+              PreConditions.assertTrue(chunk.buf.length <= 0xFF);
+              stream.writeUint8(OpCodes.OP_PUSHDATA1);
+              stream.writeUint8(chunk.buf.length);
+            } else if (chunk.opcodenum == OpCodes.OP_PUSHDATA2) {
+              PreConditions.assertTrue(chunk.buf.length <= 0xFFFF);
+              stream.writeUint8(OpCodes.OP_PUSHDATA2);
+              stream.writeUint16(chunk.buf.length, Endian.little);//Utils.uint16ToByteStreamLE(data.length, stream);
+            } else if (chunk.opcodenum == OpCodes.OP_PUSHDATA4) {
+              PreConditions.assertTrue(chunk.buf.length <= InterpreterV2.MAX_SCRIPT_ELEMENT_SIZE);
+              stream.writeUint8(OpCodes.OP_PUSHDATA4);
+              stream.writeUint32(chunk.buf.length, Endian.little);//Utils.uint32ToByteStreamLE(data.length, stream);
+            } else {
+              throw new ScriptException("Unimplemented");
             }
-
+            stream.write(chunk.buf);
+          } else {
+            stream.writeUint8(chunk.opcodenum); // smallNum
+          }
         }
 
-        _byteArray = bw.toBytes();
+        _byteArray = stream.toBytes();
     }
 
     /*
@@ -364,7 +394,7 @@ class SVScript {
                     ));
                 } else {
                     _chunks.add(ScriptChunk(
-                        [],
+                        null,
                         0,
                         opcodenum
                     ));
