@@ -181,30 +181,30 @@ class InterpreterV2 {
       nextLocationInScript += chunk.size();
 
       // Check stack element size
-      if (chunk.buf != null && (!verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && chunk.buf.length > MAX_SCRIPT_ELEMENT_SIZE_BEFORE_GENESIS))
-        throw ScriptException(ScriptError.SCRIPT_ERR_PUSH_SIZE.mnemonic + "-Attempted to push a data string larger than 520 bytes");
+      if (chunk.buf != null && (!verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && chunk.buf!.length > MAX_SCRIPT_ELEMENT_SIZE_BEFORE_GENESIS))
+        throw ScriptException(ScriptError.SCRIPT_ERR_PUSH_SIZE,"-Attempted to push a data string larger than 520 bytes");
 
       // Note how OpCodes.OP_RESERVED does not count towards the opcode limit.
       if (opcode > OpCodes.OP_16) {
         opCount++;
         if (!isValidMaxOpsPerScript(opCount, utxoAfterGenesis))
-          throw ScriptException(ScriptError.SCRIPT_ERR_OP_COUNT.mnemonic + " -More script operations than is allowed");
+          throw ScriptException(ScriptError.SCRIPT_ERR_OP_COUNT," -More script operations than is allowed");
       }
 
       // Disabled opcodes.
       if (isOpcodeDisabled(opcode, verifyFlags) && (!verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) || shouldExecute)) {
-        throw ScriptException(ScriptError.SCRIPT_ERR_DISABLED_OPCODE.mnemonic + "-Script included a disabled Script Op.");
+        throw ScriptException(ScriptError.SCRIPT_ERR_DISABLED_OPCODE,"-Script included a disabled Script Op.");
       }
 
       if (shouldExecute && OpCodes.OP_0 <= opcode && opcode <= OpCodes.OP_PUSHDATA4) {
         // Check minimal push
         if (verifyFlags.contains(VerifyFlag.MINIMALDATA) && !chunk.checkMinimalPush())
-          throw ScriptException(ScriptError.SCRIPT_ERR_MINIMALDATA.mnemonic + "Script included a not minimal push operation.");
+          throw ScriptException(ScriptError.SCRIPT_ERR_MINIMALDATA,"Script included a not minimal push operation.");
 
         if (opcode == OpCodes.OP_0) {
           stack.add([]);
         } else {
-          stack.add(List<int>.from(chunk.buf));
+          stack.add(chunk.buf!);
         }
       } else if (shouldExecute || (OpCodes.OP_IF <= opcode && opcode <= OpCodes.OP_ENDIF)) {
         switch (opcode) {
@@ -213,17 +213,17 @@ class InterpreterV2 {
             bool fValue = false;
             if (shouldExecute) {
               if (stack.length < 1) {
-                throw ScriptException(ScriptError.SCRIPT_ERR_UNBALANCED_CONDITIONAL.mnemonic + "Attempted OpCodes.OP_IF on an empty stack");
+                throw ScriptException(ScriptError.SCRIPT_ERR_UNBALANCED_CONDITIONAL,"Attempted OpCodes.OP_IF on an empty stack");
               }
 
               List<int> stacktop = stack.getLast();
               if (verifyFlags.contains(VerifyFlag.MINIMALIF)) {
                 if (stacktop.length > 1) {
-                  throw ScriptException(ScriptError.SCRIPT_ERR_MINIMALIF.mnemonic + "Argument for OpCodes.OP_IF/NOT_IF must be 0x01 or empty");
+                  throw ScriptException(ScriptError.SCRIPT_ERR_MINIMALIF,"Argument for OpCodes.OP_IF/NOT_IF must be 0x01 or empty");
                 }
 
                 if (stacktop.length == 1 && stacktop[0] != 1) {
-                  throw ScriptException(ScriptError.SCRIPT_ERR_MINIMALIF.mnemonic + "Argument for OpCodes.OP_IF/NOT_IF must be 0x01 or empty");
+                  throw ScriptException(ScriptError.SCRIPT_ERR_MINIMALIF,"Argument for OpCodes.OP_IF/NOT_IF must be 0x01 or empty");
                 }
               }
 
@@ -239,13 +239,13 @@ class InterpreterV2 {
           case OpCodes.OP_ELSE:
           //only one ELSE is allowed in IF after genesis
             if (ifStack.isEmpty || (!elseStack.isEmpty && elseStack.getLast() && verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS)))
-              throw ScriptException(ScriptError.SCRIPT_ERR_UNBALANCED_CONDITIONAL.mnemonic + "Attempted OpCodes.OP_ELSE without OpCodes.OP_IF/NOTIF");
+              throw ScriptException(ScriptError.SCRIPT_ERR_UNBALANCED_CONDITIONAL,"Attempted OpCodes.OP_ELSE without OpCodes.OP_IF/NOTIF");
             ifStack.add(!ifStack.pollLast());
             elseStack.set(elseStack.size() - 1, true);
             continue;
           case OpCodes.OP_ENDIF:
             if (ifStack.isEmpty)
-              throw ScriptException(ScriptError.SCRIPT_ERR_UNBALANCED_CONDITIONAL.mnemonic + "-Attempted OpCodes.OP_ENDIF without OpCodes.OP_IF/NOTIF");
+              throw ScriptException(ScriptError.SCRIPT_ERR_UNBALANCED_CONDITIONAL,"-Attempted OpCodes.OP_ENDIF without OpCodes.OP_IF/NOTIF");
             ifStack.pollLast();
             elseStack.pollLast();
             continue;
@@ -276,9 +276,9 @@ class InterpreterV2 {
             break;
           case OpCodes.OP_VERIFY:
             if (stack.size() < 1)
-              throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic + "-Attempted OpCodes.OP_VERIFY on an empty stack");
+              throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"-Attempted OpCodes.OP_VERIFY on an empty stack");
             if (!castToBool(Uint8List.fromList(stack.pollLast())))
-              throw ScriptException(ScriptError.SCRIPT_ERR_VERIFY.mnemonic + "-OpCodes.OP_VERIFY failed");
+              throw ScriptException(ScriptError.SCRIPT_ERR_VERIFY,"-OpCodes.OP_VERIFY failed");
             break;
           case OpCodes.OP_RETURN:
             if (verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS)) {
@@ -290,29 +290,29 @@ class InterpreterV2 {
               nonTopLevelReturnAfterGenesis = true;
             } else {
               // Pre-Genesis OpCodes.OP_RETURN marks script as invalid
-              throw ScriptException(ScriptError.SCRIPT_ERR_OP_RETURN.mnemonic + "Script called OpCodes.OP_RETURN");
+              throw ScriptException(ScriptError.SCRIPT_ERR_OP_RETURN,"Script called OpCodes.OP_RETURN");
             }
             break;
 
           case OpCodes.OP_TOALTSTACK:
             if (stack.size() < 1)
-              throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic + "Attempted OpCodes.OP_TOALTSTACK on an empty stack");
+              throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_TOALTSTACK on an empty stack");
             altstack.add(stack.pollLast());
             break;
           case OpCodes.OP_FROMALTSTACK:
             if (altstack.size() < 1)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_ALTSTACK_OPERATION.mnemonic + "Attempted OpCodes.OP_FROMALTSTACK on an empty altstack");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_ALTSTACK_OPERATION,"Attempted OpCodes.OP_FROMALTSTACK on an empty altstack");
             stack.add(altstack.pollLast());
             break;
           case OpCodes.OP_2DROP:
             if (stack.size() < 2)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic + "Attempted OpCodes.OP_2DROP on a stack with size < 2");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_2DROP on a stack with size < 2");
             stack.pollLast();
             stack.pollLast();
             break;
           case OpCodes.OP_2DUP:
             if (stack.size() < 2)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic + "Attempted OpCodes.OP_2DUP on a stack with size < 2");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_2DUP on a stack with size < 2");
             Iterator<List<int>> it2DUP = stack.descendingIterator();
             it2DUP.moveNext();
             List<int> OP2DUPtmpChunk2 = it2DUP.current;
@@ -322,7 +322,7 @@ class InterpreterV2 {
             break;
           case OpCodes.OP_3DUP:
             if (stack.size() < 3)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic + "Attempted OpCodes.OP_3DUP on a stack with size < 3");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_3DUP on a stack with size < 3");
             Iterator<List<int>> it3DUP = stack.descendingIterator();
             it3DUP.moveNext();
             List<int> OP3DUPtmpChunk3 = it3DUP.current;
@@ -335,7 +335,7 @@ class InterpreterV2 {
             break;
           case OpCodes.OP_2OVER:
             if (stack.size() < 4)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic + "Attempted OpCodes.OP_2OVER on a stack with size < 4");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_2OVER on a stack with size < 4");
             Iterator<List<int>> it2OVER = stack.descendingIterator();
             it2OVER.moveNext();
             it2OVER.moveNext();
@@ -347,7 +347,7 @@ class InterpreterV2 {
             break;
           case OpCodes.OP_2ROT:
             if (stack.size() < 6)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic + "Attempted OpCodes.OP_2ROT on a stack with size < 6");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_2ROT on a stack with size < 6");
             List<int> OP2ROTtmpChunk6 = stack.pollLast();
             List<int> OP2ROTtmpChunk5 = stack.pollLast();
             List<int> OP2ROTtmpChunk4 = stack.pollLast();
@@ -363,7 +363,7 @@ class InterpreterV2 {
             break;
           case OpCodes.OP_2SWAP:
             if (stack.size() < 4)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic + "Attempted OpCodes.OP_2SWAP on a stack with size < 4");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_2SWAP on a stack with size < 4");
             List<int> OP2SWAPtmpChunk4 = stack.pollLast();
             List<int> OP2SWAPtmpChunk3 = stack.pollLast();
             List<int> OP2SWAPtmpChunk2 = stack.pollLast();
@@ -375,7 +375,7 @@ class InterpreterV2 {
             break;
           case OpCodes.OP_IFDUP:
             if (stack.size() < 1)
-              throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic + "-Attempted OpCodes.OP_IFDUP on an empty stack");
+              throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"-Attempted OpCodes.OP_IFDUP on an empty stack");
             if (castToBool(Uint8List.fromList(stack.getLast())))
               stack.add(stack.getLast());
             break;
@@ -384,24 +384,24 @@ class InterpreterV2 {
             break;
           case OpCodes.OP_DROP:
             if (stack.size() < 1)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"-Attempted OpCodes.OP_DROP on an empty stack");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"-Attempted OpCodes.OP_DROP on an empty stack");
             stack.pollLast();
             break;
           case OpCodes.OP_DUP:
             if (stack.size() < 1)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic + "-Attempted OpCodes.OP_DUP on an empty stack");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"-Attempted OpCodes.OP_DUP on an empty stack");
             stack.add(stack.getLast());
             break;
           case OpCodes.OP_NIP:
             if (stack.size() < 2)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"-Attempted OpCodes.OP_NIP on a stack with size < 2");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"-Attempted OpCodes.OP_NIP on a stack with size < 2");
             List<int> OPNIPtmpChunk = stack.pollLast();
             stack.pollLast();
             stack.add(OPNIPtmpChunk);
             break;
           case OpCodes.OP_OVER:
             if (stack.size() < 2)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_OVER on a stack with size < 2");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_OVER on a stack with size < 2");
             Iterator<List<int>> itOVER = stack.descendingIterator();
             itOVER.moveNext();
             itOVER.moveNext();
@@ -410,10 +410,10 @@ class InterpreterV2 {
           case OpCodes.OP_PICK:
           case OpCodes.OP_ROLL:
             if (stack.size() < 1)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_PICK/OpCodes.OP_ROLL on an empty stack");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_PICK/OpCodes.OP_ROLL on an empty stack");
             int val = castToBigInt(stack.pollLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA),  nMaxNumSize: maxScriptNumLength).toInt();
             if (val < 0 || val >= stack.size())
-              throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"OpCodes.OP_PICK/OpCodes.OP_ROLL attempted to get data deeper than stack size");
+              throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"OpCodes.OP_PICK/OpCodes.OP_ROLL attempted to get data deeper than stack size");
 
             if (opcode == OpCodes.OP_PICK){
               stack.copyToTop(val);
@@ -424,7 +424,7 @@ class InterpreterV2 {
             break;
           case OpCodes.OP_ROT:
             if (stack.size() < 3)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_ROT on a stack with size < 3");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_ROT on a stack with size < 3");
             List<int> OPROTtmpChunk3 = stack.pollLast();
             List<int> OPROTtmpChunk2 = stack.pollLast();
             List<int> OPROTtmpChunk1 = stack.pollLast();
@@ -435,7 +435,7 @@ class InterpreterV2 {
           case OpCodes.OP_SWAP:
           case OpCodes.OP_TUCK:
             if (stack.size() < 2)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_SWAP on a stack with size < 2");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_SWAP on a stack with size < 2");
             List<int> OPSWAPtmpChunk2 = stack.pollLast();
             List<int> OPSWAPtmpChunk1 = stack.pollLast();
             stack.add(OPSWAPtmpChunk2);
@@ -447,31 +447,29 @@ class InterpreterV2 {
 
           case OpCodes.OP_CAT:
             if (stack.size() < 2)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Invalid stack operation.");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Invalid stack operation.");
             List<int> catBytes2 = stack.pollLast();
             List<int> catBytes1 = stack.pollLast();
 
             int len = catBytes1.length + catBytes2.length;
             if (!verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && len > MAX_SCRIPT_ELEMENT_SIZE_BEFORE_GENESIS)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_PUSH_SIZE.mnemonic +"Push value size limit exceeded.");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_PUSH_SIZE,"Push value size limit exceeded.");
 
-            List<int> catOut = List<int>.generate(len, (index) => 0);
-            catOut.setRange(0, catBytes1.length, catBytes1);
-            // System.arraycopy(catBytes1, 0, catOut, 0, catBytes1.length);
-            catOut.setRange(catBytes1.length, catBytes2.length, catBytes2);
-            // System.arraycopy(catBytes2, 0, catOut, catBytes1.length, catBytes2.length);
-            stack.add(catOut.toList());
+            var writer = ByteDataWriter();
+            writer.write(catBytes1);
+            writer.write(catBytes2);
+            stack.add(writer.toBytes());
 
             break;
 
           case OpCodes.OP_NUM2BIN:
             if (stack.size() < 2)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Invalid stack operation.");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Invalid stack operation.");
 
             int numSize = castToBigInt(stack.pollLast(),  enforceMinimal, nMaxNumSize: maxScriptNumLength).toInt();
 
             if (!verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && numSize > MAX_SCRIPT_ELEMENT_SIZE_BEFORE_GENESIS)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_PUSH_SIZE.mnemonic +"Push value size limit exceeded.");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_PUSH_SIZE,"Push value size limit exceeded.");
 
             List<int> rawNumBytes = stack.pollLast();
 
@@ -480,7 +478,7 @@ class InterpreterV2 {
             List<int> minimalNumBytes = minimallyEncode(rawNumBytes);
             if (minimalNumBytes.length > numSize) {
               //we can't
-              throw new ScriptException(ScriptError.SCRIPT_ERR_PUSH_SIZE.mnemonic +"The requested encoding is impossible to satisfy.");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_PUSH_SIZE,"The requested encoding is impossible to satisfy.");
             }
 
             if (minimalNumBytes.length == numSize) {
@@ -505,7 +503,7 @@ class InterpreterV2 {
 
           case OpCodes.OP_SPLIT:
             if (stack.size() < 2)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Invalid stack operation.");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Invalid stack operation.");
 
             BigInt biSplitPos = castToBigInt(stack.pollLast(), enforceMinimal, nMaxNumSize: maxScriptNumLength );
 
@@ -515,13 +513,13 @@ class InterpreterV2 {
             //is greater than the target type can hold.
             BigInt biMaxInt = BigInt.from(UINT32_MAX);
             if (biSplitPos.compareTo(biMaxInt) >= 0)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic +"Invalid OpCodes.OP_SPLIT range.");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR,"Invalid OpCodes.OP_SPLIT range.");
 
             int splitPos = biSplitPos.toInt();
             List<int> splitBytes = stack.pollLast();
 
             if (splitPos > splitBytes.length || splitPos < 0)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_SPLIT_RANGE.mnemonic +"Invalid OpCodes.OP_SPLIT range.");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_SPLIT_RANGE,"Invalid OpCodes.OP_SPLIT range.");
 
             Uint8List splitOut1 = Uint8List(splitPos);
             Uint8List splitOut2 = Uint8List(splitBytes.length - splitPos);
@@ -537,27 +535,27 @@ class InterpreterV2 {
 
           case OpCodes.OP_BIN2NUM:
             if (stack.size() < 1)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Invalid stack operation.");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Invalid stack operation.");
 
             Uint8List binBytes = Uint8List.fromList(stack.pollLast());
             Uint8List numBytes = Uint8List.fromList(minimallyEncode(binBytes.toList()));
 
             if (!checkMinimallyEncoded(numBytes, maxScriptNumLength))
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_NUMBER_RANGE.mnemonic +"Given operand is not a number within the valid range [-2^31...2^31]");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_NUMBER_RANGE,"Given operand is not a number within the valid range [-2^31...2^31]");
 
             stack.add(numBytes);
 
             break;
           case OpCodes.OP_SIZE:
             if (stack.size() < 1)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_SIZE on an empty stack");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_SIZE on an empty stack");
             stack.add(castToBuffer(BigInt.from(stack.getLast().length)));
             break;
 
           case OpCodes.OP_LSHIFT:
           case OpCodes.OP_RSHIFT:
             if (stack.size() < 2)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Too few items on stack for SHIFT Op");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Too few items on stack for SHIFT Op");
 
             List<int> shiftCountBuf = stack.getLast();
             List<int> valueToShiftBuf = stack.getAt(stack.size() - 2);
@@ -569,7 +567,7 @@ class InterpreterV2 {
 
               int n = shiftCount.toInt();
               if (n < 0)
-                throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_NUMBER_RANGE.mnemonic +"Can't shift negative number of bits (n < 0)");
+                throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_NUMBER_RANGE,"Can't shift negative number of bits (n < 0)");
 
               stack.pop();
               stack.pop();
@@ -582,15 +580,23 @@ class InterpreterV2 {
 
               if (opcode == OpCodes.OP_LSHIFT) {
                 //Dart BigInt automagically right-pads the shifted bits
-                shifted = valueToShift << n; // bn1.ushln(n);
+                do{
+                  valueToShiftBuf = LShift(valueToShiftBuf, n);
+                  n -= UINT32_MAX;
+                }while(n > 0);
+                // shifted = valueToShift << n; // bn1.ushln(n);
               }
               if (opcode == OpCodes.OP_RSHIFT) {
-                shifted = valueToShift >> n;
+                do {
+                  valueToShiftBuf = RShift(valueToShiftBuf, n);
+                  n -= UINT32_MAX;
+                }while(n >0);
+                // shifted = valueToShift >> n;
               }
 
               if (n > 0) {
                 //shift occured
-                stack.push(castToBuffer(shifted));
+                stack.push(valueToShiftBuf);
               } else {
                 //no shift, just push original value back onto stack
                 stack.push(valueToShiftBuf);
@@ -601,7 +607,7 @@ class InterpreterV2 {
           case OpCodes.OP_INVERT:
             {
               if (stack.size() < 1) {
-                throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"No elements left on stack.");
+                throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"No elements left on stack.");
               }
               Uint8List vch1 = Uint8List.fromList(stack.pollLast());
               // To avoid allocating, we modify vch1 in place
@@ -617,7 +623,7 @@ class InterpreterV2 {
           case OpCodes.OP_XOR:
           // (x1 x2 - out)
             if (stack.size() < 2) {
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Invalid stack operation.");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Invalid stack operation.");
             }
 
             //valtype &vch2 = stacktop(-1);
@@ -627,7 +633,7 @@ class InterpreterV2 {
 
             // Inputs must be the same size
             if (vch1.length != vch2.length) {
-              throw new ScriptException(ScriptError.SCRIPT_ERR_OPERAND_SIZE.mnemonic +"Invalid operand size.");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_OPERAND_SIZE,"Invalid operand size.");
             }
 
             // To avoid allocating, we modify vch1 in place.
@@ -661,14 +667,14 @@ class InterpreterV2 {
 
           case OpCodes.OP_EQUAL:
             if (stack.size() < 2)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_EQUAL on a stack with size < 2");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_EQUAL on a stack with size < 2");
             stack.add(ListEquality().equals(stack.pollLast(), stack.pollLast()) ? [1] : []);
             break;
           case OpCodes.OP_EQUALVERIFY:
             if (stack.size() < 2)
-              throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_EQUALVERIFY on a stack with size < 2");
+              throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_EQUALVERIFY on a stack with size < 2");
             if (!ListEquality().equals(stack.pollLast(), stack.pollLast()))
-              throw new ScriptException(ScriptError.SCRIPT_ERR_EQUALVERIFY.mnemonic +"OpCodes.OP_EQUALVERIFY: non-equal data");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_EQUALVERIFY,"OpCodes.OP_EQUALVERIFY: non-equal data");
             break;
           case OpCodes.OP_1ADD:
           case OpCodes.OP_1SUB:
@@ -677,7 +683,7 @@ class InterpreterV2 {
           case OpCodes.OP_NOT:
           case OpCodes.OP_0NOTEQUAL:
             if (stack.size() < 1)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic + "Attempted a numeric op on an empty stack");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted a numeric op on an empty stack");
             BigInt numericOPnum = castToBigInt(stack.pollLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA), nMaxNumSize: maxScriptNumLength );
 
             switch (opcode) {
@@ -728,7 +734,7 @@ class InterpreterV2 {
           case OpCodes.OP_MIN:
           case OpCodes.OP_MAX:
             if (stack.size() < 2)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted a numeric op on a stack with size < 2");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted a numeric op on a stack with size < 2");
             BigInt numericOPnum2 = castToBigInt(stack.pollLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA), nMaxNumSize: maxScriptNumLength );
             BigInt numericOPnum1 = castToBigInt(stack.pollLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA), nMaxNumSize: maxScriptNumLength );
 
@@ -747,13 +753,13 @@ class InterpreterV2 {
 
               case OpCodes.OP_DIV:
                 if (numericOPnum2.toInt() == 0)
-                  throw ScriptException(ScriptError.SCRIPT_ERR_DIV_BY_ZERO.mnemonic +"Division by zero error");
+                  throw ScriptException(ScriptError.SCRIPT_ERR_DIV_BY_ZERO,"Division by zero error");
                 numericOPresult = numericOPnum1 ~/ numericOPnum2;
                 break;
 
               case OpCodes.OP_MOD:
                 if (numericOPnum2.toInt() == 0)
-                  throw new ScriptException(ScriptError.SCRIPT_ERR_MOD_BY_ZERO.mnemonic +"Modulo by zero error");
+                  throw new ScriptException(ScriptError.SCRIPT_ERR_MOD_BY_ZERO,"Modulo by zero error");
 
                 /**
                  * BigInt doesn't behave the way we want for modulo operations.  Firstly it's
@@ -838,16 +844,16 @@ class InterpreterV2 {
             break;
           case OpCodes.OP_NUMEQUALVERIFY:
             if (stack.size() < 2)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_NUMEQUALVERIFY on a stack with size < 2");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_NUMEQUALVERIFY on a stack with size < 2");
             BigInt OPNUMEQUALVERIFYnum2 = castToBigInt(stack.pollLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA),nMaxNumSize: maxScriptNumLength );
             BigInt OPNUMEQUALVERIFYnum1 = castToBigInt(stack.pollLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA),nMaxNumSize: maxScriptNumLength );
 
             if (!(OPNUMEQUALVERIFYnum1 == OPNUMEQUALVERIFYnum2))
-              throw new ScriptException(ScriptError.SCRIPT_ERR_NUMEQUALVERIFY.mnemonic +"OpCodes.OP_NUMEQUALVERIFY failed");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_NUMEQUALVERIFY,"OpCodes.OP_NUMEQUALVERIFY failed");
             break;
           case OpCodes.OP_WITHIN:
             if (stack.size() < 3)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic + "Attempted OpCodes.OP_WITHIN on a stack with size < 3");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_WITHIN on a stack with size < 3");
             BigInt OPWITHINnum3 = castToBigInt(stack.pollLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA), nMaxNumSize: maxScriptNumLength );
             BigInt OPWITHINnum2 = castToBigInt(stack.pollLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA), nMaxNumSize: maxScriptNumLength );
             BigInt OPWITHINnum1 = castToBigInt(stack.pollLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA), nMaxNumSize: maxScriptNumLength );
@@ -858,28 +864,28 @@ class InterpreterV2 {
             break;
           case OpCodes.OP_RIPEMD160:
             if (stack.size() < 1)
-              throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_RIPEMD160 on an empty stack");
+              throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_RIPEMD160 on an empty stack");
             stack.add(ripemd160(stack.pollLast()));
             break;
           case OpCodes.OP_SHA1:
             if (stack.size() < 1)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_SHA1 on an empty stack");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_SHA1 on an empty stack");
             stack.add(sha1(stack.pollLast()));
 
             break;
           case OpCodes.OP_SHA256:
             if (stack.size() < 1)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_SHA256 on an empty stack");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_SHA256 on an empty stack");
             stack.add(sha256(stack.pollLast()));
             break;
           case OpCodes.OP_HASH160:
             if (stack.size() < 1)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_HASH160 on an empty stack");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_HASH160 on an empty stack");
             stack.add(hash160(stack.pollLast()));
             break;
           case OpCodes.OP_HASH256:
             if (stack.size() < 1)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_SHA256 on an empty stack");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_SHA256 on an empty stack");
             stack.add(sha256Twice(stack.pollLast()));
             break;
           case OpCodes.OP_CODESEPARATOR:
@@ -896,10 +902,10 @@ class InterpreterV2 {
                   index, script, stack, lastCodeSepLocation, opcode, Coin.valueOf(value), verifyFlags);
             } on SignatureEncodingException catch (ex) {
               stack.add([]); //push false onto stack
-              throw ScriptException(ex.cause);
-            } catch (ex) {
+              throw ScriptException(ex.error, ex.cause);
+            } on PubKeyEncodingException catch (ex) {
               stack.add([]); //push false onto stack
-              throw ScriptException(ex.toString());
+              throw ScriptException(ex.error, ex.toString());
             }
 
             break;
@@ -914,10 +920,10 @@ class InterpreterV2 {
                    index, script, stack, opCount, lastCodeSepLocation, opcode, Coin.valueOf(value), verifyFlags);
             } on SignatureEncodingException catch (ex) {
               stack.add([]); //push false onto stack
-              throw ScriptException(ex.cause);
+              throw ScriptException(ex.error, ex.cause);
             } on PubKeyEncodingException catch (ex) {
               stack.add([]); //push false onto stack
-              throw new ScriptException(ex.cause);
+              throw new ScriptException(ex.error, ex.cause);
             }
             break;
 
@@ -925,7 +931,7 @@ class InterpreterV2 {
             if (!verifyFlags.contains(VerifyFlag.CHECKLOCKTIMEVERIFY) || verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS)) {
               // not enabled; treat as a NOP2
               if (verifyFlags.contains(VerifyFlag.DISCOURAGE_UPGRADABLE_NOPS)) {
-                throw new ScriptException(ScriptError.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS.mnemonic +"Script used a reserved opcode ${opcode}");
+                throw new ScriptException(ScriptError.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS,"Script used a reserved opcode ${opcode}");
               }
               break;
             }
@@ -936,7 +942,7 @@ class InterpreterV2 {
             if (!verifyFlags.contains(VerifyFlag.CHECKSEQUENCEVERIFY) || verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS)) {
               // not enabled; treat as a NOP3
               if (verifyFlags.contains(VerifyFlag.DISCOURAGE_UPGRADABLE_NOPS)) {
-                throw new ScriptException(ScriptError.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS.mnemonic +"Script used a reserved opcode ${opcode}");
+                throw new ScriptException(ScriptError.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS,"Script used a reserved opcode ${opcode}");
               }
               break;
             }
@@ -951,7 +957,7 @@ class InterpreterV2 {
           case OpCodes.OP_NOP9:
           case OpCodes.OP_NOP10:
             if (verifyFlags.contains(VerifyFlag.DISCOURAGE_UPGRADABLE_NOPS)) {
-              throw new ScriptException(ScriptError.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS.mnemonic +"Script used a reserved opcode ${opcode}" );
+              throw new ScriptException(ScriptError.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS,"Script used a reserved opcode ${opcode}" );
             }
             break;
 
@@ -959,16 +965,16 @@ class InterpreterV2 {
             if (isInvalidBranchingOpcode(opcode) && verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && !shouldExecute) {
               break;
             }
-            throw new ScriptException(ScriptError.SCRIPT_ERR_BAD_OPCODE.mnemonic +"Script used a reserved or disabled opcode: ${opcode}" );
+            throw new ScriptException(ScriptError.SCRIPT_ERR_BAD_OPCODE,"Script used a reserved or disabled opcode: ${opcode}" );
         }
       }
 
       if (stack.size() + altstack.size() > MAX_STACK_SIZE || stack.size() + altstack.size() < 0)
-        throw new ScriptException(ScriptError.SCRIPT_ERR_STACK_SIZE.mnemonic +"Stack size exceeded range");
+        throw new ScriptException(ScriptError.SCRIPT_ERR_STACK_SIZE,"Stack size exceeded range");
     }
 
     if (!ifStack.isEmpty)
-      throw new ScriptException(ScriptError.SCRIPT_ERR_UNBALANCED_CONDITIONAL.mnemonic +"OpCodes.OP_IF/OpCodes.OP_NOTIF without OpCodes.OP_ENDIF");
+      throw new ScriptException(ScriptError.SCRIPT_ERR_UNBALANCED_CONDITIONAL,"OpCodes.OP_IF/OpCodes.OP_NOTIF without OpCodes.OP_ENDIF");
   }
 
   static bool isInvalidBranchingOpcode(int opcode) {
@@ -979,14 +985,14 @@ class InterpreterV2 {
   // This is more or less a direct translation of the code in Bitcoin Core
   void executeCheckLockTimeVerify(Transaction txContainingThis, int index, InterpreterStack<List<int>> stack, Set<VerifyFlag> verifyFlags) {
     if (stack.size() < 1)
-      throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_CHECKLOCKTIMEVERIFY on a stack with size < 1");
+      throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_CHECKLOCKTIMEVERIFY on a stack with size < 1");
 
     // Thus as a special case we tell CScriptNum to accept up
     // to 5-byte bignums to avoid year 2038 issue.
     final BigInt nLockTime = castToBigInt(stack.getLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA), nMaxNumSize: 5 );
 
     if (nLockTime.compareTo(BigInt.zero) < 0)
-      throw new ScriptException(ScriptError.SCRIPT_ERR_NEGATIVE_LOCKTIME.mnemonic +"Negative locktime");
+      throw new ScriptException(ScriptError.SCRIPT_ERR_NEGATIVE_LOCKTIME,"Negative locktime");
 
     // There are two kinds of nLockTime: lock-by-blockheight and
     // lock-by-blocktime, distinguished by whether nLockTime <
@@ -999,13 +1005,13 @@ class InterpreterV2 {
         (nLockTime.compareTo(Transaction.LOCKTIME_THRESHOLD_BIG)) < 0) ||
         ((txContainingThis.getLockTime() >= Transaction.LOCKTIME_THRESHOLD) &&
             (nLockTime.compareTo(Transaction.LOCKTIME_THRESHOLD_BIG)) >= 0))) {
-      throw new ScriptException(ScriptError.SCRIPT_ERR_UNSATISFIED_LOCKTIME.mnemonic +"Locktime requirement type mismatch");
+      throw new ScriptException(ScriptError.SCRIPT_ERR_UNSATISFIED_LOCKTIME,"Locktime requirement type mismatch");
     }
 
     // Now that we know we're comparing apples-to-apples, the comparison is a
     // simple numeric one.
     if (nLockTime.compareTo(BigInt.from(txContainingThis.getLockTime())) > 0)
-      throw new ScriptException(ScriptError.SCRIPT_ERR_NEGATIVE_LOCKTIME.mnemonic +"Negative locktime");
+      throw new ScriptException(ScriptError.SCRIPT_ERR_NEGATIVE_LOCKTIME,"Negative locktime");
 
     // Finally the nLockTime feature can be disabled and thus
     // CHECKLOCKTIMEVERIFY bypassed if every txin has been finalized by setting
@@ -1018,7 +1024,7 @@ class InterpreterV2 {
     // execution.
     if (!txContainingThis.inputs[index].isFinal())
       throw new ScriptException(
-          ScriptError.SCRIPT_ERR_UNSATISFIED_LOCKTIME.mnemonic +"Transaction contains a final transaction input for a CHECKLOCKTIMEVERIFY script. ");
+          ScriptError.SCRIPT_ERR_UNSATISFIED_LOCKTIME,"Transaction contains a final transaction input for a CHECKLOCKTIMEVERIFY script. ");
   }
 
 
@@ -1044,7 +1050,7 @@ class InterpreterV2 {
 // the tx half broken (also it's not so thread safe to work on it directly.
 
     if (verifyFlags.contains(VerifyFlag.SIGPUSHONLY) && !scriptSig.isPushOnly()) {
-      throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_PUSHONLY.mnemonic +" - No pushdata operations allowed in scriptSig");
+      throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_PUSHONLY," - No pushdata operations allowed in scriptSig");
     }
     Transaction transaction;
     try {
@@ -1059,7 +1065,7 @@ class InterpreterV2 {
           .length > 10000 || scriptPubKey
           .buffer
           .length > 10000)
-        throw new ScriptException(ScriptError.SCRIPT_ERR_SCRIPT_SIZE.mnemonic +" - Script larger than 10,000 bytes");
+        throw new ScriptException(ScriptError.SCRIPT_ERR_SCRIPT_SIZE," - Script larger than 10,000 bytes");
     }
 
     InterpreterStack<List<int>> stack = InterpreterStack<List<int>>();
@@ -1073,10 +1079,10 @@ class InterpreterV2 {
     executeScript(transaction, scriptSigIndex, scriptPubKey, stack, coinSats.getValue(), verifyFlags);
 
     if (stack.size() == 0)
-      throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE.mnemonic +" - Stack empty at end of script execution.");
+      throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE," - Stack empty at end of script execution.");
 
     if (!castToBool(Uint8List.fromList(stack.getLast())))
-      throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE.mnemonic +" - Script resulted in a non-true stack:  ${stack}");
+      throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE," - Script resulted in a non-true stack:  ${stack}");
 
 // P2SH is pay to script hash. It means that the scriptPubKey has a special form which is a valid
 // program but it has "useless" form that if evaluated as a normal program always returns true.
@@ -1096,7 +1102,7 @@ class InterpreterV2 {
         && !(verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS))) {
       for (ScriptChunk chunk in scriptSig.chunks)
     if (chunk.isOpCode() && chunk.opcodenum > OpCodes.OP_16)
-    throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_PUSHONLY.mnemonic + " - Attempted to spend a P2SH scriptPubKey with a script that contained script ops");
+    throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_PUSHONLY," - Attempted to spend a P2SH scriptPubKey with a script that contained script ops");
 
     stack = InterpreterStack<List<int>>.fromList(p2shStack.iterator.toList()); //restore stack
 // stack cannot be empty here, because if it was the P2SH  HASH <> EQUAL
@@ -1110,10 +1116,10 @@ class InterpreterV2 {
     executeScript(transaction, scriptSigIndex, scriptPubKeyP2SH, stack, coinSats.getValue(), verifyFlags);
 
     if (stack.isEmpty)
-    throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE.mnemonic +" - P2SH stack empty at end of script execution.");
+    throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE," - P2SH stack empty at end of script execution.");
 
     if (!castToBool(Uint8List.fromList(stack.getLast())))
-      throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE.mnemonic +" - P2SH script execution resulted in a non-true stack");
+      throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE," - P2SH script execution resulted in a non-true stack");
     }
 
 // The CLEANSTACK check is only performed after potential P2SH evaluation,
@@ -1126,7 +1132,7 @@ class InterpreterV2 {
 // softfork (and P2SH should be one).
     assert(verifyFlags.contains(VerifyFlag.P2SH));
     if (stack.size() != 1){
-    throw new ScriptException(ScriptError.SCRIPT_ERR_CLEANSTACK.mnemonic +" - Cleanstack is disallowed without P2SH");
+    throw new ScriptException(ScriptError.SCRIPT_ERR_CLEANSTACK ,"Cleanstack is disallowed without P2SH");
     }
     }
   }
@@ -1145,7 +1151,7 @@ class InterpreterV2 {
         || verifyFlags.contains(VerifyFlag.LOW_S);
 
     if (stack.size() < 2)
-      throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_CHECKSIG(VERIFY) on a stack with size < 2");
+      throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_CHECKSIG(VERIFY) on a stack with size < 2");
     List<int> pubKeyBuffer = stack.pollLast();
     List<int> sigBytes = stack.pollLast();
 
@@ -1177,7 +1183,7 @@ class InterpreterV2 {
     try {
       if (SVSignature.hasForkId(sigBytes)) {
         if (!verifyFlags.contains(VerifyFlag.SIGHASH_FORKID)) {
-          throw new ScriptException(ScriptError.SCRIPT_ERR_ILLEGAL_FORKID.mnemonic +"ForkID is not enabled, yet the flag is set");
+          throw new ScriptException(ScriptError.SCRIPT_ERR_ILLEGAL_FORKID,"ForkID is not enabled, yet the flag is set");
         }
       }
 
@@ -1193,7 +1199,7 @@ class InterpreterV2 {
       sigValid = _dsaSigner.verifySignature(Uint8List.fromList((HEX.decode(hash))),ECSignature(sig.r, sig.s));
 
 
-    } on Exception catch (e1) {
+    } on RangeError catch (r1) {
 // There is (at least) one exception that could be hit here (EOFException, if the sig is too short)
 // Because I can't verify there aren't more, we use a very generic Exception catch
 
@@ -1201,17 +1207,21 @@ class InterpreterV2 {
 // signing work to be done inside LocalTransactionSigner.signInputs.
 //       if (!e1.getMessage().contains("Reached past end of ASN.1 stream"))
 //         log.warn("Signature checking failed!", e1);
+      print("Range Error. Likely read past end of ASN.1 stream - ${r1.message}");
+    } on Exception catch(ex){
+
     }
 
+
     if (!sigValid && verifyFlags.contains(VerifyFlag.NULLFAIL) && sigBytes.length > 0) {
-      throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_NULLFAIL.mnemonic +"Failed strict DER Signature coding. ");
+      throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_NULLFAIL,"Failed strict DER Signature coding. ");
     }
 
     if (opcode == OpCodes.OP_CHECKSIG)
       stack.add(sigValid ? [1] : []);
     else if (opcode == OpCodes.OP_CHECKSIGVERIFY)
       if (!sigValid)
-        throw new ScriptException(ScriptError.SCRIPT_ERR_CHECKSIGVERIFY.mnemonic +" Script failed OpCodes.OP_CHECKSIGVERIFY ");
+        throw new ScriptException(ScriptError.SCRIPT_ERR_CHECKSIGVERIFY," Script failed OpCodes.OP_CHECKSIGVERIFY ");
   }
 
   /**
@@ -1318,13 +1328,13 @@ class InterpreterV2 {
 
   static void checkIsLowDERSignature(List<int> sigBytes) {
     if (!isValidSignatureEncoding(sigBytes)) {
-      throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_DER.mnemonic + "Invalid signature encoding");
+      throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_DER,"Invalid signature encoding");
     }
     List<int> sigCopy = List<int>.generate(sigBytes.length - 1, (i) => 0);
     sigCopy.setRange(0, sigBytes.length - 1, sigBytes);//drop Sighash flag
     // Uint8List sigCopy = Arrays.copyOf(sigBytes, sigBytes.length - 1); //drop Sighash flag
     if (!hasLowS(Uint8List.fromList(sigCopy))) {
-      throw ScriptException(ScriptError.SCRIPT_ERR_SIG_HIGH_S.mnemonic +"Signature has high S. Low S expected.");
+      throw ScriptException(ScriptError.SCRIPT_ERR_SIG_HIGH_S,"Signature has high S. Low S expected.");
     }
   }
 
@@ -1337,7 +1347,7 @@ class InterpreterV2 {
     if ((flags.contains(VerifyFlag.DERSIG) | flags.contains(VerifyFlag.LOW_S) |
     flags.contains(VerifyFlag.STRICTENC)) &&
         !isValidSignatureEncoding(sigBytes)) {
-      throw new SignatureEncodingException(ScriptError.SCRIPT_ERR_SIG_DER.mnemonic + " - Invalid Signature Encoding");
+      throw new SignatureEncodingException(ScriptError.SCRIPT_ERR_SIG_DER," - Invalid Signature Encoding");
     }
     if (flags.contains(VerifyFlag.LOW_S)) {
       checkIsLowDERSignature(sigBytes);
@@ -1350,15 +1360,15 @@ class InterpreterV2 {
       bool usesForkId = (sigHashType & SighashType.SIGHASH_FORKID.value) != 0;
       bool forkIdEnabled = flags.contains(VerifyFlag.SIGHASH_FORKID);
       if (!forkIdEnabled && usesForkId) {
-        throw new SignatureEncodingException(ScriptError.SCRIPT_ERR_ILLEGAL_FORKID.mnemonic +"ForkID is not enabled, yet the flag is set");
+        throw new SignatureEncodingException(ScriptError.SCRIPT_ERR_ILLEGAL_FORKID,"ForkID is not enabled, yet the flag is set");
       }
       if (forkIdEnabled && !usesForkId) {
-        throw new SignatureEncodingException(ScriptError.SCRIPT_ERR_MUST_USE_FORKID.mnemonic +"ForkID flag is required");
+        throw new SignatureEncodingException(ScriptError.SCRIPT_ERR_MUST_USE_FORKID,"ForkID flag is required");
       }
 
 //check for valid sighashType
       if (!SighashType.hasValue(sigHashType)) {
-        throw new SignatureEncodingException(ScriptError.SCRIPT_ERR_SIG_HASHTYPE.mnemonic +"Invalid Sighash type");
+        throw new SignatureEncodingException(ScriptError.SCRIPT_ERR_SIG_HASHTYPE,"Invalid Sighash type");
       }
     }
   }
@@ -1400,11 +1410,11 @@ class InterpreterV2 {
 
   static bool checkPubKeyEncoding(List<int> pubKey, Set<VerifyFlag> flags) {
     if (flags.contains(VerifyFlag.STRICTENC) && !isCanonicalPubkey(pubKey)) {
-      throw new PubKeyEncodingException(ScriptError.SCRIPT_ERR_PUBKEYTYPE.mnemonic +" key has invalid encoding");
+      throw new PubKeyEncodingException(ScriptError.SCRIPT_ERR_PUBKEYTYPE," key has invalid encoding");
     }
 
     if (flags.contains(VerifyFlag.COMPRESSED_PUBKEYTYPE) && !isCompressedPubKey(pubKey)) {
-      throw new PubKeyEncodingException(ScriptError.SCRIPT_ERR_NONCOMPRESSED_PUBKEY.mnemonic +" key has invalid encoding");
+      throw new PubKeyEncodingException(ScriptError.SCRIPT_ERR_NONCOMPRESSED_PUBKEY," key has invalid encoding");
     }
 
     return
@@ -1424,19 +1434,19 @@ class InterpreterV2 {
 
     if (
     stack.size() < 1)
-      throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_CHECKMULTISIG(VERIFY) on a stack with size < 2");
+      throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_CHECKMULTISIG(VERIFY) on a stack with size < 2");
 
     int pubKeyCount = castToBigInt(stack.pollLast(), enforceMinimal, nMaxNumSize: getMaxScriptNumLength(utxoAfterGenesis) ).toInt();
     if (pubKeyCount < 0 || (!verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && pubKeyCount > 20)
         || (verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && pubKeyCount > UINT32_MAX))
-      throw new ScriptException(ScriptError.SCRIPT_ERR_PUBKEY_COUNT.mnemonic +"OpCodes.OP_CHECKMULTISIG(VERIFY) with pubkey count out of range");
+      throw new ScriptException(ScriptError.SCRIPT_ERR_PUBKEY_COUNT,"OpCodes.OP_CHECKMULTISIG(VERIFY) with pubkey count out of range");
     opCount += pubKeyCount;
 
     if (!isValidMaxOpsPerScript(opCount, utxoAfterGenesis))
-      throw new ScriptException(ScriptError.SCRIPT_ERR_CHECKMULTISIGVERIFY.mnemonic +"Total op (count > 250 * 1024) during OpCodes.OP_CHECKMULTISIG(VERIFY)");
+      throw new ScriptException(ScriptError.SCRIPT_ERR_CHECKMULTISIGVERIFY,"Total op (count > 250 * 1024) during OpCodes.OP_CHECKMULTISIG(VERIFY)");
 
     if (stack.size() < pubKeyCount + 1)
-      throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_CHECKMULTISIG(VERIFY) on a stack with size < num_of_pubkeys + 2");
+      throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_CHECKMULTISIG(VERIFY) on a stack with size < num_of_pubkeys + 2");
 
 //take all pubkeys off the stack
     InterpreterStack<List<int>> pubkeys = InterpreterStack<List<int>>();
@@ -1447,9 +1457,9 @@ class InterpreterV2 {
 
     int sigCount = castToBigInt(stack.pollLast(), enforceMinimal, nMaxNumSize: getMaxScriptNumLength(utxoAfterGenesis) ).toInt();
     if (sigCount < 0 || sigCount > pubKeyCount)
-      throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_COUNT.mnemonic +"OpCodes.OP_CHECKMULTISIG(VERIFY) with sig count out of range");
+      throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_COUNT,"OpCodes.OP_CHECKMULTISIG(VERIFY) with sig count out of range");
     if (stack.size() < sigCount + 1)
-      throw new ScriptException( ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_CHECKMULTISIG(VERIFY) on a stack with size < num_of_pubkeys + num_of_signatures + 3");
+      throw new ScriptException( ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_CHECKMULTISIG(VERIFY) on a stack with size < num_of_pubkeys + num_of_signatures + 3");
 
 //take all signatures off the stack
     InterpreterStack<List<int>> sigs = new InterpreterStack<List<int>>();
@@ -1542,7 +1552,7 @@ class InterpreterV2 {
       if (!valid && verifyFlags.contains(VerifyFlag.NULLFAIL) && sigs
           .getLast()
           .length > 0) {
-        throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_NULLFAIL.mnemonic +"Failed strict DER Signature coding. ");
+        throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_NULLFAIL,"Failed strict DER Signature coding. ");
       }
 
       sigs.pollLast();
@@ -1555,21 +1565,21 @@ class InterpreterV2 {
 // mutability, so optionally verify it is exactly equal
 // to zero prior to removing it from the stack.
     if (stack.size() < 1) {
-      throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"No dummy element left on stack to compensate for Core bug");
+      throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"No dummy element left on stack to compensate for Core bug");
     }
 
 //pop the dummy element (core bug argument)
     List<int> nullDummy = stack.pollLast();
     if (verifyFlags.contains(VerifyFlag.NULLDUMMY) && nullDummy.length > 0)
       throw ScriptException(
-          ScriptError.SCRIPT_ERR_SIG_NULLDUMMY.mnemonic + "OpCodes.OP_CHECKMULTISIG(VERIFY) with non-null nulldummy: ${nullDummy.toString()}" );
+          ScriptError.SCRIPT_ERR_SIG_NULLDUMMY,"OpCodes.OP_CHECKMULTISIG(VERIFY) with non-null nulldummy: ${nullDummy.toString()}" );
 
 
     if (opcode == OpCodes.OP_CHECKMULTISIG) {
       stack.add(valid ? [1] : []);
     } else if (opcode == OpCodes.OP_CHECKMULTISIGVERIFY) {
       if (!valid)
-        throw new ScriptException(ScriptError.SCRIPT_ERR_CHECKMULTISIGVERIFY.mnemonic +"Script failed OpCodes.OP_CHECKMULTISIGVERIFY");
+        throw new ScriptException(ScriptError.SCRIPT_ERR_CHECKMULTISIGVERIFY,"Script failed OpCodes.OP_CHECKMULTISIGVERIFY");
     }
     return
       opCount;
@@ -1578,7 +1588,7 @@ class InterpreterV2 {
 
   static void executeCheckSequenceVerify(Transaction txContainingThis, int index, InterpreterStack<List<int>> stack, Set<VerifyFlag> verifyFlags) {
     if (stack.size() < 1)
-      throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION.mnemonic +"Attempted OpCodes.OP_CHECKSEQUENCEVERIFY on a stack with size < 1");
+      throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_CHECKSEQUENCEVERIFY on a stack with size < 1");
 
 // Note that elsewhere numeric opcodes are limited to
 // operands in the range -2**31+1 to 2**31-1, however it is
@@ -1595,7 +1605,7 @@ class InterpreterV2 {
 // some arithmetic being done first, you can always use
 // 0 MAX CHECKSEQUENCEVERIFY.
     if (nSequence < 0)
-      throw new ScriptException(ScriptError.SCRIPT_ERR_NEGATIVE_LOCKTIME.mnemonic +"Negative sequence");
+      throw new ScriptException(ScriptError.SCRIPT_ERR_NEGATIVE_LOCKTIME,"Negative sequence");
 
 // To provide for future soft-fork extensibility, if the
 // operand has the disabled lock-time flag set,
@@ -1616,14 +1626,14 @@ class InterpreterV2 {
 // enough to trigger BIP 68 rules.
     if (
     txContainingThis.version < 2)
-      throw new ScriptException(ScriptError.SCRIPT_ERR_UNSATISFIED_LOCKTIME.mnemonic +"Transaction version is < 2");
+      throw new ScriptException(ScriptError.SCRIPT_ERR_UNSATISFIED_LOCKTIME,"Transaction version is < 2");
 
 // Sequence numbers with their most significant bit set are not
 // consensus constrained. Testing that the transaction's sequence
 // number do not have this bit set prevents using this property
 // to get around a CHECKSEQUENCEVERIFY check.
     if ((txToSequence & TransactionInput.SEQUENCE_LOCKTIME_DISABLE_FLAG) != 0)
-      throw new ScriptException(ScriptError.SCRIPT_ERR_UNSATISFIED_LOCKTIME.mnemonic +"Sequence disable flag is set");
+      throw new ScriptException(ScriptError.SCRIPT_ERR_UNSATISFIED_LOCKTIME,"Sequence disable flag is set");
 
 // Mask off any bits that do not have consensus-enforced meaning
 // before doing the integer comparisons
@@ -1640,13 +1650,13 @@ class InterpreterV2 {
 // the nSequenceMasked in the transaction.
     if (!((txToSequenceMasked < TransactionInput.SEQUENCE_LOCKTIME_TYPE_FLAG && nSequenceMasked < TransactionInput.SEQUENCE_LOCKTIME_TYPE_FLAG) ||
         (txToSequenceMasked >= TransactionInput.SEQUENCE_LOCKTIME_TYPE_FLAG && nSequenceMasked >= TransactionInput.SEQUENCE_LOCKTIME_TYPE_FLAG))) {
-      throw new ScriptException(ScriptError.SCRIPT_ERR_UNSATISFIED_LOCKTIME.mnemonic +"Relative locktime requirement type mismatch");
+      throw new ScriptException(ScriptError.SCRIPT_ERR_UNSATISFIED_LOCKTIME,"Relative locktime requirement type mismatch");
     }
 
 // Now that we know we're comparing apples-to-apples, the
 // comparison is a simple numeric one.
     if (nSequenceMasked > txToSequenceMasked)
-      throw new ScriptException(ScriptError.SCRIPT_ERR_UNSATISFIED_LOCKTIME.mnemonic +"Relative locktime requirement not satisfied");
+      throw new ScriptException(ScriptError.SCRIPT_ERR_UNSATISFIED_LOCKTIME,"Relative locktime requirement not satisfied");
   }
 
   static int getMaxScriptNumLength(bool isGenesisEnabled) {

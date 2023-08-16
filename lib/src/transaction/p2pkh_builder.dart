@@ -26,7 +26,7 @@ class P2PKHLockBuilder extends LockingScriptBuilder {
   SVScript getScriptPubkey() {
 
     if (this.pubkeyHash == null){
-      throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic + "Missing pubkey hash value");
+      throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR,"Missing pubkey hash value");
     }
 
     var builder = ScriptBuilder()
@@ -45,18 +45,18 @@ class P2PKHLockBuilder extends LockingScriptBuilder {
       var chunkList = script.chunks;
 
       if (chunkList.length != 5) {
-        throw ScriptException("Wrong number of data elements for P2PKH ScriptPubkey");
+        throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, "Wrong number of data elements for P2PKH ScriptPubkey");
       }
 
       if (chunkList[2].len != 20) {
-        throw ScriptException("Signature and Public Key values are malformed");
+        throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, "Signature and Public Key values are malformed");
       }
 
       if (!(chunkList[0].opcodenum == OpCodes.OP_DUP &&
           chunkList[1].opcodenum == OpCodes.OP_HASH160 &&
           chunkList[3].opcodenum == OpCodes.OP_EQUALVERIFY &&
           chunkList[4].opcodenum == OpCodes.OP_CHECKSIG)) {
-        throw ScriptException("Malformed P2PKH ScriptPubkey script. Mismatched OP_CODES.");
+        throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, "Malformed P2PKH ScriptPubkey script. Mismatched OP_CODES.");
       }
 
       pubkeyHash = chunkList[2].buf;
@@ -93,16 +93,20 @@ class P2PKHUnlockBuilder extends UnlockingScriptBuilder {
       var chunkList = script.chunks;
 
       if (chunkList.length != 2) {
-        throw ScriptException("Wrong number of data elements for P2PKH ScriptSig");
+        throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, "Wrong number of data elements for P2PKH ScriptSig");
       }
 
       var sig = chunkList[0].buf;
       var pubKey = chunkList[1].buf;
 
+      if (sig == null || pubKey == null){
+        throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, "Either one of Signature of Pubkey was not provided (null value)");
+      }
+
       signerPubkey = SVPublicKey.fromHex(HEX.encode(pubKey));
       signatures.add(SVSignature.fromTxFormat(HEX.encode(sig)));
     } else {
-      throw ScriptException("Invalid Script or Malformed Script.");
+      throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, "Invalid Script or Malformed Script.");
     }
   }
 

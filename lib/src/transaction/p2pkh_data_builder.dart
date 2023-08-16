@@ -52,7 +52,7 @@ class P2PKHDataLockBuilder extends LockingScriptBuilder {
   @override
   SVScript getScriptPubkey() {
     if (_pubkeyHash == null || _dataBuffer == null) {
-      throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic + " - Missing pubkeyHash. Can't construct the script.");
+      throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR," - Missing pubkeyHash. Can't construct the script.");
     }
 
     var builder = ScriptBuilder()
@@ -73,7 +73,7 @@ class P2PKHDataLockBuilder extends LockingScriptBuilder {
       var chunkList = script.chunks;
 
       if (!chunkList[0].isPushData() && chunkList[1].opcodenum != OpCodes.OP_DROP) {
-        throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic + " - Script must start with PUSHDATA & DROP instruction.");
+        throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR," - Script must start with PUSHDATA & DROP instruction.");
       }
 
       int chunkListOffset = 0;
@@ -83,20 +83,20 @@ class P2PKHDataLockBuilder extends LockingScriptBuilder {
       }
 
       if (chunkList[chunkListOffset + 4].opcodenum != 20) {
-        throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic + " - Signature and Public Key values are malformed");
+        throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR," - Signature and Public Key values are malformed");
       }
 
       if (!(chunkList[chunkListOffset + 2].opcodenum == OpCodes.OP_DUP &&
           chunkList[chunkListOffset + 3].opcodenum == OpCodes.OP_HASH160 &&
           chunkList[chunkListOffset + 5].opcodenum == OpCodes.OP_EQUALVERIFY &&
           chunkList[chunkListOffset + 6].opcodenum == OpCodes.OP_CHECKSIG)) {
-        throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic + " - Malformed script. Mismatched OP_CODES.");
+        throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR," - Malformed script. Mismatched OP_CODES.");
       }
 
       _dataBuffer = chunkList[chunkListOffset].buf;
       _pubkeyHash = chunkList[chunkListOffset + 4].buf;
     } else {
-      throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic + "- Invalid Script or Malformed Script.");
+      throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR,"- Invalid Script or Malformed Script.");
     }
   }
 }

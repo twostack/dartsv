@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:collection/collection.dart';
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/privatekey.dart';
 import 'package:dartsv/src/publickey.dart';
@@ -47,14 +48,24 @@ class SVSignature {
     ///
     /// [buffer] - A hexadecimal string containing the signature from a bitcoin transaction.
     SVSignature.fromTxFormat(String buffer) {
-        //FIXME: Add guards to assert TxFormat
+
+        //allow empty signatures
+        if (buffer.length == 0){
+            _r = BigInt.one;
+            _s = BigInt.one;
+            _signature = ECSignature(_r!, _s!);
+            _nhashtype = 1;
+            return;
+        }
+
         var decoded = HEX.decode(buffer);
         var nhashtype = decoded[decoded.length - 1];
 
         var derbuf = decoded.sublist(0, decoded.length - 1);
         _nhashtype = nhashtype; //this is OK. SighashType is already represented as HEX. No decoding needed
 
-        _parseDER(HEX.encode(derbuf));
+        // _parseDER(HEX.encode(derbuf));
+        _decodeFlexDER(derbuf, false);
 
     }
 
@@ -475,18 +486,91 @@ class SVSignature {
     }
 
 
-    /// Returns the signature's *S* value
-    BigInt get s => _s!;
+    void _decodeFlexDER(List<int> buf, bool strict){
 
-    /// Returns the signature's *R* value
-    BigInt get r => _r!;
+    if (buf == null || buf.length == 0){
+        throw SignatureDecodeException("Empty DER Signature");
+    }
 
-    /// Returns the public key that will be used to verify signatures
-    SVPublicKey get publicKey => _publicKey!;
+    int header = buf[0];
+
+    if (header != 0x30) {
+        throw SignatureDecodeException("Header byte should be 0x30");
+    }
+
+    int length = buf[1];
+    // int buflength = Arrays.copyOfRange(buf, 2, buf.length).length;
+    int buflength = buf.sublist(2, buf.length).length;
+
+    if (strict && length != buflength) {
+        throw SignatureDecodeException("Length byte should equal length of what follows");
+    } else {
+        length = length < buflength ? length : buflength;
+    }
+
+    int rheader = buf[2 + 0];
+    if (rheader != 0x02) {
+        throw SignatureDecodeException("Integer byte for r should be 0x02");
+    }
+
+    int rlength = buf[2 + 1];
+    List<int> rbuf = buf.slice(2 + 2, 2 + 2 + rlength);//Arrays.copyOfRange(buf, 2 +2, 2 + 2 + rlength); // buf.slice(2 + 2, 2 + 2 + rlength)
+    BigInt r = BigInt.parse(HEX.encode(rbuf), radix: 16);
+    bool rneg = buf[2 + 1 + 1] == 0x00;
+    if (rlength != rbuf.length) {
+        throw SignatureDecodeException("Length of r is incorrect");
+    }
+
+    int sheader = buf[2 + 2 + rlength + 0];
+    if (sheader != 0x02) {
+        throw SignatureDecodeException("Integer byte for s should be 0x02");
+    }
+
+    int slength = buf[2 + 2 + rlength + 1];
+    List<int> sbuf = buf.slice(2 + 2 + rlength + 2, 2 + 2 + rlength + 2 + slength);//Arrays.copyOfRange(buf, 2 + 2 + rlength + 2, 2 + 2 +rlength + 2 + slength); //buf.slice(2 + 2 + rlength + 2, 2 + 2 + rlength + 2 + slength)
+    BigInt s = BigInt.parse(HEX.encode(sbuf), radix: 16);
+
+    if (slength != sbuf.length) {
+        throw SignatureDecodeException("LEngth of s incorrect");
+    }
+
+    int sumlength = 2 + 2 + rlength + 2 + slength;
+    if (length != sumlength - 2) {
+        throw new SignatureDecodeException("Length of signature incorrect");
+    }
+
+    _signature = ECSignature(r, s);
+
+//            const obj = {
+//              header: header,
+//              length: length,
+//              rheader: rheader,
+//              rlength: rlength,
+//              rneg: rneg,
+//              rbuf: rbuf,
+//              r: r,
+//              sheader: sheader,
+//              slength: slength,
+//              sneg: sneg,
+//              sbuf: sbuf,
+//              s: s
+//            }
+//             */
+}
+
+
+/// Returns the signature's *S* value
+BigInt get s => _s!;
+
+/// Returns the signature's *R* value
+BigInt get r => _r!;
+
+/// Returns the public key that will be used to verify signatures
+SVPublicKey get publicKey => _publicKey!;
 
 //    int get i => _i;
 
-    /// Returns the [SighashType] value that was detected with [fromTxFormat()] constructor
+/// Returns the [SighashType] value that was detected with [fromTxFormat()] constructor
     int get nhashtype => _nhashtype;
 
     /// Force a specific [SighashType] value that will be returned with [toTxFormat()]

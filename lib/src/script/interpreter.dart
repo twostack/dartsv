@@ -230,7 +230,7 @@ class Interpreter {
 
             // If FORKID is enabled, we need the input amount.
             if (satoshis == null) {
-                throw ScriptException('internal error - need satoshis to verify FORKID transactions');
+                throw ScriptException(ScriptError.SCRIPT_ERR_MUST_USE_FORKID, 'internal error - need satoshis to verify FORKID transactions');
             }
         }
 
@@ -524,7 +524,7 @@ class Interpreter {
             _errStr = 'SCRIPT_ERR_UNDEFINED_OPCODE';
             return false;
         }
-        if (chunk.buf.length > Interpreter.MAX_SCRIPT_ELEMENT_SIZE) {
+        if (chunk.buf != null && chunk.buf!.length > Interpreter.MAX_SCRIPT_ELEMENT_SIZE) {
             _errStr = 'SCRIPT_ERR_PUSH_SIZE';
             return false;
         }
@@ -545,12 +545,14 @@ class Interpreter {
                 _errStr = 'SCRIPT_ERR_MINIMALDATA';
                 return false;
             }
-            if (chunk.len != chunk.buf.length) {
-                throw  InterpreterException("Length of push value not equal to length of data (${chunk.len},${chunk.buf.length})");
-            } else if (chunk.buf.isEmpty) {
-                _stack.push(<int>[]);
-            } else {
-                _stack.push(chunk.buf);
+            if (chunk.buf != null) {
+                if (chunk.len != chunk.buf!.length) {
+                    throw InterpreterException("Length of push value not equal to length of data (${chunk.len},${chunk.buf!.length})");
+                } else if (chunk.buf!.isEmpty) {
+                    _stack.push(<int>[]);
+                } else {
+                    _stack.push(chunk.buf!);
+                }
             }
         } else if (fExec || (OpCodes.OP_IF <= opcodenum && opcodenum <= OpCodes.OP_ENDIF)) {
             switch (opcodenum) {

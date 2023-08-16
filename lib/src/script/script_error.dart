@@ -3,6 +3,8 @@
 import 'dart:core';
 import 'dart:core';
 
+import 'package:dartsv/src/exceptions.dart';
+
 enum ScriptError {
 
   SCRIPT_ERR_OK("OK"),
@@ -79,5 +81,14 @@ enum ScriptError {
   const ScriptError(this._mnemonic);
 
   String get mnemonic => _mnemonic;
+
+  static Map<String, ScriptError> mnemonicToScriptErrorMap = Map.fromEntries(ScriptError.values.map((e) => MapEntry(e.mnemonic, e)));
+
+  static ScriptError fromMnemonic(String name) {
+    ScriptError? err = mnemonicToScriptErrorMap[name];
+    if (err == null)
+      throw IllegalArgumentException(name + " is not a valid name");
+    return err;
+  }
 
 }

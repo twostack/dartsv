@@ -97,10 +97,10 @@ class ScriptChunk {
     if (_buf == null ) {
       // Could have used OP_0.
       return (_opcodenum == OpCodes.OP_0);
-    } else if (_buf != null && _buf!.length == 1 && buf[0] >= 1 && buf[0] <= 16) {
+    } else if (_buf != null && _buf!.length == 1 && _buf![0] >= 1 && _buf![0] <= 16) {
       // Could have used OP_1 .. OP_16.
-      return _opcodenum == OpCodes.OP_1 + (buf[0] - 1);
-    } else if (_buf != null && _buf!.length == 1 && buf[0] == 0x81) {
+      return _opcodenum == OpCodes.OP_1 + (_buf![0] - 1);
+    } else if (_buf != null && _buf!.length == 1 && _buf![0] == 0x81) {
       // Could have used OP_1NEGATE
       return _opcodenum == OpCodes.OP_1NEGATE;
     } else if (_buf != null && _buf!.length <= 75) {

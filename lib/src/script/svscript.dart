@@ -138,7 +138,7 @@ class SVScript {
           tbuf = script.buffer;
           bw.write(tbuf);
         } else {
-          throw  ScriptException('Could not determine type of script value');
+          throw  ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, 'Could not determine type of script value');
         }
       }
 
@@ -169,7 +169,7 @@ class SVScript {
 //          var buf = Buffer.from(tokens[i], 'hex')
         var buf = HEX.decode(tokens[i]);
         if (HEX.encode(buf) != tokens[i]) {
-          throw ScriptException('invalid hex string in script');
+          throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, 'invalid hex string in script');
         }
         var len = buf.length;
         if (len >= 0 && len < OpCodes.OP_PUSHDATA1) {
@@ -192,7 +192,7 @@ class SVScript {
 
   List<ScriptChunk> _stringToChunks(String script) {
     if (script.trim().isEmpty) {
-      throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic + " - Unexpected end of script");
+      throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR,  " - Unexpected end of script");
     }
 
     List<ScriptChunk> localChunks = List<ScriptChunk>.empty(growable: true);
@@ -221,11 +221,11 @@ class SVScript {
           }
           index = index + 2; //step by two
         } on Exception catch (ex) {
-          throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic + ex.toString());
+          throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR,  ex.toString());
         }
       } else if (opcodenum == OpCodes.OP_PUSHDATA1 || opcodenum == OpCodes.OP_PUSHDATA2 || opcodenum == OpCodes.OP_PUSHDATA4) {
         if (!(tokenList[index + 2].substring(0, 2) == "0x")) {
-          throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic + " - Pushdata data must start with 0x");
+          throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR,  " - Pushdata data must start with 0x");
         }
         List<int> data = HEX.decode(tokenList[index + 2].substring(2));
         localChunks.add(ScriptChunk(data, data.length, opcodenum));
@@ -270,24 +270,24 @@ class SVScript {
             stream.writeUint8(chunk.opcodenum);
           } else if (chunk.buf != null) {
             if (chunk.opcodenum < OpCodes.OP_PUSHDATA1) {
-              PreConditions.assertTrue(chunk.buf.length == chunk.opcodenum);
+              PreConditions.assertTrue(chunk.buf!.length == chunk.opcodenum);
               stream.writeUint8(chunk.opcodenum);
             } else if (chunk.opcodenum == OpCodes.OP_PUSHDATA1) {
-              PreConditions.assertTrue(chunk.buf.length <= 0xFF);
+              PreConditions.assertTrue(chunk.buf!.length <= 0xFF);
               stream.writeUint8(OpCodes.OP_PUSHDATA1);
-              stream.writeUint8(chunk.buf.length);
+              stream.writeUint8(chunk.buf!.length);
             } else if (chunk.opcodenum == OpCodes.OP_PUSHDATA2) {
-              PreConditions.assertTrue(chunk.buf.length <= 0xFFFF);
+              PreConditions.assertTrue(chunk.buf!.length <= 0xFFFF);
               stream.writeUint8(OpCodes.OP_PUSHDATA2);
-              stream.writeUint16(chunk.buf.length, Endian.little);//Utils.uint16ToByteStreamLE(data.length, stream);
+              stream.writeUint16(chunk.buf!.length, Endian.little);//Utils.uint16ToByteStreamLE(data.length, stream);
             } else if (chunk.opcodenum == OpCodes.OP_PUSHDATA4) {
-              PreConditions.assertTrue(chunk.buf.length <= InterpreterV2.MAX_SCRIPT_ELEMENT_SIZE);
+              PreConditions.assertTrue(chunk.buf!.length <= InterpreterV2.MAX_SCRIPT_ELEMENT_SIZE);
               stream.writeUint8(OpCodes.OP_PUSHDATA4);
-              stream.writeUint32(chunk.buf.length, Endian.little);//Utils.uint32ToByteStreamLE(data.length, stream);
+              stream.writeUint32(chunk.buf!.length, Endian.little);//Utils.uint32ToByteStreamLE(data.length, stream);
             } else {
-              throw new ScriptException("Unimplemented");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, "Unimplemented");
             }
-            stream.write(chunk.buf);
+            stream.write(chunk.buf!);
           } else {
             stream.writeUint8(chunk.opcodenum); // smallNum
           }
@@ -296,7 +296,6 @@ class SVScript {
         _byteArray = stream.toBytes();
     }
 
-    /*
   void _processBuffer(List<int> program) {
 
       if (program.isEmpty) return;
@@ -313,23 +312,23 @@ class SVScript {
         // Read some bytes of data, where how many is the opcode value itself.
         dataToRead = opcode;
       } else if (opcode == OpCodes.OP_PUSHDATA1) {
-        if (bis.remainingLength < 1) throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic + " - Unexpected end of script");
+        if (bis.remainingLength < 1) throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, " - Unexpected end of script");
         dataToRead = bis.readUint8();
       } else if (opcode == OpCodes.OP_PUSHDATA2) {
         // Read a short, then read that many bytes of data.
-        if (bis.remainingLength < 2) throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic + " - Unexpected end of script");
+        if (bis.remainingLength < 2) throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, " - Unexpected end of script");
         dataToRead = bis.readUint16(Endian.little);
       } else if (opcode == OpCodes.OP_PUSHDATA4) {
         // Read a uint32, then read that many bytes of data.
-        if (bis.remainingLength < 4) throw new ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic + " - Unexpected end of script");
+        if (bis.remainingLength < 4) throw new ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR,  " - Unexpected end of script");
         dataToRead = bis.readUint32(Endian.little);
       } else {}
 
       if (dataToRead == -1) {
-        chunks.add(ScriptChunk([], 0, opcode));
+        chunks.add(ScriptChunk(null, 0, opcode));
       } else {
         if (dataToRead > bis.remainingLength)
-          throw ScriptException(ScriptError.SCRIPT_ERR_BAD_OPCODE.mnemonic + " - Length of push value is not equal to length of data");
+          throw ScriptException(ScriptError.SCRIPT_ERR_BAD_OPCODE, " - Length of push value is not equal to length of data");
 
         try {
           ScriptChunk chunk;
@@ -347,8 +346,8 @@ class SVScript {
     }
   }
 
-     */
 
+    /*
   _processBuffer(List<int> buffer) {
         ByteDataReader byteDataReader = ByteDataReader();
         byteDataReader.add(buffer);
@@ -408,6 +407,8 @@ class SVScript {
         _convertChunksToByteArray();
     }
 
+     */
+
     _processChunks(String script) {
         if (script
             .trim()
@@ -435,13 +436,13 @@ class SVScript {
                     _chunks.add(ScriptChunk(HEX.decode(tokenList[index + 1].substring(2)), opcodenum, opcodenum));
                     index = index + 2; //step by two
                 } else {
-                    throw  ScriptException('Invalid script: ' + script);
+                    throw  ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, 'Invalid script: ' + script);
                 }
             } else if (opcodenum == OpCodes.OP_PUSHDATA1 ||
                 opcodenum == OpCodes.OP_PUSHDATA2 ||
                 opcodenum == OpCodes.OP_PUSHDATA4) {
                 if (tokenList[index + 2].substring(0, 2) != '0x') {
-                    throw  ScriptException('Pushdata data must start with 0x');
+                    throw  ScriptException(ScriptError.SCRIPT_ERR_BAD_OPCODE, 'Pushdata data must start with 0x');
                 }
                 var data = HEX.decode(tokenList[index + 2].substring(2));
                 _chunks.add(ScriptChunk(data, data.length, opcodenum));
@@ -656,7 +657,7 @@ class SVScript {
         } else if (typeof obj === 'object') {
             _insertAtPosition(obj, prepend)
         }*/ else {
-            throw  ScriptException('Invalid script chunk');
+            throw  ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, 'Invalid script chunk');
         }
     }
 
@@ -674,7 +675,7 @@ class SVScript {
         } else if (len < pow(2, 32)) {
             opcodenum = OpCodes.OP_PUSHDATA4;
         } else {
-            throw  ScriptException('You can\'t push that much data');
+            throw  ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, 'You can\'t push that much data');
         }
 
         _insertAtPosition(ScriptChunk(buf, len, opcodenum), prepend);

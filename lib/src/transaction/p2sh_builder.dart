@@ -41,7 +41,7 @@ class P2SHLockBuilder extends LockingScriptBuilder {
       scriptHash = HEX.encode(hash);
 
     }else{
-      throw ScriptException("Invalid Script or Malformed Script.");
+      throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, "Invalid Script or Malformed Script.");
     }
   }
 
@@ -60,7 +60,7 @@ class P2SHUnlockBuilder extends UnlockingScriptBuilder{
     if (script != null && script.buffer != null) {
       this.script = script;
     }else{
-      throw ScriptException("Invalid Script or Malformed Script.");
+      throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, "Invalid Script or Malformed Script.");
     }
   }
 

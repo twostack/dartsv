@@ -41,10 +41,10 @@ class UnspendableDataLockBuilder extends LockingScriptBuilder {
     if (script != null) {
       var chunkList = script.chunks;
 
-      if (chunkList.length < 2) throw ScriptException("Script must start with OP_FALSE OP_RETURN instructions"); //no need to proceed
+      if (chunkList.length < 2) throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, "Script must start with OP_FALSE OP_RETURN instructions"); //no need to proceed
 
       if (!chunkList[0].equalsOpCode(OpCodes.OP_FALSE) && chunkList[1].equalsOpCode(OpCodes.OP_RETURN)) {
-        throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic + " - Script must start with OP_FALSE OP_RETURN instructions.");
+        throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR," - Script must start with OP_FALSE OP_RETURN instructions.");
       }
 
       if (chunkList[2].isPushData()){
@@ -52,7 +52,7 @@ class UnspendableDataLockBuilder extends LockingScriptBuilder {
       }
 
     } else {
-      throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR.mnemonic + "- Invalid Script or Malformed Script.");
+      throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR,"- Invalid Script or Malformed Script.");
     }
   }
 }

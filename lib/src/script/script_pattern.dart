@@ -34,7 +34,7 @@ class ScriptPattern {
     ScriptChunk chunk1 = chunks[1];
     if (chunk1.opcodenum != 0x14)
       return false;
-    List<int> chunk1data = chunk1.buf;
+    List<int>? chunk1data = chunk1.buf;
     if (chunk1data == null)
       return false;
     if (chunk1data.length != LEGACY_ADDRESS_LENGTH)

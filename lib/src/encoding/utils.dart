@@ -1,3 +1,6 @@
+import 'dart:ffi';
+
+import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/exceptions.dart';
 import 'package:dartsv/src/varint.dart';
 import 'package:hex/hex.dart';
@@ -194,7 +197,7 @@ List<int> castToBuffer(BigInt value) {
 
 BigInt castToBigInt(List<int> buf, bool fRequireMinimal, {int nMaxNumSize = 4}) {
   if (!(buf.length <= nMaxNumSize)) {
-    throw new ScriptException('script number overflow');
+    throw new ScriptException(ScriptError.SCRIPT_ERR_NUMBER_OVERFLOW, 'script number overflow');
   }
 
   if (fRequireMinimal && buf.length > 0) {
@@ -211,7 +214,7 @@ BigInt castToBigInt(List<int> buf, bool fRequireMinimal, {int nMaxNumSize = 4}) 
       // is +-255, which encode to 0xff00 and 0xff80 respectively.
       // (big-endian).
       if (buf.length <= 1 || (buf[buf.length - 2] & 0x80) == 0) {
-        throw new Exception('non-minimally encoded script number');
+        throw new ScriptException(ScriptError.SCRIPT_ERR_NUMBER_MINENCODE, 'non-minimally encoded script number');
       }
     }
   }
@@ -392,4 +395,69 @@ int readUint16(List<int> bytes, int offset) {
 /** Parse 4 bytes from the byte array (starting at the offset) as unsigned 32-bit integer in little endian format. */
 int readUint32(List<int> bytes, int offset) {
   return (bytes[offset] & 0xff) | ((bytes[offset + 1] & 0xff) << 8) | ((bytes[offset + 2] & 0xff) << 16) | ((bytes[offset + 3] & 0xff) << 24);
+}
+
+int make_rshift_mask(int n) {
+  var maskArray = [0xFF, 0xFE, 0xFC, 0xF8, 0xF0, 0xE0, 0xC0, 0x80];
+  return maskArray[n];
+}
+
+int make_lshift_mask(int n) {
+  var maskArray = [0xFF, 0x7F, 0x3F, 0x1F, 0x0F, 0x07, 0x03, 0x01];
+  return maskArray[n];
+}
+
+List<int> RShift(List<int> x, int n) {
+  int bit_shift = n % 8;
+  int byte_shift = n ~/ 8;
+
+  int mask = make_rshift_mask(bit_shift);
+  int overflow_mask = ~mask;
+
+  var result = List<int>.generate(x.length, (i) => 0);
+  // valtype result(x.size(), 0x00);
+
+  for (int i = 0; i < x.length; i++) {
+    int k = i + byte_shift;
+    if (k < x.length) {
+      int val = (x[i] & mask);
+      val >>= bit_shift;
+      result[k] |= val;
+    }
+
+    if (k + 1 < x.length) {
+      int carryval = (x[i] & overflow_mask);
+      carryval <<= 8 - bit_shift;
+      result[k + 1] |= carryval;
+    }
+  }
+  return result;
+}
+
+// shift x left by n bits, implements OP_LSHIFT
+List<int> LShift(List<int> x, int n) {
+  int bit_shift = n % 8;
+  int byte_shift = n ~/ 8;
+
+  int mask = make_lshift_mask(bit_shift);
+  int overflow_mask = ~mask;
+
+  var result = List<int>.generate(x.length, (i) => 0);
+  for (int index = x.length; index > 0; index--) {
+    int i = index - 1;
+// make sure that k is always >= 0
+    if (byte_shift <= i) {
+      int k = i - byte_shift;
+      int val = (x[i] & mask);
+      val <<= bit_shift;
+      result[k] |= val;
+
+      if (k >= 1) {
+        int carryval = (x[i] & overflow_mask);
+        carryval >>= 8 - bit_shift;
+        result[k - 1] |= carryval;
+      }
+    }
+  }
+  return result;
 }
