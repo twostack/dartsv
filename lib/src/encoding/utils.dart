@@ -181,8 +181,20 @@ int? getBufferOffset(int count) {
   if (count == 0xFF) return 9;
 }
 
-/// Decode a BigInt from bytes in big-endian encoding.
-BigInt decodeBigInt(List<int> bytes) {
+Uint8List encodeBigIntSV(BigInt number) {
+  int size = (number.bitLength + 7) >> 3;
+
+  var result = Uint8List(size);
+  for (int i = 0; i < size; i++) {
+    result[size - i - 1] = (number & _byteMask).toInt();
+    number = number >> 8;
+  }
+
+  return result;
+}
+//
+// /// Decode a BigInt from bytes in big-endian encoding.
+BigInt decodeBigIntSV(List<int> bytes) {
   BigInt result = new BigInt.from(0);
 
   for (int i = 0; i < bytes.length; i++) {
@@ -193,19 +205,6 @@ BigInt decodeBigInt(List<int> bytes) {
 }
 
 var _byteMask = new BigInt.from(0xff);
-
-/// Encode a BigInt into bytes using big-endian encoding.
-// Uint8List encodeBigInt(BigInt number) {
-//   int size = (number.bitLength + 7) >> 3;
-//
-//   var result = Uint8List(size);
-//   for (int i = 0; i < size; i++) {
-//     result[size - i - 1] = (number & _byteMask).toInt();
-//     number = number >> 8;
-//   }
-//
-//   return result;
-// }
 
 List<int> castToBuffer(BigInt value) {
   return toSM(value, endian: Endian.little);
@@ -272,7 +271,7 @@ BigInt fromSM(List<int> buf, {Endian endian = Endian.big}) {
   BigInt ret;
   List<int> localBuffer = buf.toList();
   if (localBuffer.length == 0) {
-    return decodeBigInt([0]);
+    return decodeBigIntSV([0]);
   }
 
   if (endian == Endian.little) {
@@ -281,10 +280,10 @@ BigInt fromSM(List<int> buf, {Endian endian = Endian.big}) {
 
   if (localBuffer[0] & 0x80 != 0) {
     localBuffer[0] = localBuffer[0] & 0x7f;
-    ret = decodeBigInt(localBuffer);
+    ret = decodeBigIntSV(localBuffer);
     ret = (-ret);
   } else {
-    ret = decodeBigInt(localBuffer);
+    ret = decodeBigIntSV(localBuffer);
   }
 
   return ret;
@@ -322,78 +321,6 @@ List<int> toBuffer(BigInt value, {int size = 0, Endian endian = Endian.big}) {
   return buf;
 }
 
-/**
- * MPI encoded numbers are produced by the OpenSSL BN_bn2mpi function. They consist of
- * a 4 byte big endian length field, followed by the stated number of bytes representing
- * the number in big endian format (with a sign bit).
- * @param hasLength can be set to false if the given array is missing the 4 byte length field
- */
-BigInt decodeMPI(List<int> mpi, bool hasLength) {
-  ByteDataReader reader = ByteDataReader()..add(mpi);
-  List<int> buf;
-  if (hasLength) {
-    int length = reader.readUint32(Endian.big);
-    buf = List<int>.generate(length, (i) => 0);
-// arraycopy(mpi, 4, buf, 0, length);
-    buf.setRange(0, length, mpi.getRange(4, length));
-  } else
-    buf = mpi;
-  if (buf.length == 0) return BigInt.zero;
-  bool isNegative = (buf[0] & 0x80) == 0x80;
-  if (isNegative) buf[0] &= 0x7f;
-  // BigInt result = castToBigInt(buf, false);
-
-  var result = BigInt.parse(HEX.encode(buf), radix: 16);
-  var bigResult = isNegative ? -result : result;
-
-  return bigResult;
-}
-
-/**
- * MPI encoded numbers are produced by the OpenSSL BN_bn2mpi function. They consist of
- * a 4 byte big endian length field, followed by the stated number of bytes representing
- * the number in big endian format (with a sign bit).
- * @param includeLength indicates whether the 4 byte length field should be included
- */
-List<int> encodeMPI(BigInt value, bool includeLength) {
-  if (value == BigInt.zero) {
-    if (!includeLength)
-      return [];
-    else
-      return [0x00, 0x00, 0x00, 0x00];
-  }
-  bool isNegative = value.isNegative;
-  if (isNegative) value = -value;
-  List<int> array = encodeBigInt(value);
-  // List<int> array = HEX.decode(value.toRadixString(16));
-  int length = array.length;
-  if ((array[0] & 0x80) == 0x80) length++;
-  if (includeLength) {
-    List<int> result = List<int>.generate(length + 4, (i) => 0);
-// System.arraycopy(array, 0, result, length - array.length + 3, array.length);
-    result.setRange(0, array.length,
-        array.getRange(length - array.length + 3, array.length));
-// buf.setRange(0, length, mpi.getRange(4, length));
-//     uint32ToByteArrayBE(length, result, 0);
-    var writer = ByteDataWriter();
-    writer.writeUint32(length, Endian.big);
-    result = writer.toBytes();
-
-    if (isNegative) result[4] |= 0x80;
-    return result;
-  } else {
-    List<int> result;
-    if (length != array.length) {
-      result = List<int>.generate(length, (i) => 0);
-      result.setRange(0, array.length -1, array, 1);
-      // System.arraycopy(array, 0, result, 1, array.length);
-
-    } else
-      result = array;
-    if (isNegative) result[0] |= 0x80;
-    return result;
-  }
-}
 
 /// Minimally encode the buffer content
 ///

@@ -36,9 +36,9 @@ void main() {
                 if (val >= -1 && val <= 16) {
                     out.writeUint8(SVScript.encodeToOpN(val));
                 } else {
-                    SVScript.writeBytes(out, encodeMPI(BigInt.from(val), false).reversed.toList());
+                    SVScript.writeBytes(out, castToBuffer(BigInt.from(val)));
                 }
-            } else if (RegExp(r"^0x[0-9a-fA-F]*").hasMatch(w)) {
+            } else if (RegExp(r"^0x[0-9a-fA-F]*$").hasMatch(w)) {
                 // Raw hex data, inserted NOT pushed onto stack:
                 out.write(HEX.decode(w.substring(2).toLowerCase()));
             } else if (w.length >= 2 && w.startsWith("'") && w.endsWith("'")) {

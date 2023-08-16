@@ -619,20 +619,17 @@ main() {
       var future = new DateTime(2025, 10, 30); // Sun Nov 30 2025
       var transaction = TransactionBuilder().lockUntilDate(future).build(false);
       expect(transaction.nLockTime, equals(future.millisecondsSinceEpoch));
-      expect(transaction.getLockTime(), equals(future));
     });
 
 
     test('sets timelock using a DateTime instance', () {
       var transaction = TransactionBuilder().lockUntilDate(date).build(false);
       expect(transaction.nLockTime, equals(timestamp));
-      expect(transaction.getLockTime(), equals(date));
     });
 
     test('sets timelock using unix timestamp', () {
       var transaction = TransactionBuilder().lockUntilUnixTime(timestamp * MILLIS_IN_SECOND).build(false);
       expect(transaction.nLockTime, equals(timestamp * MILLIS_IN_SECOND));
-      expect(transaction.getLockTime(), equals(DateTime.fromMillisecondsSinceEpoch(timestamp * MILLIS_IN_SECOND)));
     });
 
 

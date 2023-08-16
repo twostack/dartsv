@@ -2,7 +2,6 @@ import 'package:dartsv/dartsv.dart';
 import 'package:hex/hex.dart';
 import 'package:pointycastle/pointycastle.dart';
 
-import 'package:pointycastle/src/utils.dart';
 import 'encoding/utils.dart';
 import 'exceptions.dart';
 
@@ -30,7 +29,7 @@ class SVPublicKey {
     ///
     /// [privkey] - The private key who's *d*-value we will use.
     SVPublicKey.fromPrivateKey(SVPrivateKey privkey) {
-        var decodedPrivKey = encodeBigInt(privkey.privateKey);
+        var decodedPrivKey = encodeBigIntSV(privkey.privateKey);
         var hexPrivKey = HEX.encode(decodedPrivKey);
 
         var actualKey = hexPrivKey;

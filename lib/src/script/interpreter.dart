@@ -1055,7 +1055,7 @@ class Interpreter {
 //                        bn1 = BigInt.tryParse(HEX.encode(buf1), radix: 16) ?? BigInt.zero;
 //                        bn2 = BigInt.tryParse(HEX.encode(stack.peek()), radix: 16) ?? BigInt.zero;
 
-                        bn1 = decodeBigInt(buf1);
+                        bn1 = decodeBigIntSV(buf1);
                         bn2 = castToBigInt(Uint8List.fromList(stack.peek()), fRequireMinimal);
 
                         n = bn2.toInt();

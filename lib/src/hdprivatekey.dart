@@ -1,7 +1,6 @@
 
 
 import 'package:pointycastle/pointycastle.dart';
-import 'package:pointycastle/src/utils.dart';
 import 'package:dartsv/dartsv.dart';
 import 'encoding/ckdserializer.dart';
 import 'package:hex/hex.dart';
@@ -196,7 +195,7 @@ class HDPrivateKey extends CKDSerializer{
 
         var paddedKey = Uint8List(33);
         paddedKey[0] = 0;
-        paddedKey.setRange(1, 33, encodeBigInt(childKey));
+        paddedKey.setRange(1, 33, encodeBigIntSV(childKey));
 
         var dk = HDPrivateKey._(NetworkType.MAIN, KeyType.PRIVATE);
         dk = this._copyParams(dk);

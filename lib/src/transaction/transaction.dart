@@ -284,17 +284,18 @@ class Transaction {
 
   ///Returns either DateTime or int (blockHeight)
   ///Yes, the return type overloading sucks. Welcome to bitcoin.
-  getLockTime() {
+  int getLockTime() {
     //FIXME: Figure out how to use Type System to force consumer of this
     // method to think about the return value. e.g. scala.Option
 
-    var timestamp = _nLockTime;
-    if (timestamp < 500000000) {
-      return timestamp;
-    } else {
-      var date = DateTime.fromMillisecondsSinceEpoch(timestamp);
-      return date;
-    }
+    return _nLockTime;
+    // var timestamp = _nLockTime;
+    // if (timestamp < 500000000) {
+    //   return timestamp;
+    // } else {
+    //   var date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+    //   return date; //.millisecondsSinceEpoch / 1000;
+    // }
   }
 
   String verify() {
