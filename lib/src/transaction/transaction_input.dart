@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:collection/collection.dart';
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/script/svscript.dart';
@@ -23,6 +24,21 @@ import 'transaction.dart';
 class TransactionInput {
 
     UnlockingScriptBuilder? _unlockingScriptBuilder;
+
+    /**
+     * BIP68: If this flag set, sequence is NOT interpreted as a relative lock-time.
+     */
+    static final int SEQUENCE_LOCKTIME_DISABLE_FLAG = 1 << 31;
+    /**
+     * BIP68: If sequence encodes a relative lock-time and this flag is set, the relative lock-time has units of 512
+     * seconds, otherwise it specifies blocks with a granularity of 1.
+     */
+    static final int SEQUENCE_LOCKTIME_TYPE_FLAG = 1 << 22;
+    /**
+     * BIP68: If sequence encodes a relative lock-time, this mask is applied to extract that lock-time from the sequence
+     * field.
+     */
+    static final int SEQUENCE_LOCKTIME_MASK = 0x0000ffff;
 
     /// Maximum size an unsigned int can be. Used as value of [sequenceNumber] when we
     /// want to indicate that the transaction's [Transaction.nLockTime] should be ignored.
@@ -117,7 +133,7 @@ class TransactionInput {
     /// Returns *true* if the sequence number has reached it's maximum
     /// limit and can no longer be updated.
     bool isFinal() {
-        return sequenceNumber == MAX_SEQ_NUMBER;
+        return sequenceNumber != MAX_SEQ_NUMBER;
     }
 
     /// Returns the number of satoshis this input is spending.
@@ -185,6 +201,13 @@ class TransactionInput {
 
     void set sequenceNumber(int seqNumber) {
         _sequenceNumber = seqNumber;
+    }
+
+
+    bool isCoinBase() {
+        var zeroHash = List<int>.generate(32, (i)=>0);
+        return (ListEquality().equals(HEX.decode(_prevTxnId!), zeroHash)) &&
+            ((_prevTxnOutputIndex! & 0xFFFFFFFF) == 0xFFFFFFFF);  // -1 but all is serialized to the wire as unsigned int.
     }
 
 

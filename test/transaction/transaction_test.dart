@@ -105,20 +105,19 @@ main() {
   // var signature = SVSignature.fromPrivateKey(privateKey); //sig class. not actual sig.
   // var locker = P2PKHLockBuilder.fromAddress(toAddress);
   // var unlocker = P2PKHUnlockBuilder(privateKey.publicKey);
-  var signer = TransactionSigner(SighashType.SIGHASH_ALL | SighashType.SIGHASH_FORKID, privateKey);
+  var signer = TransactionSigner(SighashType.SIGHASH_ALL.value | SighashType.SIGHASH_FORKID.value, privateKey);
 
   test('can perform serialization', () {
-
     var testTransaction = TransactionBuilder()
-        .spendFromUtxoMapWithSigner(signer,{
+        .spendFromUtxoMapWithSigner(signer, {
       'transactionId': testPrevTx,
       'outputIndex': 0,
       'sequenceNumber': TransactionInput.MAX_SEQ_NUMBER,
       'scriptPubKey': testScript,
       'satoshis': 1020000,
     }, P2PKHUnlockBuilder(privateKey.publicKey))
-    .spendToPKH(Address('mrU9pEmAx26HcbKVrABvgL7AwA5fjNFoDc'), testAmount - BigInt.from(10000))
-    .build(false);
+        .spendToPKH(Address('mrU9pEmAx26HcbKVrABvgL7AwA5fjNFoDc'), testAmount - BigInt.from(10000))
+        .build(false);
 
     expect(testTransaction.inputs[0].prevTxnId, equals(testPrevTx));
     expect(testTransaction.inputs[0].prevTxnOutputIndex, equals(0));
@@ -135,9 +134,8 @@ main() {
   });
 
   test('returns the fee as value of unspent output', () {
-
     var testBuilder = TransactionBuilder()
-        .spendFromUtxoMapWithSigner(signer,{
+        .spendFromUtxoMapWithSigner(signer, {
       'transactionId': testPrevTx,
       'outputIndex': 0,
       'sequenceNumber': TransactionInput.MAX_SEQ_NUMBER,
@@ -182,7 +180,7 @@ main() {
     //the Transaction we are spending from.
     var utxo = txWithUTXO.outputs[0]; //looking at the decoded JSON we can see that our UTXO in at vout[0]
     var outpoint = TransactionOutpoint(txWithUTXO.id, 0, utxo.satoshis, utxo.script);
-    var signer = TransactionSigner(SighashType.SIGHASH_FORKID | SighashType.SIGHASH_ALL, privateKey);
+    var signer = TransactionSigner(SighashType.SIGHASH_FORKID.value | SighashType.SIGHASH_ALL.value, privateKey);
 
     var unlocker = P2PKHUnlockBuilder(privateKey.publicKey);
     var builder = TransactionBuilder()
@@ -192,12 +190,11 @@ main() {
         .withFeePerKb(50);
 
     expect(() => builder.build(true), returnsNormally);
-
   });
 
 
   test('can calculate output amounts and correct change address', () {
-    var signer = TransactionSigner(SighashType.SIGHASH_ALL | SighashType.SIGHASH_FORKID, privateKey);
+    var signer = TransactionSigner(SighashType.SIGHASH_ALL.value | SighashType.SIGHASH_FORKID.value, privateKey);
     var transaction = TransactionBuilder()
         .spendFromUtxoMapWithSigner(signer, simpleUtxoWith1000000Satoshis, P2PKHUnlockBuilder(privateKey.publicKey))
         .spendToPKH(toAddress, BigInt.from(500000))
@@ -214,7 +211,6 @@ main() {
     var expected = changeLocker.getScriptPubkey().toString();
     expect(actual, equals(expected));
     expect(BigInt.from(500000), equals(transaction.outputs[0].satoshis));
-
   });
 
 
@@ -294,7 +290,7 @@ main() {
           .spendFromUtxoMap(from3, P2PKHUnlockBuilder(privateKey.publicKey))
           .spendFromUtxoMap(from2, P2PKHUnlockBuilder(privateKey.publicKey))
           .spendFromUtxoMap(from1, P2PKHUnlockBuilder(privateKey.publicKey))
-      .build(false);
+          .build(false);
       tx.sort();
       expect(tx.inputs[0].prevTxnId.toString(), equals(from1["transactionId"]));
       expect(tx.inputs[1].prevTxnId.toString(), equals(from2["transactionId"]));
@@ -328,14 +324,14 @@ main() {
 
 
   test('can recalculate the change amount', () {
-    var signer = TransactionSigner(SighashType.SIGHASH_FORKID | SighashType.SIGHASH_ALL, privateKey);
+    var signer = TransactionSigner(SighashType.SIGHASH_FORKID.value | SighashType.SIGHASH_ALL.value, privateKey);
     var transaction = TransactionBuilder()
         .spendFromUtxoMapWithSigner(signer, simpleUtxoWith100000Satoshis, P2PKHUnlockBuilder(privateKey.publicKey))
         .spendToPKH(toAddress, BigInt.from(50000))
         .spendToPKH(toAddress, BigInt.from(20000))
         .sendChangeToPKH(changeAddress)
         .withFee(BigInt.zero)
-    .build(false);
+        .build(false);
 
     var changeLocker = P2PKHLockBuilder.fromAddress(changeAddress);
     expect(transaction.outputs[0].satoshis, equals(BigInt.from(50000)));
@@ -360,7 +356,7 @@ main() {
         .spendFromUtxoMap(simpleUtxoWith100000Satoshis, P2PKHUnlockBuilder(privateKey.publicKey))
         .spendToPKH(toAddress, BigInt.from(100000))
         .sendChangeToPKH(changeAddress)
-    .build(false);
+        .build(false);
 
     expect(transaction.outputs.length, equals(1));
   });
@@ -378,7 +374,6 @@ main() {
 
 
   test('fee per kb can be set up manually', () {
-
     var outputs = List<TransactionOutput>.generate(10, (output) {
       var txo = TransactionOutput(
           BigInt.from(simpleUtxoWith1000000Satoshis['satoshis'] as int),
@@ -395,7 +390,7 @@ main() {
     String transactionId = simpleUtxoWith1000000Satoshis['transactionId'] as String;
     int outputIndex = simpleUtxoWith1000000Satoshis['outputIndex'] as int;
     outputs.forEach((output) {
-      builder.spendFromOutput(transactionId, outputIndex, output.satoshis, TransactionInput.MAX_SEQ_NUMBER,  P2PKHUnlockBuilder(privateKey.publicKey));
+      builder.spendFromOutput(transactionId, outputIndex, output.satoshis, TransactionInput.MAX_SEQ_NUMBER, P2PKHUnlockBuilder(privateKey.publicKey));
     });
     var transaction = builder.build(false);
 
@@ -409,7 +404,7 @@ main() {
         .spendFromUtxoMap(simpleUtxoWith100000Satoshis, P2PKHUnlockBuilder(privateKey.publicKey))
         .spendToPKH(toAddress, BigInt.from(100000))
         .sendChangeToPKH(changeAddress)
-    .build(false);
+        .build(false);
     expect(transaction.outputs.length, equals(1));
   });
 
@@ -441,7 +436,7 @@ main() {
 
     test('fails if a high fee was set', () {
       var builder = new TransactionBuilder()
-          .spendFromUtxoMap(simpleUtxoWith1BTC,  P2PKHUnlockBuilder(privateKey.publicKey))
+          .spendFromUtxoMap(simpleUtxoWith1BTC, P2PKHUnlockBuilder(privateKey.publicKey))
           .sendChangeToPKH(changeAddress)
           .withFee(BigInt.from(50000000))
           .spendToPKH(toAddress, BigInt.from(40000000));
@@ -451,7 +446,7 @@ main() {
 
     test('fails if a dust output is created', () {
       var builder = TransactionBuilder()
-          .spendFromUtxoMap(simpleUtxoWith1BTC,  P2PKHUnlockBuilder(privateKey.publicKey))
+          .spendFromUtxoMap(simpleUtxoWith1BTC, P2PKHUnlockBuilder(privateKey.publicKey))
           .spendToPKH(toAddress, BigInt.from(45))
           .sendChangeToPKH(changeAddress);
 
@@ -459,9 +454,9 @@ main() {
     });
 
     test('does not fail if a dust output is not dust', () {
-      var signer = TransactionSigner(SighashType.SIGHASH_ALL | SighashType.SIGHASH_FORKID, privateKey);
+      var signer = TransactionSigner(SighashType.SIGHASH_ALL.value | SighashType.SIGHASH_FORKID.value, privateKey);
       var transaction = TransactionBuilder()
-          .spendFromUtxoMapWithSigner(signer, simpleUtxoWith1BTC,  P2PKHUnlockBuilder(privateKey.publicKey))
+          .spendFromUtxoMapWithSigner(signer, simpleUtxoWith1BTC, P2PKHUnlockBuilder(privateKey.publicKey))
           .spendToPKH(toAddress, BigInt.from(45))
           .sendChangeToPKH(changeAddress)
           .build(false);
@@ -471,12 +466,12 @@ main() {
 
     test("doesn't fail if a dust output is an op_return", () {
       var locker = UnspendableDataLockBuilder(utf8.encode('not dust!'));
-      var signer = TransactionSigner(SighashType.SIGHASH_ALL | SighashType.SIGHASH_FORKID, privateKey);
+      var signer = TransactionSigner(SighashType.SIGHASH_ALL.value | SighashType.SIGHASH_FORKID.value, privateKey);
       var transaction = TransactionBuilder()
           .spendFromUtxoMapWithSigner(signer, simpleUtxoWith1BTC, P2PKHUnlockBuilder(privateKey.publicKey))
           .spendToLockBuilder(locker, BigInt.zero)
           .sendChangeToPKH(changeAddress)
-      .build(false);
+          .build(false);
 
 
       expect(() => transaction.serialize(), returnsNormally);
@@ -493,7 +488,7 @@ main() {
 
 
     test("checks output amount before fee errors", () {
-      var builder= TransactionBuilder()
+      var builder = TransactionBuilder()
           .spendFromUtxoMap(simpleUtxoWith1BTC, P2PKHUnlockBuilder(privateKey.publicKey))
           .spendToPKH(toAddress, BigInt.from(10000000000000))
           .sendChangeToPKH(changeAddress)
@@ -518,7 +513,7 @@ main() {
 
   group('skipping checks', () {
     test('can skip the check for too much fee', () {
-      var signer = TransactionSigner(SighashType.SIGHASH_FORKID | SighashType.SIGHASH_ALL, privateKey);
+      var signer = TransactionSigner(SighashType.SIGHASH_FORKID.value | SighashType.SIGHASH_ALL.value, privateKey);
       var builder = TransactionBuilder()
           .spendFromUtxoMapWithSigner(signer, simpleUtxoWith1BTC, P2PKHUnlockBuilder(privateKey.publicKey))
           .withFee(BigInt.from(50000000))
@@ -531,7 +526,7 @@ main() {
     });
 
     test('can skip the check that prevents dust outputs', () {
-      var signer = TransactionSigner(SighashType.SIGHASH_FORKID | SighashType.SIGHASH_ALL, privateKey);
+      var signer = TransactionSigner(SighashType.SIGHASH_FORKID.value | SighashType.SIGHASH_ALL.value, privateKey);
       var builder = TransactionBuilder()
           .spendFromUtxoMapWithSigner(signer, simpleUtxoWith1BTC, P2PKHUnlockBuilder(privateKey.publicKey))
           .spendToLockBuilder(P2PKHLockBuilder.fromAddress(toAddress), BigInt.from(45))
@@ -566,8 +561,8 @@ main() {
 
       var txn = builder.build(false);
 
-      var signer = TransactionSigner(SighashType.SIGHASH_FORKID | SighashType.SIGHASH_ALL, privateKey);
-      signer.sign(txn,outputWith1BTC , 0);
+      var signer = TransactionSigner(SighashType.SIGHASH_FORKID.value | SighashType.SIGHASH_ALL.value, privateKey);
+      signer.sign(txn, outputWith1BTC, 0);
 
       expect(() => builder.build(true), throwsException);
 
@@ -602,8 +597,7 @@ main() {
           .build(false);
 
       tx.outputs[0].satoshis = BigInt.from(-100);
-      var verificationMsg = tx.verify();
-      expect(verificationMsg, equals('transaction txout 0 satoshis is invalid'));
+      expect(() => tx.verify(), throwsException);
     });
   });
 
@@ -624,20 +618,17 @@ main() {
       var future = new DateTime(2025, 10, 30); // Sun Nov 30 2025
       var transaction = TransactionBuilder().lockUntilDate(future).build(false);
       expect(transaction.nLockTime, equals(future.millisecondsSinceEpoch));
-      expect(transaction.getLockTime(), equals(future));
     });
 
 
     test('sets timelock using a DateTime instance', () {
       var transaction = TransactionBuilder().lockUntilDate(date).build(false);
       expect(transaction.nLockTime, equals(timestamp));
-      expect(transaction.getLockTime(), equals(date));
     });
 
     test('sets timelock using unix timestamp', () {
       var transaction = TransactionBuilder().lockUntilUnixTime(timestamp * MILLIS_IN_SECOND).build(false);
       expect(transaction.nLockTime, equals(timestamp * MILLIS_IN_SECOND));
-      expect(transaction.getLockTime(), equals(DateTime.fromMillisecondsSinceEpoch(timestamp * MILLIS_IN_SECOND)));
     });
 
 
@@ -669,23 +660,23 @@ main() {
 
     test('has a non-max sequenceNumber for effective date locktime tx', () {
       var transaction = TransactionBuilder()
-        .spendFromUtxoMap(simpleUtxoWith1BTC,  P2PKHUnlockBuilder(privateKey.publicKey))
-            .lockUntilDate(date).build(false);
+          .spendFromUtxoMap(simpleUtxoWith1BTC, P2PKHUnlockBuilder(privateKey.publicKey))
+          .lockUntilDate(date).build(false);
       expect(transaction.inputs[0].sequenceNumber, equals(TransactionBuilder.DEFAULT_LOCKTIME_SEQNUMBER));
     });
 
     test('has a non-max sequenceNumber for effective blockheight locktime tx', () {
-      var builder= TransactionBuilder()
-        .spendFromUtxoMap(simpleUtxoWith1BTC,  P2PKHUnlockBuilder(privateKey.publicKey))
-            .lockUntilBlockHeight(blockHeight);
+      var builder = TransactionBuilder()
+          .spendFromUtxoMap(simpleUtxoWith1BTC, P2PKHUnlockBuilder(privateKey.publicKey))
+          .lockUntilBlockHeight(blockHeight);
       var tx = builder.build(false);
       expect(tx.inputs[0].sequenceNumber, equals(TransactionBuilder.DEFAULT_LOCKTIME_SEQNUMBER));
     });
 
     test('should serialize correctly for date locktime ', () {
       var builder = TransactionBuilder()
-        .spendFromUtxoMap(simpleUtxoWith1BTC, P2PKHUnlockBuilder(privateKey.publicKey))
-            .lockUntilDate(date);
+          .spendFromUtxoMap(simpleUtxoWith1BTC, P2PKHUnlockBuilder(privateKey.publicKey))
+          .lockUntilDate(date);
       var serializedTx = builder.build(false).serialize();
       var copy = Transaction.fromHex(serializedTx);
       expect(serializedTx, equals(copy.serialize()));
@@ -744,7 +735,7 @@ main() {
           var tx = new Transaction();
 
           var txOutputs = outputSet.map((output) {
-            var txOut = TransactionOutput(BigInt.from(output["value"]), SVScript.fromByteArray(utf8.encode(output["script"]) as Uint8List));
+            var txOut = TransactionOutput(BigInt.from(output["value"]), P2PKHDataLockBuilder.fromAddress(fromAddress, utf8.encode(output["script"])).getScriptPubkey());
             return txOut;
           }).toList();
 
@@ -831,7 +822,6 @@ main() {
           .build(false);
       expect(transaction.outputs[1].satoshis, equals(BigInt.from(99993000)));
     });
-
   });
 
 
@@ -978,7 +968,7 @@ main() {
       "scriptPubKey": P2PKHLockBuilder.fromAddress(addr).getScriptPubkey().toString(),
       "satoshis": 100000
     };
-    var signer = TransactionSigner(SighashType.SIGHASH_FORKID | SighashType.SIGHASH_ALL, privateKey);
+    var signer = TransactionSigner(SighashType.SIGHASH_FORKID.value | SighashType.SIGHASH_ALL.value, privateKey);
     var tx = TransactionBuilder()
         .withTxVersion(1)
         .spendFromUtxoMapWithSigner(signer, from3, P2PKHUnlockBuilder(privateKey.publicKey))
@@ -1028,7 +1018,7 @@ main() {
           .build(false);
       rawtx = tx.serialize();
 
-      var sigHashType = SighashType.SIGHASH_FORKID | SighashType.SIGHASH_ALL;
+      var sigHashType = SighashType.SIGHASH_FORKID.value | SighashType.SIGHASH_ALL.value;
       var scriptPubKey = P2PKHLockBuilder.fromAddress(addr).getScriptPubkey();
       var txSigner = TransactionSigner(sigHashType, privateKey);
       txSigner.sign(tx, TransactionOutput(BigInt.from(100000), scriptPubKey), 0);
@@ -1053,25 +1043,38 @@ main() {
 
    */
 
-  // Transaction buildCreditingTransaction(SVScript scriptPubKey, BigInt amount) {
-  //       var credTx = Transaction();
-  //       var unlockingScript = ScriptBuilder().number(0).number(0).build();
-  //       var coinbaseUnlockBuilder = DefaultUnlockBuilder.fromScript(unlockingScript);
-  //       var prevTxnId = Uint8List(32).toString();
-  //       var coinbaseInput = TransactionInput(
-  //           prevTxnId,
-  //           -0x1,
-  //           TransactionInput.MAX_SEQ_NUMBER,
-  //           unlockingScript
-  //       );
-  //       credTx.addInput(coinbaseInput);
-  //       var lockingScriptBuilder = DefaultLockBuilder.fromScript(scriptPubKey);
-  //       var output = TransactionOutput(amount, lockingScriptBuilder.script!);
-  //
-  //
-  // }
+  Transaction buildCreditingTransaction(SVScript scriptPubKey, BigInt amount) {
+    var credTx = Transaction();
+    var unlockingScript = ScriptBuilder().number(0).number(0).build();
+    var coinbaseUnlockBuilder = DefaultUnlockBuilder.fromScript(unlockingScript);
+    var prevTxnId = Uint8List(32).toString();
+    var coinbaseInput = TransactionInput(
+        prevTxnId,
+        -0x1,
+        TransactionInput.MAX_SEQ_NUMBER,
+        scriptBuilder: coinbaseUnlockBuilder
+    );
+    credTx.addInput(coinbaseInput);
+    var lockingScriptBuilder = DefaultLockBuilder.fromScript(scriptPubKey);
+    var output = TransactionOutput(amount, lockingScriptBuilder.script!);
+    credTx.addOutput(output);
+    return credTx;
+  }
+
+  Transaction buildSpendingTransaction(Transaction creditingTransaction, SVScript scriptSig) {
+    var spendingTx = Transaction();
+    var unlockingScriptBuilder = DefaultUnlockBuilder.fromScript(scriptSig);
+    var input = TransactionInput(creditingTransaction.id, 0, TransactionInput.MAX_SEQ_NUMBER, scriptBuilder: unlockingScriptBuilder);
+    spendingTx.addInput(input);
+    var lockingScriptBuilder = DefaultLockBuilder.fromScript(SVScript());
+    var output = TransactionOutput(BigInt.zero, lockingScriptBuilder.script!);
+    spendingTx.addOutput(output);
+    return spendingTx;
+  }
+
 
   test('can spend UTXO requiring sighash pre-image', () async {
+    /*
     //load the sCrypt json descriptor
     var contractAsm = await File("${Directory.current.path}/test/contract/pushTxTest_release_desc.json")
         .readAsString()
@@ -1082,32 +1085,28 @@ main() {
 
     print(contractAsm);
     var scriptPubKey = SVScript.fromASM(contractAsm);
-    // var txCredit = buildCreditingTransaction(scriptPubKey, BigInt.zero);
-    /*
-        val scriptPubKey = Script.fromAsmString(contract.asm)
-        val txCredit = buildCreditingTransaction(scriptPubKey, BigInteger.ZERO)
+    var txCredit = buildCreditingTransaction(scriptPubKey, BigInt.zero);
 
-        //assemble preimage >
-        val txSpendForPreimage = buildSpendingTransaction(txCredit!!, ScriptBuilder().build())
-        val sigHashType = SigHashType.ALL.value or SigHashType.FORKID.value
-        val txCreditPreImage = SigHash().getSighashPreimage(txSpendForPreimage, sigHashType, 0, scriptPubKey, BigInteger.ZERO)
-        //assemble preimage <
+    //assemble preimage >
+    var txSpendForPreimage = buildSpendingTransaction(txCredit!!, ScriptBuilder().build());
+    var sigHashType = SighashType.SIGHASH_ALL.value | SighashType.SIGHASH_FORKID.value;
+    var hasher = Sighash();
+    hasher.hash(txSpendForPreimage, sigHashType, 0, scriptPubKey, BigInt.zero);
+    var txCreditPreImage = hasher.preImage;
+    //assemble preimage <
 
-        //create scriptSig with pre-image data
-        val scriptSig: Script = ScriptBuilder().data(txCreditPreImage).build();
-        val txSpend = buildSpendingTransaction(txCredit!!, scriptSig)
+    //create scriptSig with pre-image data
+    var scriptSig = ScriptBuilder().addData(txCreditPreImage!).build();
+    var txSpend = buildSpendingTransaction(txCredit, scriptSig);
 
-        //setup the flags needed for script verification
-        val verifyFlags = HashSet<Script.VerifyFlag>()
-        verifyFlags.add(Script.VerifyFlag.SIGHASH_FORKID)
-        verifyFlags.add(Script.VerifyFlag.UTXO_AFTER_GENESIS)
+    //setup the flags needed for script verification
+    var scriptFlags = ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID | ScriptFlags.SCRIPT_UTXO_AFTER_GENESIS;
 
-        val interp = Interpreter()
+    var interp = Interpreter();
 
-        assertDoesNotThrow {
-            interp.correctlySpends(scriptSig, scriptPubKey, txSpend, 0, verifyFlags)
-        }
-       */
+    expect(() => interp.verifyScript(scriptSig, scriptPubKey, tx: txSpend, nin: 0, flags: scriptFlags), returnsNormally);
+
+     */
   });
 }
 

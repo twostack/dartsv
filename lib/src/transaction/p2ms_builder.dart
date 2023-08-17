@@ -20,11 +20,11 @@ class P2MSLockBuilder extends LockingScriptBuilder{
     if (publicKeys.isEmpty || requiredSigs == 0) return SVScript();
 
     if (publicKeys.length > 15){
-      throw ScriptException("Too many public keys. P2MS limit is 15 public keys");
+      throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, "Too many public keys. P2MS limit is 15 public keys");
     }
 
     if (requiredSigs > publicKeys.length) {
-      throw ScriptException("You can't have more signatures than public keys");
+      throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, "You can't have more signatures than public keys");
     }
 
     if (sorting) {
@@ -45,20 +45,22 @@ class P2MSLockBuilder extends LockingScriptBuilder{
       var chunkList = script.chunks;
 
       if (chunkList[chunkList.length - 1].opcodenum != OpCodes.OP_CHECKMULTISIG){
-        throw ScriptException("Malformed multisig script. OP_CHECKMULTISIG is missing.");
+        throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, "Malformed multisig script. OP_CHECKMULTISIG is missing.");
       }
 
       var keyCount = chunkList[0].opcodenum - 80;
 
       publicKeys = <SVPublicKey>[];
       for (var i = 1; i < keyCount + 1; i++){
-        publicKeys.add(SVPublicKey.fromDER(chunkList[i].buf));
+        if (chunkList[i].buf != null) {
+          publicKeys.add(SVPublicKey.fromDER(chunkList[i].buf!));
+        }
       }
 
       requiredSigs = chunkList[keyCount + 1].opcodenum - 80;
 
     }else{
-      throw ScriptException("Invalid Script or Malformed Script.");
+      throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, "Invalid Script or Malformed Script.");
     }
   }
 
@@ -90,11 +92,13 @@ class P2MSUnlockBuilder extends UnlockingScriptBuilder {
 
       //skip first chunk. typically OP_O
       for (var i = 1; i < chunkList.length; i++){
-        signatures.add(SVSignature.fromTxFormat(HEX.encode(chunkList[i].buf)));
+        if (chunkList[i].buf != null) {
+          signatures.add(SVSignature.fromTxFormat(HEX.encode(chunkList[i].buf!)));
+        }
       }
 
     }else{
-      throw ScriptException("Invalid Script or Malformed Script.");
+      throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, "Invalid Script or Malformed Script.");
     }
   }
 

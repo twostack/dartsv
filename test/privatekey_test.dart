@@ -16,7 +16,7 @@ main(){
         var wifKey = '5HueCGU8rMjxEXxiPuD5BDku4MkFqeZyd4dZ1jvhTVqvbTLvyTJ';
         var privateKey = '0C28FCA386C7A227600B2FE50B7CAE11EC86D3BF1FBE471BE89827E19D72AA1D';
         var privkey = new SVPrivateKey.fromWIF(wifKey);
-        var decodedPrivKey = encodeBigInt(privkey.privateKey);
+        var decodedPrivKey = encodeBigIntSV(privkey.privateKey);
 
         expect(HEX.encode(decodedPrivKey).toUpperCase(),equals(privateKey));
     });

@@ -25,23 +25,23 @@ import 'script/opcodes.dart';
 ///
 /// [SighashType.SIGHASH_FORKID]
 ///
-class SighashType {
+enum SighashType {
     /// The signature in the [TransactionInput] applies to all the [TransactionInput]s *and all* the [TransactionOutput]s
-    static const SIGHASH_ALL = 0x00000001;
+    SIGHASH_ALL(0x00000001),
 
     /// The signature in the [TransactionInput] applies *only* to *all* the [TransactionInput]s
-    static const SIGHASH_NONE = 0x00000002;
+    SIGHASH_NONE(0x00000002),
 
     /// The signature in the [TransactionInput] applies to *all* the
     /// [TransactionInput]s and *only* the corresponding [TransactionOutput] with the *same index* as
     /// the [TransactionInput] containing the signature.
-    static const SIGHASH_SINGLE = 0x00000003;
+    SIGHASH_SINGLE(0x00000003),
 
     /// A flag to provide replay-protection after the Bitcoin-Cash hard-fork.
     /// A bitwise-OR e.g. `SIGHASH_FORKID | SIGHASH_ALL`
     /// is required to spend outputs on the BCH and BSV networks
     /// subsequent to the Bitcoin-Cash fork in 2017.
-    static const SIGHASH_FORKID = 0x00000040;
+    SIGHASH_FORKID(0x00000040),
 
 
     /// This flag is used in combination with any of the *ALL*, *NONE* or *SINGLE* flags.
@@ -54,7 +54,25 @@ class SighashType {
     ///
     /// `SIGHASH_SINGLE | SIGHASH_ANYONECANPAY` - Signature applies to *only* the [TransactionInput that
     /// the signature is part *AND ONLY* the one corresponding [TransactionOutput] (same index).
-    static const SIGHASH_ANYONECANPAY = 0x00000080;
+    SIGHASH_ANYONECANPAY(0x00000080),
+
+    ANYONECANPAY_NONE(0x00000082),
+
+    ANYONECANPAY_SINGLE(0x00000083),
+
+    UNSET(0x00);
+
+    final int value;
+
+    const SighashType(this.value);
+
+  static bool hasValue(int sigHashType) {
+    for (SighashType t in values) {
+      if (t.value == sigHashType) return true;
+    }
+
+    return false;
+  } // Caution: Using this type in isolation is non-standard. Treated similar to ALL.
 }
 
 
@@ -112,7 +130,7 @@ class Sighash {
             sighashType = (newForkValue << 8) | (sighashType & 0xff);
         }
 
-        if ((sighashType & SighashType.SIGHASH_FORKID != 0) && (flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID != 0)) {
+        if ((sighashType & SighashType.SIGHASH_FORKID.value != 0) && (flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID != 0)) {
             return HEX.encode(this._sigHashForForkid(txnCopy, sighashType, inputNumber, subscriptCopy, satoshis));
         }
 
@@ -135,8 +153,8 @@ class Sighash {
 
         txnCopy.serialize();
 
-        if ((sighashType & 31) == SighashType.SIGHASH_NONE ||
-            (sighashType & 31) == SighashType.SIGHASH_SINGLE) {
+        if ((sighashType & 31) == SighashType.SIGHASH_NONE.value ||
+            (sighashType & 31) == SighashType.SIGHASH_SINGLE.value) {
             // clear all sequenceNumbers
             var ndx = 0;
             txnCopy.inputs.forEach((elem) {
@@ -147,10 +165,10 @@ class Sighash {
             });
         }
 
-        if ((sighashType & 31) == SighashType.SIGHASH_NONE) {
+        if ((sighashType & 31) == SighashType.SIGHASH_NONE.value) {
             txnCopy.outputs.removeWhere((elem) => true); //remove the outputs
 
-        } else if ((sighashType & 31) == SighashType.SIGHASH_SINGLE) {
+        } else if ((sighashType & 31) == SighashType.SIGHASH_SINGLE.value) {
             // The SIGHASH_SINGLE bug.
             // https://bitcointalk.org/index.php?topic=260595.0
             if (inputNumber >= txnCopy.outputs.length) {
@@ -175,7 +193,7 @@ class Sighash {
         }
 
 
-        if (this._sighashType & SighashType.SIGHASH_ANYONECANPAY > 0) {
+        if (this._sighashType & SighashType.SIGHASH_ANYONECANPAY.value > 0) {
             var keepTxn = this._txn!.inputs[inputNumber];
             txnCopy.inputs.removeWhere((elem) => true); //delete all inputs
             txnCopy.inputs.add(keepTxn);
@@ -268,19 +286,19 @@ class Sighash {
         var hashSequence = List<int>.filled(32, 0);
         var hashOutputs = List<int>.filled(32, 0);
 
-        if (!(sighashType & SighashType.SIGHASH_ANYONECANPAY > 0)) {
+        if (!(sighashType & SighashType.SIGHASH_ANYONECANPAY.value > 0)) {
             hashPrevouts = GetPrevoutHash(txn);
         }
 
-        if (!(sighashType & SighashType.SIGHASH_ANYONECANPAY > 0) &&
-            (sighashType & 31) != SighashType.SIGHASH_SINGLE &&
-            (sighashType & 31) != SighashType.SIGHASH_NONE) {
+        if (!(sighashType & SighashType.SIGHASH_ANYONECANPAY.value > 0) &&
+            (sighashType & 31) != SighashType.SIGHASH_SINGLE.value &&
+            (sighashType & 31) != SighashType.SIGHASH_NONE.value) {
             hashSequence = GetSequenceHash(txn);
         }
 
-        if ((sighashType & 31) != SighashType.SIGHASH_SINGLE && (sighashType & 31) != SighashType.SIGHASH_NONE) {
+        if ((sighashType & 31) != SighashType.SIGHASH_SINGLE.value && (sighashType & 31) != SighashType.SIGHASH_NONE.value) {
             hashOutputs = GetOutputsHash(txn);
-        } else if ((sighashType & 31) == SighashType.SIGHASH_SINGLE && inputNumber < txn.outputs.length) {
+        } else if ((sighashType & 31) == SighashType.SIGHASH_SINGLE.value && inputNumber < txn.outputs.length) {
             hashOutputs = GetOutputsHash(txn, n: inputNumber);
         }
 

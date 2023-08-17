@@ -130,7 +130,7 @@ main() {
       var buf = Uint8List.fromList([3, 1, 2, 3]);
       var script = SVScript.fromBuffer(buf);
       expect(script.chunks.length, equals(1));
-      expect(HEX.encode(script.chunks[0].buf), equals('010203'));
+      expect(HEX.encode(script.chunks[0].buf!), equals('010203'));
     });
 
     test('should parse this buffer containing OP_PUSHDATA1 and three bytes of data', () {
@@ -141,7 +141,7 @@ main() {
 
       var script = SVScript.fromBuffer(buf);
       expect(script.chunks.length, equals(1));
-      expect(HEX.encode(script.chunks[0].buf), equals('010203'));
+      expect(HEX.encode(script.chunks[0].buf!), equals('010203'));
     });
 
     test('should parse this buffer containing OP_PUSHDATA2 and three bytes of data', () {
@@ -153,7 +153,7 @@ main() {
 
       var script = SVScript.fromBuffer(buf);
       expect(script.chunks.length, equals(1));
-      expect(HEX.encode(script.chunks[0].buf), equals('010203'));
+      expect(HEX.encode(script.chunks[0].buf!), equals('010203'));
     });
 
     test('should parse this buffer containing OP_PUSHDATA4 and three bytes of data', () {
@@ -165,7 +165,7 @@ main() {
 
       var script = SVScript.fromBuffer(buf);
       expect(script.chunks.length, equals(1));
-      expect(HEX.encode(script.chunks[0].buf), equals('010203'));
+      expect(HEX.encode(script.chunks[0].buf!), equals('010203'));
     });
 
     test('should parse this buffer an OP code, data, and another OP code', () {
@@ -180,7 +180,7 @@ main() {
       var script = SVScript.fromBuffer(buf);
       expect(script.chunks.length, equals(3));
       expect(script.chunks[0].opcodenum, (buf[0]));
-      expect(HEX.encode(script.chunks[1].buf), equals('010203'));
+      expect(HEX.encode(script.chunks[1].buf!), equals('010203'));
       expect(script.chunks[2].opcodenum, equals(buf[buf.length - 1]));
     });
 
@@ -209,7 +209,7 @@ main() {
       var buf = Uint8List.fromList([3, 1, 2, 3]);
       var script = SVScript.fromBuffer(buf);
       expect(script.chunks.length, equals(1));
-      expect(HEX.encode(script.chunks[0].buf), equals('010203'));
+      expect(HEX.encode(script.chunks[0].buf!), equals('010203'));
       expect(script.toHex(), equals(HEX.encode(buf)));
     });
 
@@ -221,7 +221,7 @@ main() {
 
       var script = SVScript.fromBuffer(writer.toBytes());
       expect(script.chunks.length, equals(1));
-      expect(HEX.encode(script.chunks[0].buf), equals('010203'));
+      expect(HEX.encode(script.chunks[0].buf!), equals('010203'));
       expect(script.toHex(), HEX.encode(writer.toBytes()));
     });
 
@@ -233,7 +233,7 @@ main() {
 
       var script = SVScript.fromBuffer(writer.toBytes());
       expect(script.chunks.length, equals(1));
-      expect(HEX.encode(script.chunks[0].buf), equals('010203'));
+      expect(HEX.encode(script.chunks[0].buf!), equals('010203'));
       expect(script.toHex(), equals(HEX.encode(writer.toBytes())));
     });
 
@@ -245,7 +245,7 @@ main() {
 
       var script = SVScript.fromBuffer(writer.toBytes());
       expect(script.chunks.length, equals(1));
-      expect(HEX.encode(script.chunks[0].buf), equals('010203'));
+      expect(HEX.encode(script.chunks[0].buf!), equals('010203'));
       expect(script.toHex(), equals(HEX.encode(writer.toBytes())));
     });
 
@@ -261,7 +261,7 @@ main() {
       var script = SVScript.fromBuffer(buf);
       expect(script.chunks.length, equals(3));
       expect(script.chunks[0].opcodenum, equals(buf[0]));
-      expect(HEX.encode(script.chunks[1].buf), equals('010203'));
+      expect(HEX.encode(script.chunks[1].buf!), equals('010203'));
       expect(script.chunks[2].opcodenum, equals(buf[buf.length - 1]));
       expect(script.toHex(), equals(HEX.encode(buf)));
     });
@@ -276,7 +276,7 @@ main() {
         expect(script.chunks[0].opcodenum, equals(OpCodes.OP_DUP));
         expect(script.chunks[1].opcodenum, equals(OpCodes.OP_HASH160));
         expect(script.chunks[2].opcodenum, equals(20));
-        expect(HEX.encode(script.chunks[2].buf), equals('f4c03610e60ad15100929cc23da2f3a799af1725'));
+        expect(HEX.encode(script.chunks[2].buf!), equals('f4c03610e60ad15100929cc23da2f3a799af1725'));
         expect(script.chunks[3].opcodenum, equals(OpCodes.OP_EQUALVERIFY));
         expect(script.chunks[4].opcodenum, equals(OpCodes.OP_CHECKSIG));
       });
@@ -346,7 +346,7 @@ main() {
         var script = SVScript.fromBuffer(buf);
         expect(script.chunks.length, equals(3));
         expect(script.chunks[0].opcodenum, equals(buf[0]));
-        expect(HEX.encode(script.chunks[1].buf), equals('010203'));
+        expect(HEX.encode(script.chunks[1].buf!), equals('010203'));
         expect(script.chunks[2].opcodenum, equals(buf[buf.length - 1]));
         expect(script.toString(),  equals('OP_0 OP_PUSHDATA4 3 0x010203 OP_0'));
       });

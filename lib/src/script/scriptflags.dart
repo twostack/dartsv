@@ -179,9 +179,10 @@ class ScriptFlags {
     ///
     static final SCRIPT_ENABLE_MONOLITH_OPCODES = (1 << 18);
 
-    /// Are the Magnetic upgrade opcodes enabled?
-    ///
-    static final SCRIPT_ENABLE_MAGNETIC_OPCODES = (1 << 19);
+    /// UTXO being used in this script was created *after* Genesis upgrade
+    /// has been activated. This activates new rules (such as original meaning of OP_RETURN)
+    /// This is per (input!) UTXO flag
+    static final SCRIPT_UTXO_AFTER_GENESIS = (1 << 19);
 
     /// *Below flags apply in the context of BIP 68*
     ///

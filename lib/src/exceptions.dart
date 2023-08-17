@@ -1,4 +1,6 @@
 
+import 'script/script_error.dart';
+
 class AddressFormatException implements Exception {
     String cause;
 
@@ -72,8 +74,9 @@ class TransactionAmountException implements Exception {
 
 class ScriptException implements Exception {
     String cause;
+    ScriptError error;
 
-    ScriptException(this.cause);
+    ScriptException(this.error, this.cause);
 
 }
 
@@ -125,4 +128,36 @@ class MerkleTreeException implements Exception {
     String cause;
 
     MerkleTreeException(this.cause);
+}
+
+class SignatureDecodeException implements Exception {
+    String cause;
+
+    SignatureDecodeException(this.cause);
+}
+
+class SignatureEncodingException implements Exception {
+    String cause;
+    ScriptError error;
+
+    SignatureEncodingException(this.error, this.cause);
+}
+
+class PubKeyEncodingException implements Exception {
+    String cause;
+    ScriptError error;
+
+    PubKeyEncodingException(this.error, this.cause);
+}
+
+class IllegalStateException implements Exception {
+    String cause;
+
+    IllegalStateException(this.cause);
+}
+
+class VerificationException implements Exception{
+   String cause;
+
+   VerificationException(this.cause);
 }

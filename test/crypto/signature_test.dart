@@ -1,4 +1,5 @@
 import 'package:dartsv/dartsv.dart';
+import 'package:dartsv/src/script/interpreter.dart';
 import 'package:test/test.dart';
 import 'package:hex/hex.dart';
 import 'dart:io';
@@ -18,11 +19,11 @@ main() {
     test('should parse this known signature and rebuild it with updated zero-padded sighash types', () {
         var buffer = '30450221008bab1f0a2ff2f9cb8992173d8ad73c229d31ea8e10b0f4d4ae1a0d8ed76021fa02200993a6ec81755b9111762fc2cf8e3ede73047515622792110867d12654275e7201';
         var sig = SVSignature.fromTxFormat(buffer);
-        expect(sig.nhashtype, equals(SighashType.SIGHASH_ALL));
-        sig.nhashtype = SighashType.SIGHASH_ALL | SighashType.SIGHASH_ANYONECANPAY;
+        expect(sig.nhashtype, equals(SighashType.SIGHASH_ALL.value));
+        sig.nhashtype = SighashType.SIGHASH_ALL.value | SighashType.SIGHASH_ANYONECANPAY.value;
 
         expect(sig.toTxFormat(), equals(buffer.substring(0, buffer.length - 2) + '81'));
-        sig.nhashtype = SighashType.SIGHASH_SINGLE;
+        sig.nhashtype = SighashType.SIGHASH_SINGLE.value;
         expect(sig.toTxFormat(), equals(buffer.substring(0, buffer.length - 2) + '03'));
     });
 
@@ -32,7 +33,7 @@ main() {
         var sig = SVSignature.fromTxFormat(buf);
         expect(sig.r.toString(), equals('63173831029936981022572627018246571655303050627048489594159321588908385378810'));
         expect(sig.s.toString(), equals('4331694221846364448463828256391194279133231453999942381442030409253074198130'));
-        expect(sig.nhashtype, equals(SighashType.SIGHASH_ALL));
+        expect(sig.nhashtype, equals(SighashType.SIGHASH_ALL.value));
     });
 
     test('should parse this known signature and rebuild it', () {
@@ -190,9 +191,8 @@ main() {
                 .then((contents) => jsonDecode(contents))
                 .then((jsonData) {
                 List.from(jsonData).forEach((sig) {
-                    var flags = ScriptFlags.SCRIPT_VERIFY_DERSIG | ScriptFlags.SCRIPT_VERIFY_STRICTENC;
-                    var result = Interpreter().checkSignatureEncoding(HEX.decode(sig), flags);
-                    expect(result, isTrue);
+                    var flags = Set<VerifyFlag>()..addAll([VerifyFlag.DERSIG ,VerifyFlag.STRICTENC]);
+                    expect(() => Interpreter.checkSignatureEncoding(HEX.decode(sig), flags), returnsNormally);
                 });
             });
     });
@@ -204,9 +204,8 @@ main() {
             .then((contents) => jsonDecode(contents))
             .then((jsonData) {
             List.from(jsonData).forEach((vector) {
-                var flags = ScriptFlags.SCRIPT_VERIFY_DERSIG | ScriptFlags.SCRIPT_VERIFY_STRICTENC;
-                var result = Interpreter().checkSignatureEncoding(HEX.decode(vector[1]), flags);
-                expect(result, isFalse);
+                var flags = Set<VerifyFlag>()..addAll([VerifyFlag.DERSIG ,VerifyFlag.STRICTENC]);
+                expect(() => Interpreter.checkSignatureEncoding(HEX.decode(vector[1]), flags), throwsException);
             });
         });
     });
@@ -219,16 +218,16 @@ main() {
       var testCases = [
         [0, false],
         [-1, false],
-        [SighashType.SIGHASH_ANYONECANPAY, false],
-        [SighashType.SIGHASH_ANYONECANPAY | SighashType.SIGHASH_ALL, true],
-        [SighashType.SIGHASH_ANYONECANPAY | SighashType.SIGHASH_NONE, true],
-        [SighashType.SIGHASH_ANYONECANPAY | SighashType.SIGHASH_SINGLE, true],
-        [SighashType.SIGHASH_ALL, true],
-        [SighashType.SIGHASH_NONE, true],
-        [SighashType.SIGHASH_SINGLE, true],
-        [SighashType.SIGHASH_SINGLE + 1, false],
-        [(SighashType.SIGHASH_ANYONECANPAY | SighashType.SIGHASH_SINGLE) + 1, false],
-        [(SighashType.SIGHASH_ANYONECANPAY | SighashType.SIGHASH_ALL) - 1, false]
+        [SighashType.SIGHASH_ANYONECANPAY.value, false],
+        [SighashType.SIGHASH_ANYONECANPAY.value | SighashType.SIGHASH_ALL.value, true],
+        [SighashType.SIGHASH_ANYONECANPAY.value | SighashType.SIGHASH_NONE.value, true],
+        [SighashType.SIGHASH_ANYONECANPAY.value | SighashType.SIGHASH_SINGLE.value, true],
+        [SighashType.SIGHASH_ALL.value, true],
+        [SighashType.SIGHASH_NONE.value, true],
+        [SighashType.SIGHASH_SINGLE.value, true],
+        [SighashType.SIGHASH_SINGLE.value + 1, false],
+        [(SighashType.SIGHASH_ANYONECANPAY.value | SighashType.SIGHASH_SINGLE.value) + 1, false],
+        [(SighashType.SIGHASH_ANYONECANPAY.value | SighashType.SIGHASH_ALL.value) - 1, false]
       ];
 
       testCases.forEach((vector) {

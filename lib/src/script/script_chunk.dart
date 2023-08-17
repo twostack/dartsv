@@ -1,12 +1,13 @@
 import 'dart:typed_data';
 
 import 'package:dartsv/dartsv.dart';
+import 'package:dartsv/src/transaction/preconditions.dart';
 import 'package:hex/hex.dart';
 
 /// Utility class to represent a parsed 'token' in the encoded script.
 class ScriptChunk {
 
-  List<int> _buf;
+  List<int>? _buf = null;
   int _len;
   int _opcodenum;
 
@@ -42,11 +43,11 @@ class ScriptChunk {
 
   /// Returns the byte array containing the data from a PUSHDATAx instruction.
   ///
-  List<int> get buf => _buf;
+  List<int>? get buf => _buf;
 
   /// Sets the byte array of representing PUSHDATAx instruction.
   ///
-  set buf(List<int> value) {
+  set buf(List<int>? value) {
     _buf = value;
   }
 
@@ -81,7 +82,7 @@ class ScriptChunk {
     else if (_opcodenum == OpCodes.OP_PUSHDATA2) pushDataSizeLength = 2;
     else if (_opcodenum == OpCodes.OP_PUSHDATA4) pushDataSizeLength = 4;
 
-    final int dataLength = _buf == null ? 0 : _buf.length;
+    final int dataLength = _buf == null ? 0 : _buf!.length;
 
     return opcodeLength + pushDataSizeLength + dataLength;
   }
@@ -89,27 +90,26 @@ class ScriptChunk {
 
   /// Checks to see if the PUSHDATA instruction is using the *smallest* pushdata opcode it can.
   ///
-  /// [i] - Index of ScriptChunk. This should be a pushdata instruction.
-  ///
   /// Returns true if the *smallest* pushdata opcode was used.
-  bool checkMinimalPush(int i) {
+  bool checkMinimalPush() {
+    PreConditions.assertTrue(isPushData());
 
-    if (_buf.isEmpty) {
+    if (_buf == null ) {
       // Could have used OP_0.
       return (_opcodenum == OpCodes.OP_0);
-    } else if (_buf.length == 1 && buf[0] >= 1 && buf[0] <= 16) {
+    } else if (_buf != null && _buf!.length == 1 && _buf![0] >= 1 && _buf![0] <= 16) {
       // Could have used OP_1 .. OP_16.
-      return _opcodenum == OpCodes.OP_1 + (buf[0] - 1);
-    } else if (_buf.length == 1 && buf[0] == 0x81) {
+      return _opcodenum == OpCodes.OP_1 + (_buf![0] - 1);
+    } else if (_buf != null && _buf!.length == 1 && _buf![0] == 0x81) {
       // Could have used OP_1NEGATE
       return _opcodenum == OpCodes.OP_1NEGATE;
-    } else if (_buf.length <= 75) {
+    } else if (_buf != null && _buf!.length <= 75) {
       // Could have used a direct push (opcode indicating number of bytes pushed + those bytes).
-      return _opcodenum == buf.length;
-    } else if (_buf.length <= 255) {
+      return _opcodenum == _buf!.length;
+    } else if (_buf != null && _buf!.length <= 255) {
       // Could have used OP_PUSHDATA.
       return _opcodenum == OpCodes.OP_PUSHDATA1;
-    } else if (_buf.length <= 65535) {
+    } else if (_buf != null && _buf!.length <= 65535) {
       // Could have used OP_PUSHDATA2.
       return _opcodenum == OpCodes.OP_PUSHDATA2;
     }
@@ -118,7 +118,7 @@ class ScriptChunk {
 
     String toEncodedString(bool asm){
         StringBuffer str = new StringBuffer();
-        if (_buf == null || _buf.length <= 0) {
+        if (_buf == null || (_buf != null && _buf!.length <= 0)) {
 
             // no data chunk
             if (!OpCodes.getOpCodeName(opcodenum).startsWith("NON_OP")) {
@@ -157,11 +157,11 @@ class ScriptChunk {
                     opcodenum == OpCodes.OP_PUSHDATA4)) {
                 str.write(  OpCodes.getOpCodeName(opcodenum) + " ");
             }
-            if (_buf.length > 0) {
+            if (_buf != null && _buf!.length > 0) {
                 if (asm) {
-                    str.write(HEX.encode(_buf));
+                    str.write(HEX.encode(_buf!));
                 } else {
-                    str.write("${_buf.length} 0x${HEX.encode(_buf)}");
+                    str.write("${_buf?.length} 0x${HEX.encode(_buf!)}");
                 }
             }
         }

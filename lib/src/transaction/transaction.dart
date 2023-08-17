@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:math';
 
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
@@ -92,6 +93,20 @@ class Transaction {
   /// max amount of satoshis in circulation
   static final MAX_MONEY = BigInt.from(21000000 * 1e8);
 
+  static final int MAX_COINS = 21000000;
+  /// max amount of bitcoins in circulation
+
+  static final int SMALLEST_UNIT_EXPONENT = 8;
+  static final BigInt COIN_VALUE = BigInt.from(pow(10, SMALLEST_UNIT_EXPONENT));
+
+  /** Threshold for lockTime: below this value it is interpreted as block number, otherwise as timestamp. **/
+  static final int LOCKTIME_THRESHOLD = 500000000; // Tue Nov  5 00:53:20 1985 UTC
+
+  /** TODO: Same but as a BigInteger for CHECKLOCKTIMEVERIFY */
+  static final BigInt LOCKTIME_THRESHOLD_BIG = BigInt.from(LOCKTIME_THRESHOLD);
+
+  /** How many bytes a transaction can be before it won't be relayed anymore. Currently 100kb. */
+  static final int MAX_STANDARD_TX_SIZE = 100000;
 
 
   /// Max value for an unsigned 32 bit value
@@ -269,27 +284,28 @@ class Transaction {
 
   ///Returns either DateTime or int (blockHeight)
   ///Yes, the return type overloading sucks. Welcome to bitcoin.
-  getLockTime() {
+  int getLockTime() {
     //FIXME: Figure out how to use Type System to force consumer of this
     // method to think about the return value. e.g. scala.Option
 
-    var timestamp = _nLockTime;
-    if (timestamp < 500000000) {
-      return timestamp;
-    } else {
-      var date = DateTime.fromMillisecondsSinceEpoch(timestamp);
-      return date;
-    }
+    return _nLockTime;
+    // var timestamp = _nLockTime;
+    // if (timestamp < 500000000) {
+    //   return timestamp;
+    // } else {
+    //   var date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+    //   return date; //.millisecondsSinceEpoch / 1000;
+    // }
   }
 
-  String verify() {
+  void verify() {
     // Basic checks that don't depend on any context
     if (_txnInputs.isEmpty) {
-      return 'transaction txins empty';
+      throw VerificationException('transaction txins empty');
     }
 
     if (_txnOutputs.isEmpty) {
-      return 'transaction txouts empty';
+      throw VerificationException('transaction txouts empty');
     }
 
     // Check for negative or overflow output values
@@ -297,20 +313,20 @@ class Transaction {
     var ndx = 0;
     for (var txout in _txnOutputs) {
       if (txout.invalidSatoshis()) {
-        return 'transaction txout $ndx satoshis is invalid';
+        throw VerificationException('transaction txout $ndx satoshis is invalid');
       }
       if (txout.satoshis > Transaction.MAX_MONEY) {
-        return 'transaction txout ${ndx} greater than MAX_MONEY';
+        throw VerificationException('transaction txout ${ndx} greater than MAX_MONEY');
       }
       valueoutbn = valueoutbn + txout.satoshis;
       if (valueoutbn > Transaction.MAX_MONEY) {
-        return 'transaction txout ${ndx} total output greater than MAX_MONEY';
+        throw VerificationException('transaction txout ${ndx} total output greater than MAX_MONEY');
       }
     }
 
     // Size limits
     if (serialize().length > MAX_BLOCK_SIZE) {
-      return 'transaction over the maximum block size';
+      throw VerificationException('transaction over the maximum block size');
     }
 
     // Check for duplicate inputs
@@ -320,7 +336,7 @@ class Transaction {
 
       var inputid = txin.prevTxnId + ':' + txin.prevTxnOutputIndex.toString();
       if (txinmap[inputid] != null) {
-        return 'transaction input ' + i.toString() + ' duplicate input';
+        throw VerificationException('transaction input ' + i.toString() + ' duplicate input');
       }
       txinmap[inputid] = true;
     }
@@ -329,16 +345,15 @@ class Transaction {
       var script = inputs[0].script ??= SVScript();
       var buf = script.buffer;
       if (buf.length < 2 || buf.length > 100) {
-        return 'coinbase transaction script size invalid';
+        throw VerificationException('coinbase transaction script size invalid');
       }
     } else {
-      for (var i = 0; i < inputs.length; i++) {
-        if (inputs[i] == null) {
-          return 'transaction input ' + i.toString() + ' has null input';
+      for (TransactionInput input in inputs) {
+        if (input == null || input.isCoinBase()) {
+          throw VerificationException("transaction input has null input");
         }
       }
     }
-    return ''; //FIXME: Return a boolean value like a real programmer FFS !
   }
 
   bool isCoinbase() {
