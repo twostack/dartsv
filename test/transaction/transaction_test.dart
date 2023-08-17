@@ -735,7 +735,7 @@ main() {
           var tx = new Transaction();
 
           var txOutputs = outputSet.map((output) {
-            var txOut = TransactionOutput(BigInt.from(output["value"]), SVScript.fromByteArray(utf8.encode(output["script"]) as Uint8List));
+            var txOut = TransactionOutput(BigInt.from(output["value"]), P2PKHDataLockBuilder.fromAddress(fromAddress, utf8.encode(output["script"])).getScriptPubkey());
             return txOut;
           }).toList();
 

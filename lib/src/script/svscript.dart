@@ -95,55 +95,53 @@ class SVScript {
 
     /// This constructor is *only* used by the Script Interpreter test vectors at the moment.
     /// Bitcoind test vectors are rather special snowflakes so we made a special constructor just for them.
-    // SVScript.fromBitcoindString(String str) {
-    //
-    //   _chunks = _stringToChunks(str);
-    //
-    //     // _processBuffer(bw.toBytes());
-    // }
-
-    SVScript.fromBitcoindString(String str){
-
-      var bw = ByteDataWriter();
-      var tokens = str.split(' ');
-      for (var i = 0; i < tokens.length; i++) {
-        var token = tokens[i];
-        if (token == '') {
-          continue;
-        }
-
-        var opstr;
-        int opcodenum;
-        var tbuf;
-        if (token.startsWith('0x')) {
-          var hex = token.substring(2).replaceAll(',', '');
-          bw.write(HEX.decode(hex));
-        } else if (token[0] == '\'') {
-          String tstr = token.substring(1, token.length - 1);
-          tbuf = SVScript()
-              .add(utf8.encode(tstr))
-              .buffer;
-          bw.write(tbuf);
-        } else if (OpCodes.opcodeMap.containsKey("OP_${token.toUpperCase()}")) {
-          opstr = 'OP_' + token;
-          opcodenum = OpCodes.opcodeMap[opstr]!;
-          bw.writeUint8(opcodenum);
-        } else if (OpCodes.opcodeMap[token] is num) {
-          opstr = token;
-          opcodenum = OpCodes.opcodeMap[opstr]!;
-          bw.writeUint8(opcodenum);
-        } else if (BigInt.tryParse(token) != null) {
-          var script = SVScript()
-            ..add(Uint8List.fromList(castToBuffer(BigInt.parse(token))));
-          tbuf = script.buffer;
-          bw.write(tbuf);
-        } else {
-          throw  ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, 'Could not determine type of script value');
-        }
-      }
-
-      _processBuffer(bw.toBytes());
+    SVScript.fromBitcoindString(String str) {
+      _chunks = _stringToChunks(str);
+        // _processBuffer(bw.toBytes());
     }
+
+    // SVScript.fromBitcoindString(String str){
+    //
+    //   var bw = ByteDataWriter();
+    //   var tokens = str.split(' ');
+    //   for (var i = 0; i < tokens.length; i++) {
+    //     var token = tokens[i];
+    //     if (token == '') {
+    //       continue;
+    //     }
+    //
+    //     var opstr;
+    //     int opcodenum;
+    //     var tbuf;
+    //     if (token.startsWith('0x')) {
+    //       var hex = token.substring(2).replaceAll(',', '');
+    //       bw.write(HEX.decode(hex));
+    //     } else if (token[0] == '\'') {
+    //       String tstr = token.substring(1, token.length - 1);
+    //       tbuf = SVScript()
+    //           .add(utf8.encode(tstr))
+    //           .buffer;
+    //       bw.write(tbuf);
+    //     } else if (OpCodes.opcodeMap.containsKey("OP_${token.toUpperCase()}")) {
+    //       opstr = 'OP_' + token;
+    //       opcodenum = OpCodes.opcodeMap[opstr]!;
+    //       bw.writeUint8(opcodenum);
+    //     } else if (OpCodes.opcodeMap[token] is num) {
+    //       opstr = token;
+    //       opcodenum = OpCodes.opcodeMap[opstr]!;
+    //       bw.writeUint8(opcodenum);
+    //     } else if (BigInt.tryParse(token) != null) {
+    //       var script = SVScript()
+    //         ..add(Uint8List.fromList(castToBuffer(BigInt.parse(token))));
+    //       tbuf = script.buffer;
+    //       bw.write(tbuf);
+    //     } else {
+    //       throw  ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, 'Could not determine type of script value');
+    //     }
+    //   }
+    //
+    //   _processBuffer(bw.toBytes());
+    // }
 
 
 
@@ -192,7 +190,7 @@ class SVScript {
 
   List<ScriptChunk> _stringToChunks(String script) {
     if (script.trim().isEmpty) {
-      throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR,  " - Unexpected end of script");
+      throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, "Unexpected end of script");
     }
 
     List<ScriptChunk> localChunks = List<ScriptChunk>.empty(growable: true);
@@ -206,9 +204,9 @@ class SVScript {
 
       int opcodenum = OpCodes.OP_INVALIDOPCODE;
       if (token.startsWith("OP_")) {
-        opcodenum = OpCodes.getOpCode(token.replaceFirst("OP_", ""));
+        opcodenum = OpCodes.getOpCode(token);
       } else {
-        opcodenum = opcodenum.toInt(); //???
+        opcodenum = opcodenum;
       }
 
       if (opcodenum == OpCodes.OP_INVALIDOPCODE) {
@@ -220,18 +218,20 @@ class SVScript {
             localChunks.add(newChunk);
           }
           index = index + 2; //step by two
-        } on Exception catch (ex) {
-          throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR,  ex.toString());
+        } on FormatException catch (ex) {
+          throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, ex.message);
+        }on Exception catch (ex) {
+          throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, "Unknown error has occurred");
         }
       } else if (opcodenum == OpCodes.OP_PUSHDATA1 || opcodenum == OpCodes.OP_PUSHDATA2 || opcodenum == OpCodes.OP_PUSHDATA4) {
         if (!(tokenList[index + 2].substring(0, 2) == "0x")) {
-          throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR,  " - Pushdata data must start with 0x");
+          throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, "Pushdata data must start with 0x");
         }
         List<int> data = HEX.decode(tokenList[index + 2].substring(2));
         localChunks.add(ScriptChunk(data, data.length, opcodenum));
         index = index + 3; //step by three
       } else {
-        localChunks.add(ScriptChunk([], 0, opcodenum));
+        localChunks.add(new ScriptChunk(null, 0, opcodenum));
         index = index + 1; //step by one
       }
     }
@@ -239,31 +239,11 @@ class SVScript {
     return localChunks;
   }
 
+
   _convertChunksToByteArray() {
 
         var stream =  ByteDataWriter();
 
-        // for (var i = 0; i < _chunks.length; i++) {
-        //     var chunk = _chunks[i];
-        //     var opcodenum = chunk.opcodenum;
-        //     bw.writeUint8(chunk.opcodenum);
-        //     if (chunk.buf.isNotEmpty) {
-        //         if (opcodenum < OpCodes.OP_PUSHDATA1) {
-        //             bw.write(chunk.buf);
-        //         } else if (opcodenum == OpCodes.OP_PUSHDATA1) {
-        //             bw.writeUint8(chunk.len);
-        //             bw.write(chunk.buf);
-        //         } else if (opcodenum == OpCodes.OP_PUSHDATA2) {
-        //             bw.writeUint16(chunk.len, Endian.little);
-        //             bw.write(chunk.buf);
-        //         } else if (opcodenum == OpCodes.OP_PUSHDATA4) {
-        //             bw.writeUint32(chunk.len, Endian.little);
-        //             bw.write(chunk.buf);
-        //         }
-        //     }
-        //
-        // }
-        //
         for (ScriptChunk chunk in _chunks) {
           if (chunk.isOpCode()) {
             PreConditions.assertTrue(chunk.buf == null);
@@ -325,7 +305,7 @@ class SVScript {
       } else {}
 
       if (dataToRead == -1) {
-        chunks.add(ScriptChunk(null, 0, opcode));
+        _chunks.add(ScriptChunk(null, 0, opcode));
       } else {
         if (dataToRead > bis.remainingLength)
           throw ScriptException(ScriptError.SCRIPT_ERR_BAD_OPCODE, " - Length of push value is not equal to length of data");
@@ -337,7 +317,7 @@ class SVScript {
           var data = bis.read(dataToRead);
           chunk = ScriptChunk(data, data.length, opcode);
 
-          chunks.add(chunk);
+          _chunks.add(chunk);
         } on Exception catch (ex) {
           bis.readUint8();
         }
@@ -345,69 +325,6 @@ class SVScript {
       // Save some memory by eliminating redundant copies of the same chunk objects.
     }
   }
-
-
-    /*
-  _processBuffer(List<int> buffer) {
-        ByteDataReader byteDataReader = ByteDataReader();
-        byteDataReader.add(buffer);
-        while (byteDataReader.remainingLength > 0) {
-            try {
-                var opcodenum = byteDataReader.readUint8();
-                int len;
-                List<int> buf;
-                if (opcodenum > 0 && opcodenum < OpCodes.OP_PUSHDATA1) {
-                    len = opcodenum;
-                    buf = byteDataReader.remainingLength >= len ? byteDataReader.read(len, copy: true) : [];
-                    _chunks.add(ScriptChunk(
-                        buf,
-                        len,
-                        opcodenum
-                    ));
-                } else if (opcodenum == OpCodes.OP_PUSHDATA1) {
-                    len = byteDataReader.readUint8();
-                    buf = byteDataReader.remainingLength >= len ? byteDataReader.read(len, copy: true) : [];
-                    _chunks.add(ScriptChunk(
-                        buf,
-                        len,
-                        opcodenum
-                    ));
-                } else if (opcodenum == OpCodes.OP_PUSHDATA2) {
-                    len = byteDataReader.readUint16(Endian.little);
-                    buf = byteDataReader.remainingLength >= len ? byteDataReader.read(len, copy: true) : [];
-
-                    //Construct a scriptChunk
-                    _chunks.add(ScriptChunk(
-                        buf,
-                        len,
-                        opcodenum
-                    ));
-                } else if (opcodenum == OpCodes.OP_PUSHDATA4) {
-                    len = byteDataReader.readUint32(Endian.little);
-                    buf = byteDataReader.remainingLength >= len ? byteDataReader.read(len, copy: true) : [];
-
-                    _chunks.add(ScriptChunk(
-                        buf,
-                        len,
-                        opcodenum
-                    ));
-                } else {
-                    _chunks.add(ScriptChunk(
-                        null,
-                        0,
-                        opcodenum
-                    ));
-                }
-            } catch (e) {
-
-                throw  ScriptException(HEX.encode(buffer));
-            }
-        };
-
-        _convertChunksToByteArray();
-    }
-
-     */
 
     _processChunks(String script) {
         if (script
@@ -448,7 +365,7 @@ class SVScript {
                 _chunks.add(ScriptChunk(data, data.length, opcodenum));
                 index = index + 3; //step by three
             } else {
-                _chunks.add(ScriptChunk([], 0, opcodenum));
+                _chunks.add(ScriptChunk(null, 0, opcodenum));
                 index = index + 1; //step by one
             }
         }

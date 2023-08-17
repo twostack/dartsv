@@ -142,17 +142,6 @@ class InterpreterV2 {
   }
 
 
-//    /**
-//     * Exposes the script interpreter.
-//     * is useful if you need more precise control or access to the final state of the stack. This interface is very
-//     * likely to change in future.
-//     */
-//     static void executeScript(@Nullable Transaction txContainingThis, int index,
-//                                     Script script, InterpreterStack<Uint8List> stack, Coin value, Set<VerifyFlag> verifyFlags) throws ScriptException {
-//        executeScript(txContainingThis,index, script, stack, value, verifyFlags /*, null*/);
-//    }
-
-
   /**
    * Exposes the script interpreter. Normally you should not use this directly, instead use
    * is useful if you need more precise control or access to the final state of the stack. This interface is very
@@ -1045,13 +1034,14 @@ class InterpreterV2 {
    * @param satoshis Value of the input ? Needed for verification when ForkId sighash is used
    */
   void correctlySpends(SVScript scriptSig, SVScript scriptPubKey, Transaction txn, int scriptSigIndex, Set<VerifyFlag> verifyFlags, Coin coinSats) {
-//     void correctlySpends(Transaction txn, int scriptSigIndex, Script scriptPubKey, Coin value, Set<VerifyFlag> verifyFlags) throws ScriptException {
-// Clone the transaction because executing the script involves editing it, and if we die, we'll leave
-// the tx half broken (also it's not so thread safe to work on it directly.
 
     if (verifyFlags.contains(VerifyFlag.SIGPUSHONLY) && !scriptSig.isPushOnly()) {
       throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_PUSHONLY," - No pushdata operations allowed in scriptSig");
     }
+
+
+  // Clone the transaction because executing the script involves editing it, and if we die, we'll leave
+  // the tx half broken (also it's not so thread safe to work on it directly.)
     Transaction transaction;
     try {
       transaction = Transaction.fromHex(txn.serialize());
