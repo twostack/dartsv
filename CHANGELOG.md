@@ -1,3 +1,15 @@
+## 2.0.0-rc1
+
+Version 2.x is a major refactor of the internals. 
+This includes several breaking changes from the 1.x branch of development. 
+
+The new features :
+- A new `TransactionBuilder` class for composing Transactions
+- Removal of the old Builder interface which was directly attached to the `Transaction` class
+- A complete re-implementation of the Script Interpreter to align with the Bitcoin4J API
+- The `Sighash` class now exposes the SigHash Pre-Image; useful when creating `OP_PUSH_TX` spending scripts.
+- A new `ScriptBuilder` class to make it easy to create custom locking/unlocking scripts.
+
 ## 1.1.1
 - downgraded test dependencies to for Flutter compatibility
 
