@@ -4,16 +4,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dartsv/dartsv.dart';
-import 'package:dartsv/src/exceptions.dart';
-import 'package:dartsv/src/script/opcodes.dart';
-import 'package:dartsv/src/transaction/default_builder.dart';
-import 'package:dartsv/src/transaction/p2pkh_data_builder.dart';
-import 'package:dartsv/src/transaction/transaction.dart';
-import 'package:dartsv/src/transaction/p2pkh_builder.dart';
-import 'package:dartsv/src/transaction/transaction_input.dart';
-import 'package:dartsv/src/transaction/transaction_output.dart';
-import 'package:dartsv/src/transaction/unspendable_data_builder.dart';
-import 'package:hex/hex.dart';
 import 'package:test/test.dart';
 
 
@@ -563,6 +553,7 @@ main() {
 
       var signer = TransactionSigner(SighashType.SIGHASH_FORKID.value | SighashType.SIGHASH_ALL.value, privateKey);
       signer.sign(txn, outputWith1BTC, 0);
+      txn.serialize();
 
       expect(() => builder.build(true), throwsException);
 
@@ -749,60 +740,6 @@ main() {
   });
 
 
-  //FIXME: I feel like there is something more that needs to go on here
-  test('handles anyone-can-spend utxo', () {
-
-  });
-
-/* FIXME: This also seems a little weird. See if this is JS-specific
-  test('handles unsupported utxo in tx object', () {
-    var transaction = new Transaction();
-    transaction.fromObject.bind(transaction, JSON.parse(unsupportedTxObj))
-      .should.throw('Unsupported input script type: OP_1 OP_ADD OP_2 OP_EQUAL')
-  });
-
- */
-
-/*
-
-    describe('isFullySigned', function () {
-      it('works for normal p2pkh', function () {
-        var transaction = new Transaction()
-          .from(simpleUtxoWith100000Satoshis)
-          .to([{
-            address: toAddress,
-            satoshis: 50000
-          }])
-          .change(changeAddress)
-          .sign(privateKey)
-        transaction.isFullySigned().should.equal(true)
-      })
-      it('fails when Inputs are not subclassed and isFullySigned is called', function () {
-        var tx = new Transaction(tx1hex)
-        expect(function () {
-          return tx.isFullySigned()
-        }).to.throw(errors.Transaction.UnableToVerifySignature)
-      })
-      it('fails when Inputs are not subclassed and verifySignature is called', function () {
-        var tx = new Transaction(tx1hex)
-        expect(function () {
-          return tx.isValidSignature({
-            inputIndex: 0
-          })
-        }).to.throw(errors.Transaction.UnableToVerifySignature)
-      })
-      it('passes result of input.isValidSignature', function () {
-        var tx = new Transaction(tx1hex)
-        tx.from(simpleUtxoWith1BSV)
-        tx.inputs[0].isValidSignature = sinon.stub().returns(true)
-        var sig = {
-          inputIndex: 0
-        }
-        tx.isValidSignature(sig).should.equal(true)
-      })
-    })
-  })
- */
   group('inputAmount + outputAmount', () {
     test('returns correct values for simple transaction', () {
       var builder = TransactionBuilder()
@@ -825,229 +762,11 @@ main() {
   });
 
 
-  /*FIXME: mockito stub not working as expected
-        test('not if has null input (and not coinbase)', () {
-          Transaction tx = new Transaction()
-            .spendFromMap({
-              'transactionId': testPrevTx,
-              'outputIndex': 0,
-              'scriptPubKey': testScript,
-              'satoshis': testAmount
-            })
-            .spendTo(Address('mrU9pEmAx26HcbKVrABvgL7AwA5fjNFoDc'), testAmount - BigInt.from(10000));
-
-          when(tx.isCoinbase()).thenReturn(false);
-          when(tx.inputs[0]).thenReturn(null);
-          var verify = tx.verify();
-          expect(verify, equals('transaction input 0 has null input'));
-        });
-
-
-
-
-        test('not if transaction is greater than max block size', () {
-          var tx = new Transaction()
-            .spendFromMap({
-              'transactionId': testPrevTx,
-              'outputIndex': 0,
-              'scriptPubKey': testScript,
-              'satoshis': testAmount
-            })
-            .spendTo(Address('mrU9pEmAx26HcbKVrABvgL7AwA5fjNFoDc'), testAmount - BigInt.from(10000));
-
-          when(tx.serialize(performChecks: false).length).thenReturn(10000000);
-
-          var verify = tx.verify();
-          expect(verify, equals('transaction over the maximum block size'));
-        });
-         */
-
-  group('checks on adding inputs', () {
-    //FIXME:
-    Transaction transaction = new Transaction();
-    BigInt amountToSpend = BigInt.from(simpleUtxoWith100000Satoshis['satoshis'] as int);
-    String transactionId = simpleUtxoWith100000Satoshis['transactionId'] as String;
-    int outputIndex = simpleUtxoWith100000Satoshis['outputIndex'] as int;
-    String scriptPubKey = simpleUtxoWith100000Satoshis['scriptPubKey'] as String;
-
-//        test('fails if no output script is provided', () {
-//            var txInput = TransactionInput(transactionId, outputIndex, "", amountToSpend, TransactionInput.UINT_MAX);
-//            expect(() => transaction.addInput(txInput), throwsA(TypeMatcher<InputScriptException>()));
-//        });
-  });
-
-  /*
-    it('fails if no satoshi amount is provided', function () {
-      var input = new Transaction.Input()
-      expect(function () {
-        transaction.addInput(input)
-      }).to.throw(errors.Transaction.NeedMoreInfo)
-      expect(function () {
-        transaction.addInput(new Transaction.Input(), Script.empty())
-      }).to.throw(errors.Transaction.NeedMoreInfo)
-    })
-    it('allows output and transaction to be feed as arguments', function () {
-      expect(function () {
-        transaction.addInput(new Transaction.Input(), Script.empty(), 0)
-      }).to.not.throw()
-    })
-    it('does not allow a threshold number greater than the amount of public keys', function () {
-      expect(function () {
-        transaction = new Transaction()
-        return transaction.from({
-          transactionId: '0000000000000000000000000000000000000000000000000000000000000000',
-          outputIndex: 0,
-          script: Script(),
-          satoshis: 10000
-        }, [], 1)
-      }).to.throw('Number of required signatures must be greater than the number of public keys')
-    })
-    it('will add an empty script if not supplied', function () {
-      transaction = new Transaction()
-      var outputScriptString = 'OP_2 21 0x038282263212c609d9ea2a6e3e172de238d8c39' +
-        'cabd5ac1ca10646e23fd5f51508 21 0x038282263212c609d9ea2a6e3e172de23' +
-        '8d8c39cabd5ac1ca10646e23fd5f51508 OP_2 OP_CHECKMULTISIG OP_EQUAL'
-      transaction.addInput(new Transaction.Input({
-        prevtransactionId: '0000000000000000000000000000000000000000000000000000000000000000',
-        outputIndex: 0,
-        script: new Script()
-      }), outputScriptString, 10000)
-      transaction.inputs[0].output.script.should.be.instanceof(bsv.Script)
-      transaction.inputs[0].output.script.toString().should.equal(outputScriptString)
-    })
-  })
-     */
-
-
-  group('Signature Validation', () {
-    test('works for normal p2pkh', () {
-      var transaction = TransactionBuilder()
-          .spendFromUtxoMap(simpleUtxoWith100000Satoshis, P2PKHUnlockBuilder(privateKey.publicKey))
-          .spendToLockBuilder(P2PKHLockBuilder.fromAddress(toAddress), BigInt.from(50000))
-          .sendChangeToPKH(changeAddress)
-          .build(false);
-
-      //FIXME: Need better assertion for signatures
-      // transaction.signInput(0, privateKey);
-      // expect(transaction.inputs[0].isFullySigned(), isTrue);
-    });
-
-    /* FIXME: This could be a valuable test. However only if signature is *actually* validated and method is not stubbed out.
-               Stubbing implies we're testing something other than validation.
-     it('passes result of input.isValidSignature', function () {
-       var tx = new Transaction(tx1hex)
-       tx.from(simpleUtxoWith1BTC)
-       tx.inputs[0].isValidSignature = sinon.stub().returns(true)
-       var sig = {
-         inputIndex: 0
-       }
-       tx.isValidSignature(sig).should.equal(true)
-     })
-      */
-  });
-
-
-  test('cannot sign input index beyond number of inputs', () {
-    /* FIXME: Signing vectors are passing this is not. Why?
-    var addr = privateKey.toAddress();
-    var from1 = {
-      "transactionId": '0000000000000000000000000000000000000000000000000000000000000000',
-      "outputIndex": 0,
-      "scriptPubKey": P2PKHLockBuilder.fromAddress(addr).getScriptPubkey().toString(),
-      "satoshis": 100000
-    };
-    var from2 = {
-      "transactionId": '0000000000000000000000000000000000000000000000000000000000000001',
-      "outputIndex": 1,
-      "scriptPubKey": P2PKHLockBuilder.fromAddress(addr).getScriptPubkey().toString(),
-      "satoshis": 100000
-    };
-    var from3 = {
-      "transactionId": '0000000000000000000000000000000000000000000000000000000000000001',
-      "outputIndex": 2,
-      "scriptPubKey": P2PKHLockBuilder.fromAddress(addr).getScriptPubkey().toString(),
-      "satoshis": 100000
-    };
-    var signer = TransactionSigner(SighashType.SIGHASH_FORKID.value | SighashType.SIGHASH_ALL.value, privateKey);
-    var tx = TransactionBuilder()
-        .withTxVersion(1)
-        .spendFromUtxoMapWithSigner(signer, from3, P2PKHUnlockBuilder(privateKey.publicKey))
-        .spendFromUtxoMapWithSigner(signer, from2, P2PKHUnlockBuilder(privateKey.publicKey))
-        .spendFromUtxoMapWithSigner(signer, from1, P2PKHUnlockBuilder(privateKey.publicKey))
-        .build(false);
-
-
-    expect(tx.inputs[0].script?.toHex(), equals(
-        '47304402206c7ae0a256e5dc87f8b1d29f44111ba1b3ab4a6ab189912bb5b259a803b90ccc022030295ae8d683c81cea732f222616353f30dc3bbccbf24221a470d0a45abc552700210223078d2942df62c45621d209fab84ea9a7a23346201b7727b9b45a29c4e76f5e'));
-    expect(tx.inputs[1].script?.toHex(), equals(
-        '483045022100bfc8ed8db89583aad697dc648e8f601bf3ec0a3e94e0bb4407f01d82dad413a302202ca7de4e2b7714287c9c01733009ef08213e822d7bb6bcf253cc44f1324b4d5c00210223078d2942df62c45621d209fab84ea9a7a23346201b7727b9b45a29c4e76f5e'));
-    expect(tx.inputs[2].script?.toHex(), equals(
-        '473044022066c7337601ec3ef61cddc915c0ca56f543c2d708ca464e00a2b894f82160879f022045151d45f57f9c15bea1dcfe8edb0a0703fcac410c206a59bfb755250828d67300210223078d2942df62c45621d209fab84ea9a7a23346201b7727b9b45a29c4e76f5e'));
-
-     */
-  });
-
-  /* FIXME: This is a nonsensical test. We need external RAW Tx to compare against, not internally generated
-  test('sign rawtransaction', () {
-    var rawtx;
-    var signedTx;
-    var addr = privateKey.toAddress();
-    {
-      var from1 = {
-        "transactionId": '0000000000000000000000000000000000000000000000000000000000000000',
-        "outputIndex": 0,
-        "scriptPubKey": P2PKHLockBuilder.fromAddress(addr).getScriptPubkey().toString(),
-        "satoshis": 100000
-      };
-      var from2 = {
-        "transactionId": '0000000000000000000000000000000000000000000000000000000000000001',
-        "outputIndex": 1,
-        "scriptPubKey": P2PKHLockBuilder.fromAddress(addr).getScriptPubkey().toString(),
-        "satoshis": 100000
-      };
-      var from3 = {
-        "transactionId": '0000000000000000000000000000000000000000000000000000000000000001',
-        "outputIndex": 2,
-        "scriptPubKey": P2PKHLockBuilder.fromAddress(addr).getScriptPubkey().toString(),
-        "satoshis": 100000
-      };
-      var tx = TransactionBuilder()
-          .spendFromUtxoMap(from3, P2PKHUnlockBuilder(privateKey.publicKey))
-          .spendFromUtxoMap(from2, P2PKHUnlockBuilder(privateKey.publicKey))
-          .spendFromUtxoMap(from1, P2PKHUnlockBuilder(privateKey.publicKey))
-          .build(false);
-      rawtx = tx.serialize();
-
-      var sigHashType = SighashType.SIGHASH_FORKID.value | SighashType.SIGHASH_ALL.value;
-      var scriptPubKey = P2PKHLockBuilder.fromAddress(addr).getScriptPubkey();
-      var txSigner = TransactionSigner(sigHashType, privateKey);
-      txSigner.sign(tx, TransactionOutput(BigInt.from(100000), scriptPubKey), 0);
-      txSigner.sign(tx, TransactionOutput(BigInt.from(100000), scriptPubKey), 1);
-      txSigner.sign(tx, TransactionOutput(BigInt.from(100000), scriptPubKey), 2);
-      signedTx = tx.serialize();
-    }
-
-    var tmpTx = Transaction.fromHex(rawtx);
-
-    // for sign input, you must add [satoshis] [scriptPubkey]
-    // and update [UnlockingScriptBuilder]
-    tmpTx.inputs[0].script = P2PKHLockBuilder.fromAddress(addr).getScriptPubkey();
-    tmpTx.inputs[1].script = P2PKHLockBuilder.fromAddress(addr).getScriptPubkey();
-    tmpTx.inputs[2].script = P2PKHLockBuilder.fromAddress(addr).getScriptPubkey();
-
-    // tmpTx.signInput(0, privateKey);
-    // tmpTx.signInput(1, privateKey);
-    // tmpTx.signInput(2, privateKey);
-    expect(tmpTx.serialize(), equals(signedTx));
-  });
-
-   */
-
   Transaction buildCreditingTransaction(SVScript scriptPubKey, BigInt amount) {
     var credTx = Transaction();
     var unlockingScript = ScriptBuilder().number(0).number(0).build();
     var coinbaseUnlockBuilder = DefaultUnlockBuilder.fromScript(unlockingScript);
-    var prevTxnId = Uint8List(32).toString();
+    var prevTxnId = Uint8List(32).fold("", (prev, curr) => "${prev}${curr}");
     var coinbaseInput = TransactionInput(
         prevTxnId,
         -0x1,
@@ -1074,7 +793,6 @@ main() {
 
 
   test('can spend UTXO requiring sighash pre-image', () async {
-    /*
     //load the sCrypt json descriptor
     var contractAsm = await File("${Directory.current.path}/test/contract/pushTxTest_release_desc.json")
         .readAsString()
@@ -1100,13 +818,12 @@ main() {
     var txSpend = buildSpendingTransaction(txCredit, scriptSig);
 
     //setup the flags needed for script verification
-    var scriptFlags = ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID | ScriptFlags.SCRIPT_UTXO_AFTER_GENESIS;
+    var scriptFlags = Set<VerifyFlag>()..addAll([VerifyFlag.SIGHASH_FORKID, VerifyFlag.UTXO_AFTER_GENESIS]);
 
     var interp = Interpreter();
 
-    expect(() => interp.verifyScript(scriptSig, scriptPubKey, tx: txSpend, nin: 0, flags: scriptFlags), returnsNormally);
+    expect(() => interp.correctlySpends(scriptSig, scriptPubKey, txSpend,  0, scriptFlags, Coin.ZERO), returnsNormally);
 
-     */
   });
 }
 

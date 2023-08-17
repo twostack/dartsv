@@ -159,10 +159,10 @@ class SVScript {
       // toASM. see _chunkToString.
       if (token == '0') {
         opcodenum = 0;
-        _chunks.add(ScriptChunk([], 0, opcodenum));
+        _chunks.add(ScriptChunk(null, 0, opcodenum));
       } else if (token == '-1') {
         opcodenum = OpCodes.OP_1NEGATE;
-        _chunks.add(ScriptChunk([], 0, opcodenum));
+        _chunks.add(ScriptChunk(null, 0, opcodenum));
       } else if (opcodenum == null) {
 //          var buf = Buffer.from(tokens[i], 'hex')
         var buf = HEX.decode(tokens[i]);
@@ -182,7 +182,7 @@ class SVScript {
 
         _chunks.add(ScriptChunk(buf, buf.length, opcodenum!));
       } else {
-        _chunks.add(ScriptChunk([], 0, opcodenum));
+        _chunks.add(ScriptChunk(null, 0, opcodenum));
       }
     }
 
@@ -617,7 +617,7 @@ class SVScript {
         }
 
         if (op != OpCodes.OP_INVALIDOPCODE) {
-          ScriptChunk chunk = ScriptChunk([], 0, op);
+          ScriptChunk chunk = ScriptChunk(null, 0, op);
           _insertAtPosition(chunk, prepend);
         }
     }
