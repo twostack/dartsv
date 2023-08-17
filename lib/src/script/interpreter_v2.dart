@@ -1168,7 +1168,6 @@ class InterpreterV2 {
 // TODO: Use int for indexes everywhere, we can't have that many inputs/outputs
     bool sigValid = false;
 
-
     checkSignatureEncoding(sigBytes, verifyFlags);
     checkPubKeyEncoding(pubKeyBuffer, verifyFlags);
 

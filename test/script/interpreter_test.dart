@@ -1,22 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:buffer/buffer.dart';
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
-import 'package:dartsv/src/privatekey.dart';
-import 'package:dartsv/src/script/interpreter.dart';
 import 'package:dartsv/src/script/interpreter_v2.dart';
 import 'package:dartsv/src/script/opcodes.dart';
 import 'package:dartsv/src/script/scriptflags.dart';
 import 'package:dartsv/src/script/svscript.dart';
-import 'package:dartsv/src/script/svscript.dart';
-import 'package:dartsv/src/script/svscript.dart';
 import 'package:dartsv/src/transaction/default_builder.dart';
-import 'package:dartsv/src/transaction/transaction_builder.dart';
 import 'package:dartsv/src/transaction/transaction_input.dart';
-import 'package:dartsv/src/transaction/transaction_signer.dart';
 import 'package:hex/hex.dart';
 import 'package:test/test.dart';
 
@@ -57,10 +50,18 @@ void main() {
     return SVScript.fromBuffer(out.toBytes());
   }
 
-  Set<VerifyFlag> parseVerifyFlags(String str) {
+  Set<VerifyFlag> parseVerifyFlags(dynamic flagVar) {
+
+    var flagStr;
+    if (flagVar is String){
+      flagStr = flagVar;
+    }else if (flagVar is List){
+      flagStr = flagVar.fold("", (previousValue, element) => "${previousValue},${element}");
+    }
+
     Set<VerifyFlag> flags = Set.identity();
-    if (!("NONE" == str)) {
-      for (String flag in str.split(",")) {
+    if (!("NONE" == flagStr)) {
+      for (String flag in flagStr.split(",")) {
         try {
           var flagToAdd = VerifyFlag.values
               .where((element) => element.toString() == "VerifyFlag.${flag}")
@@ -573,11 +574,18 @@ void main() {
   });
 
   dataDrivenValidTransactions(File testFixtures) async {
+    var testName = "";
     await testFixtures
         .readAsString()
         .then((contents) => jsonDecode(contents))
         .then((jsonData) {
       List.from(jsonData).forEach((vect) {
+
+        if (vect.length == 1) {
+          testName = vect[0];
+          print("Testing : ${testName}");
+        }
+
         if (vect.length > 1) {
           Transaction spendingTx;
 
@@ -638,10 +646,6 @@ void main() {
     var testName = "";
     await testFixtures.readAsString().then((contents) => jsonDecode(contents)).then((jsonData) {
       List.from(jsonData).forEach((vect) {
-        if (vect.length == 1) {
-          testName = vect[0];
-          print("Testing : ${testName}");
-        }
 
         if (vect.length > 1) {
           Transaction spendingTx;

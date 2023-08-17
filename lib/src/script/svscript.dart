@@ -761,8 +761,11 @@ class SVScript {
     var reader = ByteDataReader();
     while (cursor < inputScript.length) {
       bool skip = false;
-      if (cursor + chunkToRemove.length + 1 < inputScript.length)
-        skip = ListEquality().equals(inputScript.sublist(cursor, cursor + chunkToRemove.length), chunkToRemove);
+      if (cursor + chunkToRemove.length  <= inputScript.length){
+        var sublistExtract = inputScript.sublist(cursor, cursor + chunkToRemove.length);
+        skip = ListEquality().equals(sublistExtract, chunkToRemove);
+      }
+
 
       int opcode = inputScript[cursor++] & 0xFF;
       int additionalBytes = 0;
