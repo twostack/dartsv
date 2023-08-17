@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:collection/collection.dart';
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/script/svscript.dart';
@@ -200,6 +201,13 @@ class TransactionInput {
 
     void set sequenceNumber(int seqNumber) {
         _sequenceNumber = seqNumber;
+    }
+
+
+    bool isCoinBase() {
+        var zeroHash = List<int>.generate(32, (i)=>0);
+        return (ListEquality().equals(HEX.decode(_prevTxnId!), zeroHash)) &&
+            ((_prevTxnOutputIndex! & 0xFFFFFFFF) == 0xFFFFFFFF);  // -1 but all is serialized to the wire as unsigned int.
     }
 
 

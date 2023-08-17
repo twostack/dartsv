@@ -646,6 +646,10 @@ void main() {
     var testName = "";
     await testFixtures.readAsString().then((contents) => jsonDecode(contents)).then((jsonData) {
       List.from(jsonData).forEach((vect) {
+        if (vect.length == 1) {
+          testName = vect[0];
+          print("Testing : ${testName}");
+        }
 
         if (vect.length > 1) {
           Transaction spendingTx;
@@ -658,9 +662,6 @@ void main() {
               var txid = input[0];
               var txoutnum = input[1];
               var scriptPubKeyStr = input[2];
-              if (txoutnum == -1) {
-                txoutnum = 0xffffffff; // bitcoind casts -1 to an unsigned int
-              }
               map[txid + ':' + txoutnum.toString()] = parseScriptString(scriptPubKeyStr);
             });
 
@@ -715,7 +716,7 @@ void main() {
 
 
   test('bitcoin SV Node invalid transaction evaluation fixtures', () async {
-    await dataDrivenValidTransactions(File("${Directory.current.path}/test/data/bitcoind/tx_invalid_svnode.json"));
+    await dataDrivenInValidTransactions(File("${Directory.current.path}/test/data/bitcoind/tx_invalid_svnode.json"));
   });
 
   test('bitcoind valid transaction evaluation fixtures', () async {

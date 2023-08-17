@@ -155,3 +155,9 @@ class IllegalStateException implements Exception {
 
     IllegalStateException(this.cause);
 }
+
+class VerificationException implements Exception{
+   String cause;
+
+   VerificationException(this.cause);
+}

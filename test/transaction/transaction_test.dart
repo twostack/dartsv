@@ -597,8 +597,7 @@ main() {
           .build(false);
 
       tx.outputs[0].satoshis = BigInt.from(-100);
-      var verificationMsg = tx.verify();
-      expect(verificationMsg, equals('transaction txout 0 satoshis is invalid'));
+      expect(() => tx.verify(), throwsException);
     });
   });
 
