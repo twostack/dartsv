@@ -62,7 +62,9 @@ void main() {
     if (!("NONE" == str)) {
       for (String flag in str.split(",")) {
         try {
-          var flagToAdd = VerifyFlag.values.where((element) => element.toString() == "VerifyFlag.${flag}").firstOrNull;
+          var flagToAdd = VerifyFlag.values
+              .where((element) => element.toString() == "VerifyFlag.${flag}")
+              .firstOrNull;
           if (flagToAdd != null) flags.add(flagToAdd);
           // flags.add(VerifyFlag.valueOf(flag));
         } on IllegalArgumentException catch (x) {
@@ -480,7 +482,7 @@ void main() {
     credtx.version = 1;
     var coinbaseUnlockBuilder = DefaultUnlockBuilder.fromScript(SVScript.fromString('OP_0 OP_0'));
     TransactionInput txCredInput =
-        TransactionInput('0000000000000000000000000000000000000000000000000000000000000000', 0xffffffff, 0xffffffff, scriptBuilder: coinbaseUnlockBuilder);
+    TransactionInput('0000000000000000000000000000000000000000000000000000000000000000', 0xffffffff, 0xffffffff, scriptBuilder: coinbaseUnlockBuilder);
     credtx.addInput(txCredInput);
 
     var flags = parseVerifyFlags(vector[2]);
@@ -532,8 +534,9 @@ void main() {
     // expect(verified, equals(expected));
   };
 
-  test('bitcoind script evaluation fixtures', () async {
-    await File("${Directory.current.path}/test/data/bitcoind/script_tests_svnode.json")
+  runScripTestFixtures(File fixtureFile) async {
+
+    await fixtureFile
         .readAsString()
         .then((contents) => jsonDecode(contents))
         .then((jsonData) {
@@ -559,6 +562,14 @@ void main() {
         testFixture(vect, expected, extraData);
       });
     });
+  }
+
+  test('bitcoin SV Node script evaluation fixtures', () async {
+    await runScripTestFixtures(File("${Directory.current.path}/test/data/bitcoind/script_tests_svnode.json"));
+  });
+
+  test('bitcoind script evaluation fixtures', () async {
+    await runScripTestFixtures(File("${Directory.current.path}/test/data/bitcoind/script_tests.json"));
   });
 
   dataDrivenValidTransactions(File testFixtures) async {
@@ -603,7 +614,7 @@ void main() {
 
               //assert that our parsed transaction has correctly extracted the provided
               //UTXO details
-              expect(map.containsKey(keyName), true, reason : "Missing entry for scriptPubKey ${keyName}");
+              expect(map.containsKey(keyName), true, reason: "Missing entry for scriptPubKey ${keyName}");
               var interp = InterpreterV2();
               interp.correctlySpends(input.script!, map[keyName], spendingTx, i, verifyFlags, Coin.ZERO);
 
@@ -692,6 +703,16 @@ void main() {
       });
     });
   }
+
+
+  test('bitcoin SV Node valid transaction evaluation fixtures', () async {
+    await dataDrivenValidTransactions(File("${Directory.current.path}/test/data/bitcoind/tx_valid_svnode.json"));
+  });
+
+
+  test('bitcoin SV Node invalid transaction evaluation fixtures', () async {
+    await dataDrivenValidTransactions(File("${Directory.current.path}/test/data/bitcoind/tx_invalid_svnode.json"));
+  });
 
   test('bitcoind valid transaction evaluation fixtures', () async {
     await dataDrivenValidTransactions(File("${Directory.current.path}/test/data/bitcoind/tx_valid.json"));
@@ -799,119 +820,4 @@ void main() {
       expect(NegativeValtype([0xff, 0x00]), equals([0xff, 0x80]));
     });
   });
-
-  /*
-
-
-
-
-  const debugScript = function (step, stack, altstack) {
-    const script = (new Script()).add(step.opcode)
-    // stack is array of buffers
-    let stackTop = '>'
-    for (let item in stack.reverse()) {
-      console.log(`Step ${step.pc}: ${script}:${stackTop}${stack[item].toString('hex')}`)
-      stackTop = ' '
-    }
-  }
-
-
-   */
 }
-
-/*
-'use strict'
-
-var should = require('chai').should()
-var bsv = require('../..')
-var Interpreter = bsv.Script.Interpreter
-var Transaction = bsv.Transaction
-var PrivateKey = bsv.PrivateKey
-var Script = bsv.Script
-var BN = bsv.crypto.BN
-var BufferWriter = bsv.encoding.BufferWriter
-var Opcode = bsv.Opcode
-var _ = require('lodash')
-
-
-describe('Interpreter', function () {
-
-  describe('#verify', function () {
-
-  })
-
-  describe('#script debugger', function () {
-    it('debugger should fire while executing script', function () {
-      var si = Interpreter()
-      let debugCount = 0
-      si.stepListener = function (step) {
-        debugCount += 1
-      }
-      si.verify(Script('OP_1 OP_2 OP_ADD'), Script('OP_3 OP_EQUAL'))
-      si.errstr.should.equal('')
-      // two scripts. first one has 3 instructions. second one has 2 instructions
-      debugCount.should.equal(3 + 2)
-    })
-    it('debugger error in callback should not kill executing script', function () {
-      var si = Interpreter()
-      si.stepListener = function (step) {
-        throw new Error('This error is expected.')
-      }
-      si.verify(Script('OP_1 OP_2 OP_ADD'), Script(''))
-      const result = [...si.stack.pop()]
-      result.should.to.deep.equal([3])
-      si.errstr.should.equal('')
-      si.stack.length.should.equal(0)
-    })
-    it('script debugger should fire and not cause an error', function () {
-      var si = Interpreter()
-      si.stepListener = debugScript
-      si.verify(Script('OP_1 OP_2 OP_ADD'), Script('OP_3 OP_EQUAL'))
-      si.errstr.should.equal('')
-    })
-    it('script debugger should make copies of stack', function () {
-      var si = Interpreter()
-      let stk, stkval, altstk, altstkval
-      si.stepListener = function (step, stack, altstack) {
-        // stack is an array of buffers, interpreter must give us copies of stack so we can't mess it up
-        console.log(step)
-        console.log(stack)
-        console.log(altstack)
-        // these values will get overwritten each step but we only care about that final values
-        stk = (stack === si.stack)
-        stkval = (stack[0] === si.stack[0])
-        altstk = (altstack === si.altstack)
-        altstkval = (altstack[0] === si.altstack[0])
-      }
-      // alt stack is not copied to second script execution so just do everything in second script
-      si.verify(Script(''), Script('OP_2 OP_TOALTSTACK OP_1'))
-      console.log(si.stack)
-      console.log(si.altstack)
-      si.errstr.should.equal('')
-      si.stack.length.should.equal(1)
-      si.altstack.length.should.equal(1)
-      stk.should.equal(false)
-      stkval.should.equal(false)
-      altstk.should.equal(false)
-      altstkval.should.equal(false)
-    })
-  })
-
-
-
-
-
-
-
-  describe('', function () {
-    var testTxs = function (set, expected) {
-      var c = 0
-      set.forEach(function (vector) {
-    }
-    testTxs(txValid, true)
-    testTxs(txInvalid, false)
-  })
-})
-
-
- */
