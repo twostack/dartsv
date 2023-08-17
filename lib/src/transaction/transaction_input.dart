@@ -132,7 +132,7 @@ class TransactionInput {
     /// Returns *true* if the sequence number has reached it's maximum
     /// limit and can no longer be updated.
     bool isFinal() {
-        return sequenceNumber == MAX_SEQ_NUMBER;
+        return sequenceNumber != MAX_SEQ_NUMBER;
     }
 
     /// Returns the number of satoshis this input is spending.

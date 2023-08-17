@@ -561,69 +561,144 @@ void main() {
     });
   });
 
-  void testTransaction(List<dynamic> vector, bool expected) {
-    if (vector.length == 1) {
-      return;
-    }
-    ;
+  dataDrivenValidTransactions(File testFixtures) async {
+    await testFixtures
+        .readAsString()
+        .then((contents) => jsonDecode(contents))
+        .then((jsonData) {
+      List.from(jsonData).forEach((vect) {
+        if (vect.length > 1) {
+          Transaction spendingTx;
 
-    print(vector[0]);
+          try {
+            var inputs = vect[0];
+            var map = {};
+            inputs.forEach((input) {
+              var txid = input[0];
+              var txoutnum = input[1];
+              var scriptPubKeyStr = input[2];
+              map[txid + ':' + txoutnum.toString()] = parseScriptString(scriptPubKeyStr);
+            });
 
-    var inputs = vector[0];
-    var txhex = vector[1];
+            spendingTx = Transaction.fromHex(vect[1]);
+            spendingTx.verify();
 
-    var flags = parseVerifyFlags(vector[2]);
+            // System.out.println(test.get(1).asText());
 
-    var map = {};
-    inputs.forEach((input) {
-      var txid = input[0];
-      var txoutnum = input[1];
-      var scriptPubKeyStr = input[2];
-      if (txoutnum == -1) {
-        txoutnum = 0xffffffff; // bitcoind casts -1 to an unsigned int
-      }
-      map[txid + ':' + txoutnum.toString()] = SVScript.fromBitcoindString(scriptPubKeyStr);
+            ///all this ceremony to extract Verify Flags
+            var verifyFlags = parseVerifyFlags(vect[2]);
+
+            for (int i = 0; i < spendingTx.inputs.length; i++) {
+              TransactionInput input = spendingTx.inputs[i];
+              if (input.prevTxnOutputIndex == 0xffffffff) {
+                input.prevTxnOutputIndex = -1;
+              }
+
+              print("Spending INPUT : [${i}]");
+
+              //reconstruct the key into our Map of Public Keys using the details from
+              //the parsed transaction
+              // String txId = HEX.encode(input.prevTxnId);
+              String keyName = "${input.prevTxnId}:${input.prevTxnOutputIndex}";
+
+              //assert that our parsed transaction has correctly extracted the provided
+              //UTXO details
+              expect(map.containsKey(keyName), true, reason : "Missing entry for scriptPubKey ${keyName}");
+              var interp = InterpreterV2();
+              interp.correctlySpends(input.script!, map[keyName], spendingTx, i, verifyFlags, Coin.ZERO);
+
+              //TODO: Would be better to assert expectation that no exception is thrown ?
+              //Ans: The whole of the Script Interpreter uses Exception-Handling for error-handling. So no,
+              //     not without a deep refactor of the code.
+            }
+          } on ScriptException catch (e) {
+            print(e.cause);
+            // if (spendingTx != null)
+            //   print(spendingTx);
+
+            throw e;
+          }
+        }
+      });
     });
+  }
 
-    var tx = Transaction.fromHex(txhex);
-    var allInputsVerified = true;
-    int index = 0;
-    tx.inputs.forEach((TransactionInput txin) {
-      var scriptSig = txin.script;
-      var txidhex = txin.prevTxnId;
-      var txoutnum = txin.prevTxnOutputIndex;
-      var scriptPubkey = map[txidhex + ':' + txoutnum.toString()];
-      expect(scriptPubkey, isNotNull);
-      expect(scriptSig, isNotNull);
-      var interp = InterpreterV2();
-      try {
-        interp.correctlySpends(scriptSig!, scriptPubkey, tx, index, flags, Coin.ZERO);
-      } on ScriptException catch (e) {
-        print(e.cause);
-        allInputsVerified = false;
-      }
-      index++;
+  dataDrivenInValidTransactions(File testFixtures) async {
+    var testName = "";
+    await testFixtures.readAsString().then((contents) => jsonDecode(contents)).then((jsonData) {
+      List.from(jsonData).forEach((vect) {
+        if (vect.length == 1) {
+          testName = vect[0];
+          print("Testing : ${testName}");
+        }
+
+        if (vect.length > 1) {
+          Transaction spendingTx;
+          bool valid = true;
+
+          try {
+            var inputs = vect[0];
+            var map = {};
+            inputs.forEach((input) {
+              var txid = input[0];
+              var txoutnum = input[1];
+              var scriptPubKeyStr = input[2];
+              if (txoutnum == -1) {
+                txoutnum = 0xffffffff; // bitcoind casts -1 to an unsigned int
+              }
+              map[txid + ':' + txoutnum.toString()] = parseScriptString(scriptPubKeyStr);
+            });
+
+            spendingTx = Transaction.fromHex(vect[1]);
+            spendingTx.version = 1;
+            try {
+              spendingTx.verify();
+            } on Exception catch (ex) {
+              valid = false;
+            }
+
+            ///all this ceremony to extract Verify Flags
+            var verifyFlags = parseVerifyFlags(vect[2]);
+
+            for (int i = 0; i < spendingTx.inputs.length; i++) {
+              TransactionInput input = spendingTx.inputs[i];
+              if (input.prevTxnOutputIndex == 0xffffffff) {
+                input.prevTxnOutputIndex = -1;
+              }
+
+              print("Spending INPUT : [${i}]");
+
+              //reconstruct the key into our Map of Public Keys using the details from
+              //the parsed transaction
+              // String txId = HEX.encode(input.prevTxnId);
+              String keyName = "${input.prevTxnId}:${input.prevTxnOutputIndex}";
+
+              //assert that our parsed transaction has correctly extracted the provided
+              //UTXO details
+              // expect(scriptPubKeys.containsKey(keyName), true);
+              var interp = InterpreterV2();
+              interp.correctlySpends(input.script!, map[keyName], spendingTx, i, verifyFlags, Coin.ZERO);
+
+              //TODO: Would be better to assert expectation that no exception is thrown ?
+              //Ans: The whole of the Script Interpreter uses Exception-Handling for error-handling. So no,
+              //     not without a deep refactor of the code.
+            }
+          } on Exception catch (e) {
+            valid = false;
+          }
+
+          if (valid) fail(testName);
+        }
+      });
     });
-
-    var txVerified = tx.verify().isEmpty;
-    allInputsVerified = allInputsVerified && txVerified;
-    expect(allInputsVerified, equals(expected));
   }
 
   test('bitcoind valid transaction evaluation fixtures', () async {
-    await File("${Directory.current.path}/test/data/bitcoind/tx_valid.json").readAsString().then((contents) => jsonDecode(contents)).then((jsonData) {
-      List.from(jsonData).forEach((vect) {
-        testTransaction(vect, true);
-      });
-    });
+    await dataDrivenValidTransactions(File("${Directory.current.path}/test/data/bitcoind/tx_valid.json"));
   });
 
   test('bitcoind invalid transaction evaluation fixtures', () async {
-    await File("${Directory.current.path}/test/data/bitcoind/tx_invalid.json").readAsString().then((contents) => jsonDecode(contents)).then((jsonData) {
-      List.from(jsonData).forEach((vect) {
-        testTransaction(vect, false);
-      });
-    });
+    await dataDrivenInValidTransactions(File("${Directory.current.path}/test/data/bitcoind/tx_invalid.json"));
   });
 
   CheckBinaryOpMagnetic(List<int> a, List<int> b, int op, List<int> expected) {

@@ -1101,39 +1101,38 @@ class InterpreterV2 {
         && ScriptPattern.isP2SH(scriptPubKey)
         && !(verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS))) {
       for (ScriptChunk chunk in scriptSig.chunks)
-    if (chunk.isOpCode() && chunk.opcodenum > OpCodes.OP_16)
-    throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_PUSHONLY," - Attempted to spend a P2SH scriptPubKey with a script that contained script ops");
+        if (chunk.isOpCode() && chunk.opcodenum > OpCodes.OP_16)
+          throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_PUSHONLY, " - Attempted to spend a P2SH scriptPubKey with a script that contained script ops");
 
-    stack = InterpreterStack<List<int>>.fromList(p2shStack.iterator.toList()); //restore stack
+      stack = InterpreterStack<List<int>>.fromList(p2shStack.iterator.toList()); //restore stack
 // stack cannot be empty here, because if it was the P2SH  HASH <> EQUAL
 // scriptPubKey would be evaluated with an empty stack and the
 // EvalScript above would return false.
-    assert(!stack.isEmpty);
+      assert(!stack.isEmpty);
 
-    List<int> scriptPubKeyBytes = stack.pollLast();
-    SVScript scriptPubKeyP2SH = SVScript.fromBuffer(Uint8List.fromList(scriptPubKeyBytes));
+      List<int> scriptPubKeyBytes = stack.pollLast();
+      SVScript scriptPubKeyP2SH = SVScript.fromBuffer(Uint8List.fromList(scriptPubKeyBytes));
 
-    executeScript(transaction, scriptSigIndex, scriptPubKeyP2SH, stack, coinSats.getValue(), verifyFlags);
+      executeScript(transaction, scriptSigIndex, scriptPubKeyP2SH, stack, coinSats.getValue(), verifyFlags);
 
-    if (stack.isEmpty)
-    throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE," - P2SH stack empty at end of script execution.");
+      if (stack.isEmpty) throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE, " - P2SH stack empty at end of script execution.");
 
-    if (!castToBool(Uint8List.fromList(stack.getLast())))
-      throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE," - P2SH script execution resulted in a non-true stack");
+      if (!castToBool(Uint8List.fromList(stack.getLast())))
+        throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE, " - P2SH script execution resulted in a non-true stack");
     }
 
 // The CLEANSTACK check is only performed after potential P2SH evaluation,
 // as the non-P2SH evaluation of a P2SH script will obviously not result in
 // a clean stack (the P2SH inputs remain). The same holds for witness
 // evaluation.
-    if (verifyFlags.contains(VerifyFlag.CLEANSTACK)){
+    if (verifyFlags.contains(VerifyFlag.CLEANSTACK)) {
 // Disallow CLEANSTACK without P2SH, as otherwise a switch
 // CLEANSTACK->P2SH+CLEANSTACK would be possible, which is not a
 // softfork (and P2SH should be one).
-    assert(verifyFlags.contains(VerifyFlag.P2SH));
-    if (stack.size() != 1){
-    throw new ScriptException(ScriptError.SCRIPT_ERR_CLEANSTACK ,"Cleanstack is disallowed without P2SH");
-    }
+      assert(verifyFlags.contains(VerifyFlag.P2SH));
+      if (stack.size() != 1) {
+        throw new ScriptException(ScriptError.SCRIPT_ERR_CLEANSTACK, "Cleanstack is disallowed without P2SH");
+      }
     }
   }
 
@@ -1160,7 +1159,7 @@ class InterpreterV2 {
     List<int> connectedScript = prog.getRange(lastCodeSepLocation, prog.length).toList();
     var outStream = ByteDataWriter();
     try {
-      outStream.write(sigBytes);
+      SVScript.writeBytes(outStream, sigBytes);
     } on IOException catch (e) {
       throw new Exception(e); // Cannot happen
     }
@@ -1478,7 +1477,7 @@ class InterpreterV2 {
     sigs.iterator.forEach((sig) {
       var outStream = ByteDataWriter();
       try {
-        outStream.write(sig);
+        SVScript.writeBytes(outStream, sig);
       } on Exception catch (e) {
         throw Exception(e); // Cannot happen
       }
