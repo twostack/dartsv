@@ -18,7 +18,6 @@ export 'src/block/blockheader.dart';
 export 'src/block/merkleblock.dart';
 export 'src/script/svscript.dart';
 export 'src/script/opcodes.dart';
-export 'src/script/interpreter.dart';
 export 'src/script/stack.dart';
 export 'src/script/script_error.dart';
 export 'src/script/script_chunk.dart';

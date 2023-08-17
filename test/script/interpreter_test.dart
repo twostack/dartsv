@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import 'package:buffer/buffer.dart';
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
-import 'package:dartsv/src/script/interpreter_v2.dart';
+import 'package:dartsv/src/script/interpreter.dart';
 import 'package:dartsv/src/script/opcodes.dart';
 import 'package:dartsv/src/script/scriptflags.dart';
 import 'package:dartsv/src/script/svscript.dart';
@@ -145,9 +145,9 @@ void main() {
   group('@castToBool', () {
     test('should cast these bufs to bool correctly', () {
 
-      expect(InterpreterV2.castToBool(Uint8List.fromList(HEX.decode(BigInt.zero.toRadixString(16)))), equals(false));
-      expect(InterpreterV2.castToBool(Uint8List.fromList(HEX.decode(BigInt.parse('0080', radix: 16).toRadixString(16)))), equals(false)); // negative 0
-      expect(InterpreterV2.castToBool(Uint8List.fromList(HEX.decode(BigInt.one.toRadixString(16)))), equals(true));
+      expect(Interpreter.castToBool(Uint8List.fromList(HEX.decode(BigInt.zero.toRadixString(16)))), equals(false));
+      expect(Interpreter.castToBool(Uint8List.fromList(HEX.decode(BigInt.parse('0080', radix: 16).toRadixString(16)))), equals(false)); // negative 0
+      expect(Interpreter.castToBool(Uint8List.fromList(HEX.decode(BigInt.one.toRadixString(16)))), equals(true));
 
     });
   });
@@ -192,7 +192,7 @@ void main() {
       var txSpendOutput = TransactionOutput(BigInt.zero, SVScript());
       spendtx.addOutput(txSpendOutput);
 
-      var interp = InterpreterV2();
+      var interp = Interpreter();
 
       interp.correctlySpends(scriptSig, scriptPubkey, spendtx, 0, flags, Coin.valueOf(BigInt.from(inputAmount)));
 
@@ -294,7 +294,7 @@ void main() {
               //assert that our parsed transaction has correctly extracted the provided
               //UTXO details
               expect(map.containsKey(keyName), true, reason: "Missing entry for scriptPubKey ${keyName}");
-              var interp = InterpreterV2();
+              var interp = Interpreter();
               interp.correctlySpends(input.script!, map[keyName], spendingTx, i, verifyFlags, Coin.ZERO);
 
               //TODO: Would be better to assert expectation that no exception is thrown ?
@@ -363,7 +363,7 @@ void main() {
               //assert that our parsed transaction has correctly extracted the provided
               //UTXO details
               // expect(scriptPubKeys.containsKey(keyName), true);
-              var interp = InterpreterV2();
+              var interp = Interpreter();
               interp.correctlySpends(input.script!, map[keyName], spendingTx, i, verifyFlags, Coin.ZERO);
 
               //TODO: Would be better to assert expectation that no exception is thrown ?

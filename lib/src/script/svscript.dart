@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:collection/collection.dart';
 import 'package:dartsv/src/encoding/utils.dart';
-import 'package:dartsv/src/script/interpreter_v2.dart';
+import 'package:dartsv/src/script/interpreter.dart';
 import 'package:dartsv/src/script/script_error.dart';
 import 'package:dartsv/src/transaction/preconditions.dart';
 import 'package:hex/hex.dart';
@@ -261,7 +261,7 @@ class SVScript {
               stream.writeUint8(OpCodes.OP_PUSHDATA2);
               stream.writeUint16(chunk.buf!.length, Endian.little);//Utils.uint16ToByteStreamLE(data.length, stream);
             } else if (chunk.opcodenum == OpCodes.OP_PUSHDATA4) {
-              PreConditions.assertTrue(chunk.buf!.length <= InterpreterV2.MAX_SCRIPT_ELEMENT_SIZE);
+              PreConditions.assertTrue(chunk.buf!.length <= Interpreter.MAX_SCRIPT_ELEMENT_SIZE);
               stream.writeUint8(OpCodes.OP_PUSHDATA4);
               stream.writeUint32(chunk.buf!.length, Endian.little);//Utils.uint32ToByteStreamLE(data.length, stream);
             } else {

@@ -1,4 +1,5 @@
 import 'package:dartsv/dartsv.dart';
+import 'package:dartsv/src/script/interpreter.dart';
 import 'package:test/test.dart';
 import 'package:hex/hex.dart';
 import 'dart:io';
@@ -190,9 +191,8 @@ main() {
                 .then((contents) => jsonDecode(contents))
                 .then((jsonData) {
                 List.from(jsonData).forEach((sig) {
-                    var flags = ScriptFlags.SCRIPT_VERIFY_DERSIG | ScriptFlags.SCRIPT_VERIFY_STRICTENC;
-                    var result = Interpreter().checkSignatureEncoding(HEX.decode(sig), flags);
-                    expect(result, isTrue);
+                    var flags = Set<VerifyFlag>()..addAll([VerifyFlag.DERSIG ,VerifyFlag.STRICTENC]);
+                    expect(() => Interpreter.checkSignatureEncoding(HEX.decode(sig), flags), returnsNormally);
                 });
             });
     });
@@ -204,9 +204,8 @@ main() {
             .then((contents) => jsonDecode(contents))
             .then((jsonData) {
             List.from(jsonData).forEach((vector) {
-                var flags = ScriptFlags.SCRIPT_VERIFY_DERSIG | ScriptFlags.SCRIPT_VERIFY_STRICTENC;
-                var result = Interpreter().checkSignatureEncoding(HEX.decode(vector[1]), flags);
-                expect(result, isFalse);
+                var flags = Set<VerifyFlag>()..addAll([VerifyFlag.DERSIG ,VerifyFlag.STRICTENC]);
+                expect(() => Interpreter.checkSignatureEncoding(HEX.decode(vector[1]), flags), throwsException);
             });
         });
     });

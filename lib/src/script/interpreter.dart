@@ -1,1828 +1,1673 @@
+/*
+ * Copyright 2023 Stephan M. February
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import 'dart:collection';
+import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:buffer/buffer.dart';
 import 'package:collection/collection.dart';
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
+import 'package:dartsv/src/exceptions.dart';
+import 'package:dartsv/src/script/opcodes.dart';
+import 'package:dartsv/src/script/script_chunk.dart';
+import 'package:dartsv/src/script/script_error.dart';
+import 'package:dartsv/src/script/script_pattern.dart';
+import 'package:dartsv/src/script/svscript.dart';
+import 'package:decimal/decimal.dart';
 import 'package:hex/hex.dart';
-import '../exceptions.dart';
-import 'opcodes.dart';
-import 'scriptflags.dart';
-
-
-
-/// *Bitcoin Script Interpreter*
-///
-/// Bitcoin transactions contain scripts. Each input has a script called the
-/// scriptSig, and each output has a script called the scriptPubkey. To validate
-/// an input, the input's script is concatenated with the referenced output script,
-/// and the result is executed. If at the end of execution the stack contains a
-/// 'true' value, then the transaction is valid.
-///
-/// The primary way to use this class is via the [verifyScript()] function.
-///
-class Interpreter {
-
-
-    static List<int> TRUE = <int>[1];
-    static List<int> FALSE = <int>[];
-
-    static final int ONE_KILOBYTE = 1000;
-
-    static final MAX_SCRIPT_ELEMENT_SIZE = 2147483647;
-    static const DEFAULT_MAXIMUM_ELEMENT_SIZE = 4;
-
-    // Maximum number of non-push operations per script after GENESIS
-    // Maximum number of non-push operations per script before GENESIS
-    static final int MAX_OPS_PER_SCRIPT_BEFORE_GENESIS = 500;
-
-    // Maximum number of non-push operations per script after GENESIS
-    static final int UINT32_MAX = 4294967295;
-    static final int MAX_OPS_PER_SCRIPT_AFTER_GENESIS = UINT32_MAX;
-
-    static final LOCKTIME_THRESHOLD = 500000000;
-    static final LOCKTIME_THRESHOLD_BN = BigInt.from(LOCKTIME_THRESHOLD);
-
-    static final int MAX_STACK_SIZE = 1000;
-    static final int DEFAULT_MAX_NUM_ELEMENT_SIZE = 4;
-    static final int MAX_PUBKEYS_PER_MULTISIG = 20;
-    static final int MAX_SCRIPT_SIZE = 10000;
-    static final int SIG_SIZE = 75;
-    /** Max number of sigops allowed in a standard p2sh redeem script */
-    static final int MAX_P2SH_SIGOPS = 15;
-
-    //Maximum script number length after Genesis
-    static final int MAX_SCRIPT_NUM_LENGTH_AFTER_GENESIS = 750 * ONE_KILOBYTE;
-
-    static final int MAX_SCRIPT_NUM_LENGTH_BEFORE_GENESIS = 4;
-    static final int DEFAULT_SCRIPT_NUM_LENGTH_POLICY_AFTER_GENESIS = 250 * 1024;
-
-    static final int MAX_SCRIPT_ELEMENT_SIZE_BEFORE_GENESIS = 520;
-
-    ////////////////////// Script verification and helpers ////////////////////////////////
-
-
-    InterpreterStack<List<int>> _stack =  InterpreterStack<List<int>>();
-    InterpreterStack<List<int>> _altStack =  InterpreterStack<List<int>>();
-    int _pc = 0;
-    int _pbegincodehash = 0;
-    int _nOpCount = 0;
-    List _vfExec = [];
-    String _errStr = '';
-    int _flags = 0;
-
-    SVScript? _script;
-    Transaction? _tx;
-    int? _nin;
-    BigInt? _satoshis;
-
-    /// The interpreter's internal stack
-    ///
-    /// Bitcoin Script is also known as a two-stack PDA (pushdown automata)
-    InterpreterStack<List<int>> get stack => _stack;
-
-    /// The interpreter's alternate stack
-    ///
-    /// Bitcoin Script is also known as a two-stack PDA (pushdown automata)
-    InterpreterStack<List<int>> get altStack => _altStack;
-
-    /// Global index/pointer into which Script Chunk is currently being evaluated.
-    ///
-    /// This is primarily used internally to track script execution.
-    int get pc => _pc;
-
-    /// Index to keep track of position of OP_CODESEPARATOR
-    ///
-    /// This is primarily used internally
-    int get pbegincodehash => _pbegincodehash;
-
-    /// The number of OpCodes in this script. Bitcoin currently has a limit of 200 opcodes per script.
-    int get nOpCount => _nOpCount;
-
-    /// Keep track of conditional branching.
-    ///
-    /// This is primarily used internally
-    List get vfExec => _vfExec; //???
-
-    /// A human-readable string signifying the error (if any) that occured during script execution.
-    ///
-    String get errstr => _errStr;
-
-    /// Returns a bitmask of the currently enabled flags for the Interpreter.
-    int get flags => _flags;
-
-    /// Returns the internal representation of the script
-    SVScript get script => _script!;
-
-    /// The default constructor. No setup is performed internally.
-    Interpreter();
-
-    /// Construct a  Interpreter
-    ///
-    /// `script` - The script to execute
-    ///
-    /// `flags`  - Flags to govern script execution. See [flags]
-    Interpreter.fromScript(SVScript script, int flags){
-        _script = script;
-        _flags = flags;
-    }
-
-
-    /// Check the buffer is minimally encoded (see https://github.com/bitcoincashorg/spec/blob/master/may-2018-reenabled-opcodes.md#op_bin2num)
-    bool _isMinimallyEncoded(buf, nMaxNumSize) {
-        if (buf.length > nMaxNumSize) {
-            return false;
-        }
-
-        if (buf.length > 0) {
-            // Check that the number is encoded with the minimum possible number
-            // of bytes.
-            //
-            // If the most-significant-byte - excluding the sign bit - is zero
-            // then we're not minimal. Note how this test also rejects the
-            // negative-zero encoding, 0x80.
-            if ((buf[buf.length - 1] & 0x7f) == 0) {
-                // One exception: if there's more than one byte and the most
-                // significant bit of the second-most-significant-byte is set it
-                // would conflict with the sign bit. An example of this case is
-                // +-255, which encode to 0xff00 and 0xff80 respectively.
-                // (big-endian).
-                if (buf.length <= 1 || (buf[buf.length - 2] & 0x80) == 0) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-
-    /// Minimally encode the buffer content
-    ///
-    /// (see https://github.com/bitcoincashorg/spec/blob/master/may-2018-reenabled-opcodes.md#op_bin2num)
-    List<int> minimallyEncode(List<int> buf) {
-        if (buf.isEmpty) {
-            return buf;
-        }
-
-        // If the last byte is not 0x00 or 0x80, we are minimally encoded.
-        var last = buf[buf.length - 1];
-        if (last & 0x7f != 0) {
-            return buf;
-        }
-
-        // If the script is one byte long, then we have a zero, which encodes as an
-        // empty array.
-        if (buf.length == 1) {
-            return <int>[];
-        }
-
-        // If the next byte has it sign bit set, then we are minimaly encoded.
-        if (buf[buf.length - 2] & 0x80 != 0) {
-            return buf;
-        }
-
-        // We are not minimally encoded, we need to figure out how much to trim.
-        for (var i = buf.length - 1; i > 0; i--) {
-            // We found a non zero byte, time to encode.
-            if (buf[i - 1] != 0) {
-                if (buf[i - 1] & 0x80 != 0) {
-                    // We found a byte with it sign bit set so we need one more
-                    // byte.
-                    buf[i++] = last;
-                } else {
-                    // the sign bit is clear, we can use it.
-                    buf[i - 1] |= last;
-                }
-
-                return buf.sublist(0, i);
-            }
-        }
-
-        // If we found the whole thing is zeros, then we have a zero.
-        return <int>[];
-    }
-
-    /// Verifies a Script by executing it and returns true if it is valid.
-    ///
-    /// This function needs to be provided with the scriptSig and the scriptPubkey
-    /// separately.
-    ///
-    /// `scriptSig` - the script's first part (corresponding to the tx input)
-    ///
-    /// `scriptPubkey` - the script's last part (corresponding to the tx output)
-    ///
-    /// `tx` - the Transaction containing the scriptSig in one input (used
-    ///        to check signature validity for some opcodes like OP_CHECKSIG)
-    ///
-    ///  `nin` - index of the transaction input containing the scriptSig verified.
-    ///
-    ///  `flags` - evaluation flags. See Interpreter.SCRIPT_* constants
-    ///
-    ///  `satoshis` - amount in satoshis of the input to be verified (when FORKID sighash is used)
-    ///
-    ///  __Translated from bitcoind's VerifyScript__
-    bool verifyScript(SVScript scriptSig, SVScript scriptPubkey, {Transaction? tx, int nin = 0, int flags = 0, BigInt? satoshis}) {
-        tx ??= Transaction();
-
-        // If FORKID is enabled, we also ensure strict encoding.
-        if (flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID != 0) {
-            flags |= ScriptFlags.SCRIPT_VERIFY_STRICTENC;
-
-            // If FORKID is enabled, we need the input amount.
-            if (satoshis == null) {
-                throw ScriptException(ScriptError.SCRIPT_ERR_MUST_USE_FORKID, 'internal error - need satoshis to verify FORKID transactions');
-            }
-        }
-
-
-        _script = scriptSig;
-        _tx = tx;
-        _nin = nin;
-        _flags = flags;
-        _satoshis = satoshis;
-
-        late InterpreterStack stackCopy;
-
-        if ((flags & ScriptFlags.SCRIPT_VERIFY_SIGPUSHONLY) != 0 && !scriptSig.isPushOnly()) {
-            _errStr = 'SCRIPT_ERR_SIG_PUSHONLY';
-            return false;
-        };
-
-        // evaluate scriptSig
-        if (!evaluate()) {
-            return false;
-        }
-
-        if (flags & ScriptFlags.SCRIPT_VERIFY_P2SH != 0) {
-            stackCopy = _stack.slice();
-        }
-
-        var stack = _stack;
-        _initialize();
-        _set({
-            'script': scriptPubkey,
-            'stack': stack,
-            'tx': tx,
-            'nin': nin,
-            'flags': flags,
-            'satoshis': satoshis
-        });
-
-        // evaluate scriptPubkey
-        if (!evaluate()) {
-            return false;
-        }
-
-        if (_stack.length == 0) {
-            _errStr = 'SCRIPT_ERR_EVAL_FALSE_NO_RESULT';
-            return false;
-        }
-
-        var buf = _stack.peek(); //[_stack.length - 1];
-        if (!castToBool(buf)) {
-            _errStr = 'SCRIPT_ERR_EVAL_FALSE_IN_STACK';
-            return false;
-        }
-
-        // Additional validation for spend-to-script-hash transactions:
-        if ((flags & ScriptFlags.SCRIPT_VERIFY_P2SH != 0) && scriptPubkey.isScriptHashOut()) {
-            // scriptSig must be literals-only or validation fails
-            if (!scriptSig.isPushOnly()) {
-                _errStr = 'SCRIPT_ERR_SIG_PUSHONLY';
-                return false;
-            }
-
-            // stackCopy cannot be empty here, because if it was the
-            // P2SH  HASH <> EQUAL  scriptPubKey would be evaluated with
-            // an empty stack and the EvalScript above would return false.
-            if (stackCopy.length == 0) {
-                throw  InterpreterException('internal error - stack copy empty');
-            }
-
-            var redeemScriptSerialized = stackCopy.peek(); // [stackCopy.length - 1];
-            var redeemScript = SVScript.fromByteArray(Uint8List.fromList(redeemScriptSerialized));
-            stackCopy.pop();
-
-            _initialize();
-            _set({
-                'script': redeemScript,
-                'stack': stackCopy,
-                'tx': tx,
-                'nin': nin,
-                'flags': flags,
-                'satoshisBN': satoshis
-            });
-
-            // evaluate redeemScript
-            if (!evaluate()) {
-                return false;
-            }
-
-            if (stackCopy.length == 0) {
-                _errStr = 'SCRIPT_ERR_EVAL_FALSE_NO_P2SH_STACK';
-                return false;
-            }
-
-            if (!castToBool(stackCopy.peek())) {
-                _errStr = 'SCRIPT_ERR_EVAL_FALSE_IN_P2SH_STACK';
-                return false;
-            }
-        }
-
-        // The CLEANSTACK check is only performed after potential P2SH evaluation,
-        // as the non-P2SH evaluation of a P2SH script will obviously not result in
-        // a clean stack (the P2SH inputs remain). The same holds for witness
-        // evaluation.
-        if ((flags & ScriptFlags.SCRIPT_VERIFY_CLEANSTACK) != 0) {
-            // Disallow CLEANSTACK without P2SH, as otherwise a switch
-            // CLEANSTACK->P2SH+CLEANSTACK would be possible, which is not a
-            // softfork (and P2SH should be one).
-            if ((flags & ScriptFlags.SCRIPT_VERIFY_P2SH) == 0) {
-                throw  InterpreterException('internal error - CLEANSTACK without P2SH');
-            }
-
-            if (stackCopy.length != 1) {
-                _errStr = 'SCRIPT_ERR_CLEANSTACK';
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /// Translated from bitcoind's CheckSignatureEncoding
-    bool checkSignatureEncoding(List<int> buf, int flags) {
-        var sig;
-        var errStr;
-
-        // Empty signature. Not strictly DER encoded, but allowed to provide a
-        // compact way to provide an invalid signature for use with CHECK(MULTI)SIG
-        if (buf.isEmpty) {
-            return true;
-        }
-
-        if ((flags & (ScriptFlags.SCRIPT_VERIFY_DERSIG | ScriptFlags.SCRIPT_VERIFY_LOW_S | ScriptFlags.SCRIPT_VERIFY_STRICTENC)) != 0 &&
-            !SVSignature.isTxDER(HEX.encode(buf))) {
-            errStr = 'SCRIPT_ERR_SIG_DER_INVALID_FORMAT';
-            return false;
-        } else if ((flags & ScriptFlags.SCRIPT_VERIFY_LOW_S) != 0) {
-            sig = SVSignature.fromTxFormat(HEX.encode(buf));
-            if (!sig.hasLowS()) {
-                errStr = 'SCRIPT_ERR_SIG_DER_HIGH_S';
-                return false;
-            }
-        } else if ((flags & ScriptFlags.SCRIPT_VERIFY_STRICTENC) != 0) {
-            sig = SVSignature.fromTxFormat(HEX.encode(buf));
-            if (!sig.hasDefinedHashtype()) {
-                errStr = 'SCRIPT_ERR_SIG_HASHTYPE';
-                return false;
-            }
-
-            if (!(flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID != 0) &&
-                (sig.nhashtype & SighashType.SIGHASH_FORKID.value != 0)) {
-                errStr = 'SCRIPT_ERR_ILLEGAL_FORKID';
-                return false;
-            }
-
-            if ((flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID != 0) &&
-                !(sig.nhashtype & SighashType.SIGHASH_FORKID.value != 0)) {
-                errStr = 'SCRIPT_ERR_MUST_USE_FORKID';
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-
-    /// Based on bitcoind's EvalScript function, with the inner loop moved to
-    /// Interpreter.prototype.step()
-    ///
-    /// bitcoind commit: b5d1b1092998bc95313856d535c632ea5a8f9104
-    ///
-    bool evaluate() {
-
-
-        // TODO: script size should be configurable. no magic numbers
-        if (_script
-            !.buffer.length > 10000) { //FIXME: Does BSV still limit script size to 10k ???
-            _errStr = 'SCRIPT_ERR_SCRIPT_SIZE';
-            return false;
-        }
-
-        try {
-            while (_pc < _script!.chunks.length) {
-                var thisStep = {
-                    'pc': _pc,
-                    'opcode': _script!.chunks[pc].opcodenum
-                };
-
-                var fSuccess = _step();
-                if (!fSuccess) {
-                    return false;
-                }
-                _callbackStep(thisStep);
-            }
-
-            // Size limits
-            if (_stack.length + _altStack.length > 1000) {
-                _errStr = 'SCRIPT_ERR_STACK_SIZE';
-                return false;
-            }
-        } catch (e) {
-            _errStr = 'SCRIPT_ERR_UNKNOWN_ERROR: ' + e.toString();
-            return false;
-        }
-
-        if (vfExec.isNotEmpty) {
-            _errStr = 'SCRIPT_ERR_UNBALANCED_CONDITIONAL';
-            return false;
-        }
-
-        return true;
-    }
-
-    void clearStacks() {
-        _stack.removeAll();
-        _altStack.removeAll();
-    }
-
-    void _initialize() {
-        _stack =  InterpreterStack<List<int>>();
-        _altStack =  InterpreterStack<List<int>>();
-        _pc = 0;
-        _pbegincodehash = 0;
-        _nOpCount = 0;
-        _vfExec = [];
-        _errStr = '';
-        _flags = 0;
-    }
-
-    void _set(Map map) {
-        _stack = map['stack'];
-        _script = map['script'];
-        _tx = map['tx'];
-        _nin = map['nin'];
-        _flags = map['flags'];
-        _satoshis = map['satoshis'];
-    }
-
-
-    bool castBigIntToBool(BigInt value) {
-        if (value == BigInt.zero) {
-            return false;
-        }
-
-        return true;
-    }
-
-    bool castToBool(List<int> buf) {
-        for (var i = 0; i < buf.length; i++) {
-            if (buf[i] != 0) {
-                // can be negative zero
-                if (i == buf.length - 1 && buf[i] == 0x80) {
-                    return false;
-                }
-                return true;
-            }
-        }
-        return false;
-    }
-
-    bool _step() {
-        bool isOpCodesDisabled(int opcode) {
-            switch (opcode) {
-                case OpCodes.OP_2MUL:
-                case OpCodes.OP_2DIV:
-                   return true;
-
-                default:
-                    break;
-            }
-
-            return false;
-        }
-
-
-        final bool fRequireMinimal = (flags & ScriptFlags.SCRIPT_VERIFY_MINIMALDATA) != 0;
-        final bool utxoAfterGenesis = ((flags & ScriptFlags.SCRIPT_UTXO_AFTER_GENESIS) != 0);
-        final int maxScriptNumLength = getMaxScriptNumLength(utxoAfterGenesis);
-
-        var fExec = !vfExec.contains(false);
-        var spliced, n, x1, x2, subscript;
-        BigInt bn, bn1, bn2;
-        List<int> buf1, buf2, bufPubkey, bufSig, buf;
-        SVSignature sig;
-        SVPublicKey pubkey;
-        var fValue, fSuccess;
-
-        // Read instruction
-        var chunk = _script!.chunks[pc];
-        _pc++; //FIXME: global var f*ckery. Looks like index pointer into script chunks
-        var opcodenum = chunk.opcodenum;
-        if (opcodenum == null) {
-            _errStr = 'SCRIPT_ERR_UNDEFINED_OPCODE';
-            return false;
-        }
-        if (chunk.buf != null && chunk.buf!.length > Interpreter.MAX_SCRIPT_ELEMENT_SIZE) {
-            _errStr = 'SCRIPT_ERR_PUSH_SIZE';
-            return false;
-        }
-
-        // Note how OpCodes.OP_RESERVED does not count towards the opcode limit.
-        if (opcodenum > OpCodes.OP_16 && ++_nOpCount > 201) {
-            _errStr = 'SCRIPT_ERR_OP_COUNT';
-            return false;
-        }
-
-        if (isOpCodesDisabled(opcodenum)) {
-            _errStr = 'SCRIPT_ERR_DISABLED_OPCODE';
-            return false;
-        }
-
-        if (fExec && opcodenum >= 0 && opcodenum <= OpCodes.OP_PUSHDATA4) {
-            if (fRequireMinimal && !chunk.checkMinimalPush()) {
-                _errStr = 'SCRIPT_ERR_MINIMALDATA';
-                return false;
-            }
-            if (chunk.buf != null) {
-                if (chunk.len != chunk.buf!.length) {
-                    throw InterpreterException("Length of push value not equal to length of data (${chunk.len},${chunk.buf!.length})");
-                } else if (chunk.buf!.isEmpty) {
-                    _stack.push(<int>[]);
-                } else {
-                    _stack.push(chunk.buf!);
-                }
-            }
-        } else if (fExec || (OpCodes.OP_IF <= opcodenum && opcodenum <= OpCodes.OP_ENDIF)) {
-            switch (opcodenum) {
-            // Push value
-                case OpCodes.OP_1NEGATE:
-                case OpCodes.OP_1:
-                case OpCodes.OP_2:
-                case OpCodes.OP_3:
-                case OpCodes.OP_4:
-                case OpCodes.OP_5:
-                case OpCodes.OP_6:
-                case OpCodes.OP_7:
-                case OpCodes.OP_8:
-                case OpCodes.OP_9:
-                case OpCodes.OP_10:
-                case OpCodes.OP_11:
-                case OpCodes.OP_12:
-                case OpCodes.OP_13:
-                case OpCodes.OP_14:
-                case OpCodes.OP_15:
-                case OpCodes.OP_16:
-                // ( -- value)
-                // ScriptNum bn((int)opcode - (int)(OpCodes.OP_1 - 1));
-                    n = opcodenum - (OpCodes.OP_1 - 1);
-                    buf = castToBuffer(BigInt.from(n));
-                    _stack.push(buf);
-                    // The result of these opcodes should always be the minimal way to push the data
-                    // they push, so no need for a CheckMinimalPush here.
-                    break;
-
-            //
-            // Control
-            //
-                case OpCodes.OP_NOP:
-                    break;
-
-//                case OpCodes.OP_NOP2: //same numeric as CHECKLOCKTIMEVERIFY. Core buggery.
-                case OpCodes.OP_CHECKLOCKTIMEVERIFY:
-                    if (!(flags & ScriptFlags.SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY != 0)) {
-                        // not enabled; treat as a NOP2
-                        if (flags & ScriptFlags.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS != 0) {
-                            _errStr = 'SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS';
-                            return false;
-                        }
-                        break;
-                    }
-
-                    if (_stack.length < 1) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-
-                    // Note that elsewhere numeric opcodes are limited to
-                    // operands in the range -2**31+1 to 2**31-1, however it is
-                    // legal for opcodes to produce results exceeding that
-                    // range. This limitation is implemented by CScriptNum's
-                    // default 4-byte limit.
-                    //
-                    // If we kept to that limit we'd have a year 2038 problem,
-                    // even though the nLockTime field in transactions
-                    // themselves is uint32 which only becomes meaningless
-                    // after the year 2106.
-                    //
-                    // Thus as a special case we tell CScriptNum to accept up
-                    // to 5-byte bignums, which are good until 2**39-1, well
-                    // beyond the 2**32-1 limit of the nLockTime field itself.
-                    var nLockTime = castToBigInt(Uint8List.fromList(_stack.peek()), fRequireMinimal, nMaxNumSize: 5);
-
-                    // In the rare event that the argument may be < 0 due to
-                    // some arithmetic being done first, you can always use
-                    // 0 MAX CHECKLOCKTIMEVERIFY.
-                    if (nLockTime < BigInt.zero) {
-                        _errStr = 'SCRIPT_ERR_NEGATIVE_LOCKTIME';
-                        return false;
-                    }
-
-                    // Actually compare the specified lock time with the transaction.
-                    if (!checkLockTime(nLockTime)) {
-                        _errStr = 'SCRIPT_ERR_UNSATISFIED_LOCKTIME';
-                        return false;
-                    }
-                    break;
-
-//      case OpCodes.OP_NOP3:
-                case OpCodes.OP_CHECKSEQUENCEVERIFY:
-                    if (!(flags & ScriptFlags.SCRIPT_VERIFY_CHECKSEQUENCEVERIFY != 0)) {
-                        // not enabled; treat as a NOP3
-                        if (flags & ScriptFlags.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS != 0) {
-                            _errStr = 'SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS';
-                            return false;
-                        }
-                        break;
-                    }
-
-                    if (_stack.length < 1) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-
-                    // nSequence, like nLockTime, is a 32-bit unsigned
-                    // integer field. See the comment in CHECKLOCKTIMEVERIFY
-                    // regarding 5-byte numeric operands.
-
-                    var nSequence = castToBigInt(Uint8List.fromList(_stack.peek()), fRequireMinimal, nMaxNumSize: 5);
-
-                    // In the rare event that the argument may be < 0 due to
-                    // some arithmetic being done first, you can always use
-                    // 0 MAX CHECKSEQUENCEVERIFY.
-                    if (nSequence < BigInt.zero) {
-                        _errStr = 'SCRIPT_ERR_NEGATIVE_LOCKTIME';
-                        return false;
-                    }
-
-                    // To provide for future soft-fork extensibility, if the
-                    // operand has the disabled lock-time flag set,
-                    // CHECKSEQUENCEVERIFY behaves as a NOP.
-                    if ((nSequence & BigInt.from(ScriptFlags.SEQUENCE_LOCKTIME_DISABLE_FLAG)) != BigInt.zero) {
-                        break;
-                    }
-
-                    // Actually compare the specified lock time with the transaction.
-                    if (!checkSequence(nSequence)) {
-                        _errStr = 'SCRIPT_ERR_UNSATISFIED_LOCKTIME';
-                        return false;
-                    }
-                    break;
-
-                case OpCodes.OP_NOP1:
-                case OpCodes.OP_NOP4:
-                case OpCodes.OP_NOP5:
-                case OpCodes.OP_NOP6:
-                case OpCodes.OP_NOP7:
-                case OpCodes.OP_NOP8:
-                case OpCodes.OP_NOP9:
-                case OpCodes.OP_NOP10:
-                    if (flags & ScriptFlags.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS != 0) {
-                        _errStr = 'SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS';
-                        return false;
-                    }
-                    break;
-
-                case OpCodes.OP_IF:
-                case OpCodes.OP_NOTIF:
-                // <expression> if [statements] [else [statements]] endif
-                // bool fValue = false;
-                    fValue = false;
-                    if (fExec) {
-                        if (_stack.length < 1) {
-                            _errStr = 'SCRIPT_ERR_UNBALANCED_CONDITIONAL';
-                            return false;
-                        }
-                        buf = _stack.peek();
-
-                        if (flags & ScriptFlags.SCRIPT_VERIFY_MINIMALIF != 0) {
-                            if (buf.length > 1) {
-                                _errStr = 'SCRIPT_ERR_MINIMALIF';
-                                return false;
-                            }
-                            if (buf.length == 1 && buf[0] != 1) {
-                                _errStr = 'SCRIPT_ERR_MINIMALIF';
-                                return false;
-                            }
-                        }
-                        fValue = castToBool(buf);
-                        if (opcodenum == OpCodes.OP_NOTIF) {
-                            fValue = !fValue;
-                        }
-                        _stack.pop();
-                    }
-                    vfExec.add(fValue);
-                    break;
-
-                case OpCodes.OP_ELSE:
-                    if (vfExec.isEmpty) {
-                        _errStr = 'SCRIPT_ERR_UNBALANCED_CONDITIONAL';
-                        return false;
-                    }
-                    vfExec[vfExec.length - 1] = !vfExec[vfExec.length - 1];
-                    break;
-
-                case OpCodes.OP_ENDIF:
-                    if (vfExec.isEmpty) {
-                        _errStr = 'SCRIPT_ERR_UNBALANCED_CONDITIONAL';
-                        return false;
-                    }
-                    vfExec.removeLast();
-                    break;
-
-                case OpCodes.OP_VERIFY:
-                // (true -- ) or
-                // (false -- false) and return
-                    if (_stack.length < 1) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    buf = _stack.peek();
-                    fValue = castToBool(buf);
-                    if (fValue) {
-                        _stack.pop();
-                    } else {
-                        _errStr = 'SCRIPT_ERR_VERIFY';
-                        return false;
-                    }
-                    break;
-
-                case OpCodes.OP_RETURN:
-                    _errStr = 'SCRIPT_ERR_OP_RETURN';
-                    return false;
-            // break // unreachable
-
-            //
-            // Stack ops
-            //
-                case OpCodes.OP_TOALTSTACK:
-                    if (_stack.length < 1) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    _altStack.push(_stack.pop());
-                    break;
-
-                case OpCodes.OP_FROMALTSTACK:
-                    if (_altStack.length < 1) {
-                        _errStr = 'SCRIPT_ERR_INVALID_ALTSTACK_OPERATION';
-                        return false;
-                    }
-                    _stack.push(_altStack.pop());
-                    break;
-
-                case OpCodes.OP_2DROP:
-                // (x1 x2 -- )
-                    if (_stack.length < 2) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    _stack.pop();
-                    _stack.pop();
-                    break;
-
-                case OpCodes.OP_2DUP:
-                // (x1 x2 -- x1 x2 x1 x2)
-                    if (_stack.length < 2) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    buf1 = _stack.peek(index: -2);
-                    buf2 = _stack.peek();
-                    _stack.push(buf1);
-                    _stack.push(buf2);
-                    break;
-
-                case OpCodes.OP_3DUP:
-                // (x1 x2 x3 -- x1 x2 x3 x1 x2 x3)
-                    if (_stack.length < 3) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    buf1 = _stack.peek(index: -3);
-                    buf2 = _stack.peek(index: -2);
-                    var buf3 = _stack.peek();
-                    _stack.push(buf1);
-                    _stack.push(buf2);
-                    _stack.push(buf3);
-                    break;
-
-                case OpCodes.OP_2OVER:
-                // (x1 x2 x3 x4 -- x1 x2 x3 x4 x1 x2)
-                    if (_stack.length < 4) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    buf1 = _stack.peek(index: -4);
-                    buf2 = _stack.peek(index: -3);
-                    _stack.push(buf1);
-                    _stack.push(buf2);
-                    break;
-
-                case OpCodes.OP_2ROT:
-                // (x1 x2 x3 x4 x5 x6 -- x3 x4 x5 x6 x1 x2)
-                    if (_stack.length < 6) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    spliced = _stack.splice(_stack.length - 6, 2); //FIXME: Splice needs IMPLEMENTATION
-                    _stack.push(spliced[0]);
-                    _stack.push(spliced[1]);
-                    break;
-
-                case OpCodes.OP_2SWAP:
-                // (x1 x2 x3 x4 -- x3 x4 x1 x2)
-                    if (_stack.length < 4) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    spliced = _stack.splice(_stack.length - 4, 2);
-                    _stack.push(spliced[0]);
-                    _stack.push(spliced[1]);
-                    break;
-
-                case OpCodes.OP_IFDUP:
-                // (x - 0 | x x)
-                    if (_stack.length < 1) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    buf = _stack.peek();
-                    fValue = castToBool(buf);
-                    if (fValue) {
-                        _stack.push(buf);
-                    }
-                    break;
-
-                case OpCodes.OP_DEPTH:
-                // -- stacksize
-                    buf = castToBuffer(BigInt.from(_stack.length));
-//                    buf = HEX.decode(BigInt.from(_stack.length).toRadixString(16));
-                    if (_stack.length == 0) {
-                        buf = []; //don't push array with zero value, push empty string instead
-                    }
-
-                    _stack.push(buf);
-                    break;
-
-                case OpCodes.OP_DROP:
-                // (x -- )
-                    if (_stack.length < 1) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    _stack.pop();
-                    break;
-
-                case OpCodes.OP_DUP:
-                // (x -- x x)
-                    if (_stack.length < 1) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    _stack.push(_stack.peek());
-                    break;
-
-                case OpCodes.OP_NIP:
-                // (x1 x2 -- x2)
-                    if (_stack.length < 2) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    _stack.splice(_stack.length - 2, 1);
-                    break;
-
-                case OpCodes.OP_OVER:
-                // (x1 x2 -- x1 x2 x1)
-                    if (_stack.length < 2) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    _stack.push(_stack.peek(index: -2));
-                    break;
-
-                case OpCodes.OP_PICK:
-                case OpCodes.OP_ROLL:
-                // (xn ... x2 x1 x0 n - xn ... x2 x1 x0 xn)
-                // (xn ... x2 x1 x0 n - ... x2 x1 x0 xn)
-                    if (_stack.length < 2) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    buf = _stack.peek();
-                    bn = castToBigInt(Uint8List.fromList(buf), fRequireMinimal);
-                    n = bn.toInt();
-                    _stack.pop();
-                    if (n < 0 || n >= _stack.length) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    buf = _stack.peek(index: -n - 1);
-                    if (opcodenum == OpCodes.OP_ROLL) {
-                        _stack.splice(_stack.length - n - 1 as int, 1);
-                    }
-                    _stack.push(buf);
-                    break;
-
-                case OpCodes.OP_ROT:
-                // (x1 x2 x3 -- x2 x3 x1)
-                //  x2 x1 x3  after first swap
-                //  x2 x3 x1  after second swap
-                    if (_stack.length < 3) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    x1 = _stack.peek(index: -3);
-                    x2 = _stack.peek(index: -2);
-                    var x3 = _stack.peek(index: -1);
-                    _stack.replaceAt(_stack.length - 3, x2);
-                    _stack.replaceAt(_stack.length - 2, x3);
-                    _stack.replaceAt(_stack.length - 1, x1);
-                    break;
-
-                case OpCodes.OP_SWAP:
-                // (x1 x2 -- x2 x1)
-                    if (_stack.length < 2) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    x1 = _stack.peek(index: -2);
-                    x2 = _stack.peek(index: -1);
-                    _stack.replaceAt(_stack.length - 2, x2);
-                    _stack.replaceAt(_stack.length - 1, x1);
-                    break;
-
-                case OpCodes.OP_TUCK:
-                // (x1 x2 -- x2 x1 x2)
-                    if (_stack.length < 2) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    _stack.splice(_stack.length - 2, 0, values: stack.peek());
-                    break;
-
-                case OpCodes.OP_SIZE:
-                // (in -- in size)
-                    if (_stack.length < 1) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    bn = BigInt.from(stack
-                        .peek()
-                        .length);
-                    stack.push(castToBuffer(bn));
-                    break;
-
-            //
-            // Bitwise logic
-            //
-                case OpCodes.OP_AND:
-                case OpCodes.OP_OR:
-                case OpCodes.OP_XOR:
-                // (x1 x2 - out)
-                    if (_stack.length < 2) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    buf1 = stack.peek(index: -2);
-                    buf2 = stack.peek(index: -1);
-
-                    // Inputs must be the same size
-                    if (buf1.length != buf2.length) {
-                        _errStr = 'SCRIPT_ERR_INVALID_OPERAND_SIZE';
-                        return false;
-                    }
-
-                    // To avoid allocating, we modify vch1 in place.
-                    switch (opcodenum) {
-                        case OpCodes.OP_AND:
-                            for (var i = 0; i < buf1.length; i++) {
-                                buf1[i] &= buf2[i];
-                            }
-                            break;
-                        case OpCodes.OP_OR:
-                            for (var i = 0; i < buf1.length; i++) {
-                                buf1[i] |= buf2[i];
-                            }
-                            break;
-                        case OpCodes.OP_XOR:
-                            for (var i = 0; i < buf1.length; i++) {
-                                buf1[i] ^= buf2[i];
-                            }
-                            break;
-                        default:
-                            break;
-                    }
-
-                    // And pop vch2.
-                    _stack.pop();
-                    break;
-
-            //FIXME: Using a List<int> for the stack seems to be problematic under certain circumstances
-            //       Consider refactoring to Uint8List()
-                case OpCodes.OP_INVERT:
-                // (x -- out)
-                    if (_stack.length < 1) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                    }
-                    buf = Uint8List.fromList(stack.peek());
-                    for (var i = 0; i < buf.length; i++) {
-                        buf[i] = ~buf[i];
-                    }
-                    stack.replaceAt(stack.length - 1, buf); //replace item at top with modified value
-                    break;
-
-                case OpCodes.OP_LSHIFT:
-                case OpCodes.OP_RSHIFT:
-                // (x n -- out)
-                    if (_stack.length < 2) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    buf1 = stack.peek(index: -2);
-                    if (buf1.isEmpty) {
-                        _stack.pop();
-                    } else {
-//                        bn1 = BigInt.tryParse(HEX.encode(buf1), radix: 16) ?? BigInt.zero;
-//                        bn2 = BigInt.tryParse(HEX.encode(stack.peek()), radix: 16) ?? BigInt.zero;
-
-                        bn1 = decodeBigIntSV(buf1);
-                        bn2 = castToBigInt(Uint8List.fromList(stack.peek()), fRequireMinimal);
-
-                        n = bn2.toInt();
-                        if (n < 0) {
-                            _errStr = 'SCRIPT_ERR_INVALID_NUMBER_RANGE';
-                            return false;
-                        }
-                        _stack.pop();
-                        _stack.pop();
-                        late BigInt shifted;
-
-                        // bitcoin client implementation of l/rshift is unconventional, therefore this implementation is a bit unconventional
-                        // bn library has shift functions however it expands the carried bits into a  byte
-                        // in contrast to the bitcoin client implementation which drops off the carried bits
-                        // in other words, if operand was 1 byte then we put 1 byte back on the stack instead of expanding to more shifted bytes
-                        if (opcodenum == OpCodes.OP_LSHIFT) {
-                            //Dart BigInt automagically right-pads the shifted bits
-                            shifted = bn1 << n; // bn1.ushln(n);
-                        }
-                        if (opcodenum == OpCodes.OP_RSHIFT) {
-                            shifted = bn1 >> n;
-                        }
-
-
-                        var padding = shifted.toRadixString(16).padLeft(buf1.length * 2, '0');
-
-                        if (n > 0) {
-                            var shiftedList = HEX.decode(padding);
-                            _stack.push(shiftedList.sublist(shiftedList.length - buf1.length));
-                        } else {
-                            _stack.push(HEX.decode(shifted.toRadixString(16))); //if no shift occured then don't drop bits
-                        }
-                    }
-                    break;
-
-                case OpCodes.OP_EQUAL:
-                case OpCodes.OP_EQUALVERIFY:
-                // case OpCodes.OP_NOTEQUAL: // use Opcode.OP_NUMNOTEQUAL
-                // (x1 x2 - bool)
-                    if (_stack.length < 2) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    buf1 = stack.peek(index: -2);
-                    buf2 = stack.peek(index: -1);
-                    var fEqual = ListEquality().equals(buf1, buf2);
-                    _stack.pop();
-                    _stack.pop();
-                    _stack.push(fEqual ? TRUE : FALSE); //FIXME: pushing true and false to stack. Is works ?
-                    if (opcodenum == OpCodes.OP_EQUALVERIFY) {
-                        if (fEqual) {
-                            _stack.pop();
-                        } else {
-                            _errStr = 'SCRIPT_ERR_EQUALVERIFY';
-                            return false;
-                        }
-                    }
-                    break;
-
-            //
-            // Numeric
-            //
-                case OpCodes.OP_1ADD:
-                case OpCodes.OP_1SUB:
-                case OpCodes.OP_NEGATE:
-                case OpCodes.OP_ABS:
-                case OpCodes.OP_NOT:
-                case OpCodes.OP_0NOTEQUAL:
-                // (in -- out)
-                    if (_stack.length < 1) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    buf = stack.peek();
-                    bn = castToBigInt(Uint8List.fromList(buf), fRequireMinimal);
-//                    bn = BigInt.parse(HEX.encode(buf), radix: 16);
-                    switch (opcodenum) {
-                        case OpCodes.OP_1ADD:
-                            bn = bn + BigInt.one;
-                            break;
-                        case OpCodes.OP_1SUB:
-                            bn = bn - BigInt.one;
-                            break;
-                        case OpCodes.OP_NEGATE:
-                            bn = -bn;
-                            break;
-                        case OpCodes.OP_ABS:
-                            if (bn < BigInt.zero) {
-                                bn = -bn;
-                            }
-                            break;
-                        case OpCodes.OP_NOT:
-                            if (bn == BigInt.zero) {
-                                bn = BigInt.one;
-                            } else if (bn == BigInt.one) {
-                                bn = BigInt.zero;
-                            } else {
-                                bn = BigInt.zero;
-                            }
-
-                            break;
-                        case OpCodes.OP_0NOTEQUAL:
-                            if (bn == BigInt.zero) {
-                                bn = BigInt.zero;
-                            } else {
-                                bn = BigInt.one;
-                            }
-                            break;
-                    // default:      assert(!'invalid opcode'); break; // TODO: does this ever occur?
-                    }
-
-                    _stack.pop();
-                    _stack.push(castToBuffer(bn));
-//                    _stack.push(HEX.decode(bn.toRadixString(16)));
-                    break;
-
-                case OpCodes.OP_ADD:
-                case OpCodes.OP_SUB:
-                case OpCodes.OP_MUL:
-                case OpCodes.OP_MOD:
-                case OpCodes.OP_DIV:
-                case OpCodes.OP_BOOLAND:
-                case OpCodes.OP_BOOLOR:
-                case OpCodes.OP_NUMEQUAL:
-                case OpCodes.OP_NUMEQUALVERIFY:
-                case OpCodes.OP_NUMNOTEQUAL:
-                case OpCodes.OP_LESSTHAN:
-                case OpCodes.OP_GREATERTHAN:
-                case OpCodes.OP_LESSTHANOREQUAL:
-                case OpCodes.OP_GREATERTHANOREQUAL:
-                case OpCodes.OP_MIN:
-                case OpCodes.OP_MAX:
-                // (x1 x2 -- out)
-                    if (_stack.length < 2) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    bn1 = castToBigInt(Uint8List.fromList(stack.peek(index: -2)), fRequireMinimal);
-                    bn2 = castToBigInt(Uint8List.fromList(stack.peek()), fRequireMinimal);
-
-                    if (bn1 == null) {
-                        bn1 = BigInt.zero;
-                    }
-
-                    if (bn2 == null) {
-                        bn2 = BigInt.zero;
-                    }
-
-                    bn = BigInt.zero;
-
-                    switch (opcodenum) {
-                        case OpCodes.OP_ADD:
-                            bn = bn1 + bn2;
-                            break;
-
-                        case OpCodes.OP_SUB:
-                            bn = bn1 - bn2;
-                            break;
-
-                        case OpCodes.OP_MUL:
-                            bn = bn1 * bn2;
-                            break;
-
-                        case OpCodes.OP_DIV:
-                        // denominator must not be 0
-                            if (bn2 == BigInt.zero) {
-                                _errStr = 'SCRIPT_ERR_DIV_BY_ZERO';
-                                return false;
-                            }
-                            bn = bn1 ~/ bn2;
-                            break;
-
-                        case OpCodes.OP_MOD:
-                        // divisor must not be 0
-                            if (bn2 == BigInt.zero) {
-                                _errStr = 'SCRIPT_ERR_DIV_BY_ZERO';
-                                return false;
-                            }
-                            //FIXME: Is this re-enabled OP_CODE supposed to work in this fucked-up way !?
-                            bn = bn1.abs() % bn2.abs(); //seriously ? I have to convert to abs() to get correct result if bn1 < 0. WTF Bitcoin ?
-
-                            if (bn1.isNegative) {
-                                bn = -bn; //flip sign to conform to weird bitcoin mod behaviour. WTF!?
-                            }
-                            break;
-
-                        case OpCodes.OP_BOOLAND:
-                            if ((bn1.compareTo(BigInt.zero) != 0) && (bn2.compareTo(BigInt.zero) != 0)) {
-                                bn = BigInt.one;
-                            } else {
-                                bn = BigInt.zero;
-                            }
-
-//                            bn = (bn1 == BigInt.zero && bn2 == BigInt.zero) ? BigInt.zero : BigInt.one;
-                            break;
-                    // case OpCodes.OP_BOOLOR:        bn = (bn1 !== bnZero || bn2 !== bnZero); break;
-                        case OpCodes.OP_BOOLOR:
-                            bn = (bn1 != BigInt.zero || bn2 != BigInt.zero) ? BigInt.one : BigInt.zero;
-                            break;
-                    // case OpCodes.OP_NUMEQUAL:      bn = (bn1 === bn2); break;
-                        case OpCodes.OP_NUMEQUAL:
-                            bn = (bn1 == bn2) ? BigInt.one : BigInt.zero;
-                            break;
-                    // case OpCodes.OP_NUMEQUALVERIFY:    bn = (bn1 === bn2); break;
-                        case OpCodes.OP_NUMEQUALVERIFY:
-                            bn = (bn1 == bn2) ? BigInt.one : BigInt.zero;
-                            break;
-                    // case OpCodes.OP_NUMNOTEQUAL:     bn = (bn1 !== bn2); break;
-                        case OpCodes.OP_NUMNOTEQUAL:
-                            bn = (bn1 != bn2) ? BigInt.one : BigInt.zero;
-                            break;
-                    // case OpCodes.OP_LESSTHAN:      bn = (bn1 < bn2); break;
-                        case OpCodes.OP_LESSTHAN:
-                            bn = (bn1 < bn2) ? BigInt.one : BigInt.zero;
-                            break;
-                    // case OpCodes.OP_GREATERTHAN:     bn = (bn1 > bn2); break;
-                        case OpCodes.OP_GREATERTHAN:
-                            bn = (bn1 > bn2) ? BigInt.one : BigInt.zero;
-                            break;
-                    // case OpCodes.OP_LESSTHANOREQUAL:   bn = (bn1 <= bn2); break;
-                        case OpCodes.OP_LESSTHANOREQUAL:
-                            bn = (bn1 <= bn2) ? BigInt.one : BigInt.zero;
-                            break;
-                    // case OpCodes.OP_GREATERTHANOREQUAL:  bn = (bn1 >= bn2); break;
-                        case OpCodes.OP_GREATERTHANOREQUAL:
-                            bn = (bn1 >= bn2) ? BigInt.one : BigInt.zero;
-                            break;
-                        case OpCodes.OP_MIN:
-                            bn = (bn1 < bn2) ? bn1 : bn2;
-                            break;
-                        case OpCodes.OP_MAX:
-                            bn = (bn1 > bn2) ? bn1 : bn2;
-                            break;
-                    // default:           assert(!'invalid opcode'); break; //TODO: does this ever occur?
-                    }
-                    _stack.pop();
-                    _stack.pop();
-                    _stack.push(castToBuffer(bn));
-
-                    if (opcodenum == OpCodes.OP_NUMEQUALVERIFY) {
-                        // if (CastToBool(stacktop(-1)))
-                        if (castToBool(stack.peek())) {
-                            _stack.pop();
-                        } else {
-                            _errStr = 'SCRIPT_ERR_NUMEQUALVERIFY';
-                            return false;
-                        }
-                    }
-                    break;
-
-                case OpCodes.OP_WITHIN:
-                // (x min max -- out)
-                    if (_stack.length < 3) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-
-                    bn1 = castToBigInt(Uint8List.fromList(stack.peek(index: -3)), fRequireMinimal);
-                    bn2 = castToBigInt(Uint8List.fromList(stack.peek(index: -2)), fRequireMinimal);
-                    var bn3 = castToBigInt(Uint8List.fromList(stack.peek()), fRequireMinimal);
-                    fValue = (bn2.compareTo(bn1) <= 0) && (bn1.compareTo(bn3) < 0);
-                    stack.pop();
-                    stack.pop();
-                    stack.pop();
-                    stack.push(fValue ? TRUE : FALSE);
-                    break;
-
-            //
-            // Crypto
-            //
-                case OpCodes.OP_RIPEMD160:
-                case OpCodes.OP_SHA1:
-                case OpCodes.OP_SHA256:
-                case OpCodes.OP_HASH160:
-                case OpCodes.OP_HASH256:
-                // (in -- hash)
-                    if (_stack.length < 1) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    buf = stack.peek();
-                    // valtype vchHash((opcode === OpCodes.OP_RIPEMD160 ||
-                    //                 opcode === OpCodes.OP_SHA1 || opcode === Opcode.OP_HASH160) ? 20 : 32);
-                    late List<int> bufHash;
-                    if (opcodenum == OpCodes.OP_RIPEMD160) {
-                        bufHash = ripemd160(buf);
-                    } else if (opcodenum == OpCodes.OP_SHA1) {
-                        bufHash = sha1(buf);
-                    } else if (opcodenum == OpCodes.OP_SHA256) {
-                        bufHash = sha256(buf);
-                    } else if (opcodenum == OpCodes.OP_HASH160) {
-                        bufHash = hash160(buf);
-                    } else if (opcodenum == OpCodes.OP_HASH256) {
-                        bufHash = sha256Twice(buf);
-                    }
-                    _stack.pop();
-                    _stack.push(bufHash);
-                    break;
-
-                case OpCodes.OP_CODESEPARATOR:
-                // Hash starts after the code separator
-                    _pbegincodehash = pc;
-                    break;
-
-                case OpCodes.OP_CHECKSIG:
-                case OpCodes.OP_CHECKSIGVERIFY:
-                // (sig pubkey -- bool)
-                    if (_stack.length < 2) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-
-                    bufSig = _stack.peek(index: -2);
-                    bufPubkey = _stack.peek();
-
-                    if (!checkSignatureEncoding(bufSig, flags) || !checkPubkeyEncoding(bufPubkey)) {
-                        return false;
-                    }
-
-                    // Subset of script starting at the most recent codeseparator
-                    var subscript = SVScript.fromChunks(_script!.chunks.sublist(pbegincodehash));
-
-                    // Drop the signature, since there's no way for a signature to sign itself
-                    var tmpScript = SVScript().add(bufSig);
-                    subscript.findAndDelete(tmpScript);
-
-                    try {
-                        pubkey = SVPublicKey.fromHex(HEX.encode(bufPubkey), strict: false);
-                        sig = SVSignature.fromTxFormat(HEX.encode(bufSig)); //FIXME: Why can't I construct a SVSignature that properly verifies from TxFormat ???
-
-                        fSuccess = _tx!.verifySignature(sig, pubkey, _nin!, subscript, _satoshis, _flags);
-                    } catch (e) {
-                        // invalid sig or pubkey
-                        fSuccess = false;
-                    }
-
-                    if (!fSuccess && (flags & ScriptFlags.SCRIPT_VERIFY_NULLFAIL != 0) && bufSig.isNotEmpty) {
-                        _errStr = 'SCRIPT_ERR_NULLFAIL';
-                        return false;
-                    }
-
-                    _stack.pop();
-                    _stack.pop();
-
-                    // stack.push_back(fSuccess ? vchTrue : vchFalse);
-                    _stack.push(fSuccess ? TRUE : FALSE);
-                    if (opcodenum == OpCodes.OP_CHECKSIGVERIFY) {
-                        if (fSuccess) {
-                            _stack.pop();
-                        } else {
-                            _errStr = 'SCRIPT_ERR_CHECKSIGVERIFY';
-                            return false;
-                        }
-                    }
-                    break;
-
-                case OpCodes.OP_CHECKMULTISIG:
-                case OpCodes.OP_CHECKMULTISIGVERIFY:
-                // ([sig ...] num_of_signatures [pubkey ...] num_of_pubkeys -- bool)
-
-                    var i = 1;
-                    if (_stack.length < i) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-
-                    var nKeysCount = castToBigInt(Uint8List.fromList(stack.peek(index: -i)), fRequireMinimal).toInt();
-//                    var nKeysCount = BigInt.parse(HEX.encode(stack.peek(index: -i)), radix: 16).toInt();
-                    // TODO: Keys and opcount are parameterized in client. No magic numbers!
-                    if (nKeysCount < 0 || nKeysCount > 20) {
-                        _errStr = 'SCRIPT_ERR_PUBKEY_COUNT';
-                        return false;
-                    }
-                    _nOpCount += nKeysCount;
-                    if (_nOpCount > 201) {
-                        _errStr = 'SCRIPT_ERR_OP_COUNT';
-                        return false;
-                    }
-                    // int ikey = ++i;
-                    var ikey = ++i;
-                    i += nKeysCount;
-
-                    // ikey2 is the position of last non-signature item in
-                    // the stack. Top stack item = 1. With
-                    // SCRIPT_VERIFY_NULLFAIL, this is used for cleanup if
-                    // operation fails.
-                    var ikey2 = nKeysCount + 2;
-
-                    if (_stack.length < i) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-
-                    var nSigsCount = castToBigInt(Uint8List.fromList(stack.peek(index: -i)), fRequireMinimal).toInt();
-//                    var nSigsCount = BigInt.parse(HEX.encode(stack.peek(index: -i)), radix: 16).toInt();
-                    if (nSigsCount < 0 || nSigsCount > nKeysCount) {
-                        _errStr = 'SCRIPT_ERR_SIG_COUNT';
-                        return false;
-                    }
-                    // int isig = ++i;
-                    var isig = ++i;
-                    i += nSigsCount;
-                    if (_stack.length < i) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-
-                    // Subset of script starting at the most recent codeseparator
-                    subscript = SVScript.fromChunks(_script!.chunks.sublist(pbegincodehash));
-
-                    // Drop the signatures, since there's no way for a signature to sign itself
-                    for (var k = 0; k < nSigsCount; k++) {
-                        bufSig = stack.peek(index: -isig - k);
-                        subscript.findAndDelete(SVScript().add(bufSig));
-                    }
-
-                    fSuccess = true;
-                    while (fSuccess && nSigsCount > 0) {
-                        // valtype& vchSig  = stacktop(-isig);
-                        bufSig = stack.peek(index: -isig);
-                        // valtype& vchPubKey = stacktop(-ikey);
-                        bufPubkey = _stack.peek(index: -ikey);
-
-                        if (!checkSignatureEncoding(bufSig, flags) || !checkPubkeyEncoding(bufPubkey)) { //FIXME: flags !
-                            return false;
-                        }
-
-                        var fOk;
-                        try {
-                            pubkey = SVPublicKey.fromHex(HEX.encode(bufPubkey), strict: false);
-                            sig = SVSignature.fromTxFormat(HEX.encode(bufSig));
-
-                            fOk = _tx!.verifySignature(sig, pubkey, _nin!, subscript, _satoshis, _flags);
-                        } catch (e) {
-                            // invalid sig or pubkey
-                            fOk = false;
-                        }
-
-                        if (fOk) {
-                            isig++;
-                            nSigsCount--;
-                        }
-                        ikey++;
-                        nKeysCount--;
-
-                        // If there are more signatures left than keys left,
-                        // then too many signatures have failed
-                        if (nSigsCount > nKeysCount) {
-                            fSuccess = false;
-                        }
-                    }
-
-                    // Clean up stack of actual arguments
-                    while (i-- > 1) {
-                        if (!fSuccess && (flags & ScriptFlags.SCRIPT_VERIFY_NULLFAIL != 0) && (ikey2 <= 0) && stack
-                            .peek()
-                            .isNotEmpty) {
-                            _errStr = 'SCRIPT_ERR_NULLFAIL';
-                            return false;
-                        }
-
-                        if (ikey2 > 0) {
-                            ikey2--;
-                        }
-
-                        _stack.pop();
-                    }
-
-                    // A bug causes CHECKMULTISIG to consume one extra argument
-                    // whose contents were not checked in any way.
-                    //
-                    // Unfortunately this is a potential source of mutability,
-                    // so optionally verify it is exactly equal to zero prior
-                    // to removing it from the stack.
-                    if (_stack.length < 1) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    if ((flags & ScriptFlags.SCRIPT_VERIFY_NULLDUMMY != 0) && stack
-                        .peek()
-                        .isNotEmpty) {
-                        _errStr = 'SCRIPT_ERR_SIG_NULLDUMMY';
-                        return false;
-                    }
-                    _stack.pop();
-
-                    _stack.push(fSuccess ? TRUE : FALSE);
-
-                    if (opcodenum == OpCodes.OP_CHECKMULTISIGVERIFY) {
-                        if (fSuccess) {
-                            _stack.pop();
-                        } else {
-                            _errStr = 'SCRIPT_ERR_CHECKMULTISIGVERIFY';
-                            return false;
-                        }
-                    }
-                    break;
-
-            //
-            // Byte string operations
-            //
-                case OpCodes.OP_CAT:
-                    if (_stack.length < 2) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-
-                    buf1 = stack.peek(index: -2);
-                    buf2 = stack.peek();
-                    if (buf1.length + buf2.length > Interpreter.MAX_SCRIPT_ELEMENT_SIZE) {
-                        _errStr = 'SCRIPT_ERR_PUSH_SIZE';
-                        return false;
-                    }
-                    _stack.replaceAt(_stack.length - 2, buf1 + buf2);
-                    _stack.pop();
-                    break;
-
-                case OpCodes.OP_SPLIT:
-                    if (_stack.length < 2) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-                    buf1 = stack.peek(index: -2);
-
-                    // Make sure the split point is apropriate.
-                    var position = castToBigInt(Uint8List.fromList(stack.peek()), fRequireMinimal).toInt();
-//                    var position = BigInt.parse(HEX.encode(stack.peek()), radix: 16).toInt();
-                    if (position < 0 || position > buf1.length) {
-                        _errStr = 'SCRIPT_ERR_INVALID_SPLIT_RANGE';
-                        return false;
-                    }
-
-                    // Prepare the results in their own buffer as `data`
-                    // will be invalidated.
-                    // Copy buffer data, to slice it before
-                    var n1 = buf1;
-
-                    // Replace existing stack values by the  values.
-                    _stack.replaceAt(_stack.length - 2, n1.sublist(0, position));
-                    _stack.replaceAt(_stack.length - 1, n1.sublist(position));
-                    break;
-
-            //
-            // Conversion operations
-            //
-                case OpCodes.OP_NUM2BIN:
-                // (in -- out)
-                    if (_stack.length < 2) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-
-                    //FIXME: This is probably wrong!
-                    // https://www.bitcoincash.org/spec/may-2018-reenabled-opcodes.html
-
-                    var size = castToBigInt(Uint8List.fromList(stack.peek()), fRequireMinimal).toInt();
-//                    var size = BigInt.parse(HEX.encode(stack.peek()), radix: 16).toInt();
-                    if (size > Interpreter.MAX_SCRIPT_ELEMENT_SIZE) {
-                        _errStr = 'SCRIPT_ERR_PUSH_SIZE';
-                        return false;
-                    }
-
-                    _stack.pop();
-                    var rawnum = stack.peek();
-
-                    rawnum = minimallyEncode(rawnum);
-
-                    // Try to see if we can fit that number in the number of
-                    // byte requested.
-                    if (rawnum.length > size) {
-                        // We definitively cannot.
-                        _errStr = 'SCRIPT_ERR_IMPOSSIBLE_ENCODING';
-                        return false;
-                    }
-
-                    // We already have an element of the right size, we
-                    // don't need to do anything.
-                    if (rawnum.length == size) {
-                        _stack.replaceAt(_stack.length - 1, rawnum);
-                        break;
-                    }
-
-                    var signbit = 0x00;
-                    if (rawnum.isNotEmpty) {
-                        signbit = rawnum[rawnum.length - 1] & 0x80;
-                        rawnum[rawnum.length - 1] &= 0x7f;
-                    }
-
-                    var num = List<int>.filled(size, 0);
-                    if (rawnum.isNotEmpty) {
-                        num[0] = rawnum[0];
-                    }
-
-                    var l = rawnum.length - 1;
-                    while (l++ < size - 2) {
-                        num[l] = 0x00;
-                    }
-
-                    num[l] = signbit;
-
-                    _stack.splice(_stack.length - 1, 1, values: num);
-
-                    break;
-
-                case OpCodes.OP_BIN2NUM:
-                // (in -- out)
-                    if (_stack.length < 1) {
-                        _errStr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-                        return false;
-                    }
-
-                    buf1 = _stack.peek();
-                    buf2 = minimallyEncode(buf1);
-
-                    _stack.replaceAt(_stack.length - 1, buf2);
-
-                    // The resulting number must be a valid number.
-                    if (!_isMinimallyEncoded(buf2,  maxScriptNumLength)) {
-                        _errStr = 'SCRIPT_ERR_INVALID_NUMBER_RANGE';
-                        return false;
-                    }
-
-                    break;
-
-                default:
-                    _errStr = 'SCRIPT_ERR_BAD_OPCODE';
-                    return false;
-            }
-        }
-
-        return true;
-    }
-
-    void _callbackStep(Map<String, int> thisStep) {
-
-
-    }
-
-
-    /// Checks a locktime parameter with the transaction's locktime.
-    ///
-    /// There are two tipes of nLockTime: lock-by-blockheight and lock-by-blocktime,
-    /// distinguished by whether nLockTime < LOCKTIME_THRESHOLD = 500000000
-    ///
-    /// See the corresponding code on bitcoin core:
-    /// https://github.com/bitcoin/bitcoin/blob/ffd75adce01a78b3461b3ff05bcc2b530a9ce994/src/script/interpreter.cpp#L1129
-    ///
-    /// `nLockTime` - the locktime read from the script
-    ///
-    ///  Returns true if the locktime is less than or equal to the transaction's locktime
-    bool checkLockTime(BigInt nLockTime) {
-        // We want to compare apples to apples, so fail the script
-        // unless the type of nLockTime being tested is the same as
-        // the nLockTime in the transaction.
-        if (!((_tx!.nLockTime < Interpreter.LOCKTIME_THRESHOLD && nLockTime < (Interpreter.LOCKTIME_THRESHOLD_BN)) ||
-            (_tx!.nLockTime >= Interpreter.LOCKTIME_THRESHOLD && nLockTime >= (Interpreter.LOCKTIME_THRESHOLD_BN)))) {
-            return false;
-        }
-
-        // Now that we know we're comparing apples-to-apples, the
-        // comparison is a simple numeric one.
-        if (nLockTime > BigInt.from(_tx!.nLockTime)) {
-            return false;
-        }
-
-        // Finally the nLockTime feature can be disabled and thus
-        // CHECKLOCKTIMEVERIFY bypassed if every txin has been
-        // finalized by setting nSequence to maxint. The
-        // transaction would be allowed into the blockchain, making
-        // the opcode ineffective.
-        //
-        // Testing if this vin is not final is sufficient to
-        // prevent this condition. Alternatively we could test all
-        // inputs, but testing just this input minimizes the data
-        // required to prove correct CHECKLOCKTIMEVERIFY execution.
-        if (_tx!.inputs[_nin!].isFinal()) {
-            return false;
-        }
-
-        return true;
-    }
-
-
-    /// Checks a sequence parameter with the transaction's sequence.
-    ///
-    /// `nSequence` - the sequence read from the script
-    ///
-    /// Returns true if the sequence is less than or equal to the transaction's sequence
-    bool checkSequence(BigInt nSequence) {
-        // Relative lock times are supported by comparing the passed in operand to
-        // the sequence number of the input.
-        var txToSequence = _tx!.inputs[_nin!].sequenceNumber;
-
-        // Fail if the transaction's version number is not set high enough to
-        // trigger BIP 68 rules.
-        if (_tx!.version < 2) {
-            return false;
-        }
-
-        // Sequence numbers with their most significant bit set are not consensus
-        // constrained. Testing that the transaction's sequence number do not have
-        // this bit set prevents using this property to get around a
-        // CHECKSEQUENCEVERIFY check.
-        if (txToSequence & ScriptFlags.SEQUENCE_LOCKTIME_DISABLE_FLAG != 0) {
-            return false;
-        }
-
-        // Mask off any bits that do not have consensus-enforced meaning before
-        // doing the integer comparisons
-        var nLockTimeMask = ScriptFlags.SEQUENCE_LOCKTIME_TYPE_FLAG | ScriptFlags.SEQUENCE_LOCKTIME_MASK;
-        var txToSequenceMasked = BigInt.from(txToSequence & nLockTimeMask);
-        var nSequenceMasked = nSequence & BigInt.from(nLockTimeMask);
-
-        // There are two kinds of nSequence: lock-by-blockheight and
-        // lock-by-blocktime, distinguished by whether nSequenceMasked <
-        // CTxIn::SEQUENCE_LOCKTIME_TYPE_FLAG.
-        //
-        // We want to compare apples to apples, so fail the script unless the type
-        // of nSequenceMasked being tested is the same as the nSequenceMasked in the
-        // transaction.
-        var SEQUENCE_LOCKTIME_TYPE_FLAG_BN = BigInt.from(ScriptFlags.SEQUENCE_LOCKTIME_TYPE_FLAG);
-
-        if (!((txToSequenceMasked < SEQUENCE_LOCKTIME_TYPE_FLAG_BN && nSequenceMasked < SEQUENCE_LOCKTIME_TYPE_FLAG_BN) ||
-            (txToSequenceMasked >= SEQUENCE_LOCKTIME_TYPE_FLAG_BN && nSequenceMasked >= SEQUENCE_LOCKTIME_TYPE_FLAG_BN))) {
-            return false;
-        }
-
-        // Now that we know we're comparing apples-to-apples, the comparison is a
-        // simple numeric one.
-        if (nSequenceMasked > txToSequenceMasked) {
-            return false;
-        }
-        return true;
-    }
-
-    /// Translated from bitcoind's CheckPubKeyEncoding
-    bool checkPubkeyEncoding(List<int> pubkey) {
-        if ((flags & ScriptFlags.SCRIPT_VERIFY_STRICTENC) != 0 && !SVPublicKey.isValid(HEX.encode(pubkey))) {
-            _errStr = 'SCRIPT_ERR_PUBKEYTYPE';
-            return false;
-        }
-        return true;
-    }
-
-
-    static int getMaxScriptNumLength(bool isGenesisEnabled) {
-        if (!isGenesisEnabled) {
-            return MAX_SCRIPT_NUM_LENGTH_BEFORE_GENESIS;
-        }
-
-        return MAX_SCRIPT_NUM_LENGTH_AFTER_GENESIS; // use new limit after genesis
-    }
-
-    static int getMaxOpsPerScript(bool isGenesisEnabled) {
-        if (!isGenesisEnabled) {
-            return MAX_OPS_PER_SCRIPT_BEFORE_GENESIS; // no changes before genesis
-        }
-
-        return MAX_OPS_PER_SCRIPT_AFTER_GENESIS; // use new limit after genesis
-    }
-
-    static bool isValidMaxOpsPerScript(int nOpCount, bool isGenesisEnabled) {
-        return (nOpCount <= getMaxOpsPerScript(isGenesisEnabled));
-    }
+import 'package:pointycastle/digests/sha256.dart';
+import 'package:pointycastle/ecc/api.dart';
+import 'package:pointycastle/macs/hmac.dart';
+import 'package:pointycastle/pointycastle.dart';
+import 'package:pointycastle/signers/ecdsa_signer.dart';
+
+import '../transaction/script_builder.dart';
+import '../transaction/transaction.dart';
+
+class ByteArrayItem extends LinkedListEntry<ByteArrayItem> {
+  Uint8List buffer;
+
+  ByteArrayItem(this.buffer);
 }
 
+class BoolItem extends LinkedListEntry<BoolItem> {
+  bool option;
+
+  BoolItem(this.option);
+}
+
+class Interpreter {
+
+  // Maximum script number length after Genesis
+  //consensus.h in node client
+  /** 1KB */
+  static final int ONE_KILOBYTE = 1000;
+
+  //     static final int MAX_SCRIPT_ELEMENT_SIZE = 520;  // bytes
+  static final int MAX_SCRIPT_ELEMENT_SIZE = 2147483647; // 2Gigabytes after Genesis - (2^31 -1)
+//     static final int MAX_OPS_PER_SCRIPT = 201;
+
+  // Maximum number of non-push operations per script after GENESIS
+  // Maximum number of non-push operations per script before GENESIS
+  static final int MAX_OPS_PER_SCRIPT_BEFORE_GENESIS = 500;
+
+// Maximum number of non-push operations per script after GENESIS
+  static int UINT32_MAX = 4294967295;
+  static final int MAX_OPS_PER_SCRIPT_AFTER_GENESIS = UINT32_MAX;
+
+  static final int MAX_STACK_SIZE = 1000;
+  static final int DEFAULT_MAX_NUM_ELEMENT_SIZE = 4;
+  static final int MAX_PUBKEYS_PER_MULTISIG = 20;
+  static final int MAX_SCRIPT_SIZE = 10000;
+  static final int SIG_SIZE = 75;
+
+  /** Max number of sigops allowed in a standard p2sh redeem script */
+  static final int MAX_P2SH_SIGOPS = 15;
+
+  // Maximum script number length after Genesis
+  static final int MAX_SCRIPT_NUM_LENGTH_AFTER_GENESIS = 750 * ONE_KILOBYTE;
+
+  static final int MAX_SCRIPT_NUM_LENGTH_BEFORE_GENESIS = 4;
+  static final int DEFAULT_SCRIPT_NUM_LENGTH_POLICY_AFTER_GENESIS = 250 * 1024;
+
+  static final int MAX_SCRIPT_ELEMENT_SIZE_BEFORE_GENESIS = 520;
+
+  static final SHA256Digest _sha256Digest = SHA256Digest();
+  static final ECDSASigner _dsaSigner = ECDSASigner(null, HMac(_sha256Digest, 64));
+  static final ECDomainParameters _domainParams = ECDomainParameters('secp256k1');
+
+  ////////////////////// Script verification and helpers ////////////////////////////////
+
+  static bool castToBool(Uint8List data) {
+    for (int i = 0; i < data.length; i++) {
+      // "Can be negative zero" - Bitcoin Core (see OpenSSL's BN_bn2mpi)
+      if (data[i] != 0)
+        return !(i == data.length - 1 && (data[i] & 0xFF) == 0x80);
+    }
+    return false;
+  }
+
+  /**
+   * Cast a script chunk to a BigInt.
+   *
+   * @see #castToBigInt(Uint8List, int, bool) for values with different maximum
+   * sizes.
+   * @throws ScriptException if the chunk is longer than 4 bytes.
+   */
+  BigInt castToBigInt32(List<int> chunk, final bool requireMinimal) {
+    return castToBigInt(chunk,  requireMinimal, nMaxNumSize: 4);
+  }
 
 
+  /**
+   * Gets the count of regular SigOps in the script program (counting multisig ops as 20)
+   */
+  int getSigOpCount(Uint8List program) {
+    SVScript script = ScriptBuilder().build();
+    try {
+      script = SVScript.fromByteArray(program);
+    } on ScriptException catch (e) {
+      // Ignore errors and count up to the parse-able length
+    }
+    return SVScript.getSigOpCount(script.chunks, false);
+  }
+
+  static bool isOpcodeDisabled(int opcode, Set<VerifyFlag> verifyFlags) {
+    switch (opcode) {
+      case OpCodes.OP_2MUL:
+      case OpCodes.OP_2DIV:
+      //disabled codes
+        return true;
+
+      default:
+      //not an opcode that was ever disabled
+        break;
+    }
+    return false;
+  }
+
+
+  /**
+   * Exposes the script interpreter. Normally you should not use this directly, instead use
+   * is useful if you need more precise control or access to the final state of the stack. This interface is very
+   * likely to change in future.
+   */
+  void executeScript(Transaction? txContainingThis, int index,
+      SVScript script, InterpreterStack<List<int>> stack, BigInt value, Set<VerifyFlag> verifyFlags /*, ScriptStateListener scriptStateListener*/) {
+    int opCount = 0;
+    int lastCodeSepLocation = 0;
+    final bool enforceMinimal = verifyFlags.contains(VerifyFlag.MINIMALDATA);
+    final bool utxoAfterGenesis = verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS);
+    final int maxScriptNumLength = getMaxScriptNumLength(utxoAfterGenesis);
+
+    var altstack = InterpreterStack<List<int>>();
+    var ifStack = InterpreterStack<bool>();
+    var elseStack = InterpreterStack<bool>();
+
+    bool nonTopLevelReturnAfterGenesis = false;
+
+    int nextLocationInScript = 0;
+    for (ScriptChunk chunk in script.chunks) {
+      int opcode = chunk.opcodenum;
+
+      // Do not execute instructions if Genesis OpCodes.OP_RETURN was found in executed branches.
+      bool shouldExecute = !ifStack.contains(false) && (!nonTopLevelReturnAfterGenesis || opcode == OpCodes.OP_RETURN);
+      nextLocationInScript += chunk.size();
+
+      // Check stack element size
+      if (chunk.buf != null && (!verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && chunk.buf!.length > MAX_SCRIPT_ELEMENT_SIZE_BEFORE_GENESIS))
+        throw ScriptException(ScriptError.SCRIPT_ERR_PUSH_SIZE,"-Attempted to push a data string larger than 520 bytes");
+
+      // Note how OpCodes.OP_RESERVED does not count towards the opcode limit.
+      if (opcode > OpCodes.OP_16) {
+        opCount++;
+        if (!isValidMaxOpsPerScript(opCount, utxoAfterGenesis))
+          throw ScriptException(ScriptError.SCRIPT_ERR_OP_COUNT," -More script operations than is allowed");
+      }
+
+      // Disabled opcodes.
+      if (isOpcodeDisabled(opcode, verifyFlags) && (!verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) || shouldExecute)) {
+        throw ScriptException(ScriptError.SCRIPT_ERR_DISABLED_OPCODE,"-Script included a disabled Script Op.");
+      }
+
+      if (shouldExecute && OpCodes.OP_0 <= opcode && opcode <= OpCodes.OP_PUSHDATA4) {
+        // Check minimal push
+        if (verifyFlags.contains(VerifyFlag.MINIMALDATA) && !chunk.checkMinimalPush())
+          throw ScriptException(ScriptError.SCRIPT_ERR_MINIMALDATA,"Script included a not minimal push operation.");
+
+        if (opcode == OpCodes.OP_0) {
+          stack.add([]);
+        } else {
+          stack.add(chunk.buf!);
+        }
+      } else if (shouldExecute || (OpCodes.OP_IF <= opcode && opcode <= OpCodes.OP_ENDIF)) {
+        switch (opcode) {
+          case OpCodes.OP_IF:
+          case OpCodes.OP_NOTIF:
+            bool fValue = false;
+            if (shouldExecute) {
+              if (stack.length < 1) {
+                throw ScriptException(ScriptError.SCRIPT_ERR_UNBALANCED_CONDITIONAL,"Attempted OpCodes.OP_IF on an empty stack");
+              }
+
+              List<int> stacktop = stack.getLast();
+              if (verifyFlags.contains(VerifyFlag.MINIMALIF)) {
+                if (stacktop.length > 1) {
+                  throw ScriptException(ScriptError.SCRIPT_ERR_MINIMALIF,"Argument for OpCodes.OP_IF/NOT_IF must be 0x01 or empty");
+                }
+
+                if (stacktop.length == 1 && stacktop[0] != 1) {
+                  throw ScriptException(ScriptError.SCRIPT_ERR_MINIMALIF,"Argument for OpCodes.OP_IF/NOT_IF must be 0x01 or empty");
+                }
+              }
+
+              fValue = castToBool(Uint8List.fromList(stacktop));
+              if (opcode == OpCodes.OP_NOTIF) {
+                fValue = !fValue;
+              }
+              stack.pollLast(); //pop top value off stack
+            }
+            ifStack.add(fValue);
+            elseStack.add(false);
+            continue;
+          case OpCodes.OP_ELSE:
+          //only one ELSE is allowed in IF after genesis
+            if (ifStack.isEmpty || (!elseStack.isEmpty && elseStack.getLast() && verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS)))
+              throw ScriptException(ScriptError.SCRIPT_ERR_UNBALANCED_CONDITIONAL,"Attempted OpCodes.OP_ELSE without OpCodes.OP_IF/NOTIF");
+            ifStack.add(!ifStack.pollLast());
+            elseStack.set(elseStack.size() - 1, true);
+            continue;
+          case OpCodes.OP_ENDIF:
+            if (ifStack.isEmpty)
+              throw ScriptException(ScriptError.SCRIPT_ERR_UNBALANCED_CONDITIONAL,"-Attempted OpCodes.OP_ENDIF without OpCodes.OP_IF/NOTIF");
+            ifStack.pollLast();
+            elseStack.pollLast();
+            continue;
+
+        // OpCodes.OP_0 is no opcode
+          case OpCodes.OP_1NEGATE:
+            stack.add(castToBuffer(-BigInt.one));
+            break;
+          case OpCodes.OP_1:
+          case OpCodes.OP_2:
+          case OpCodes.OP_3:
+          case OpCodes.OP_4:
+          case OpCodes.OP_5:
+          case OpCodes.OP_6:
+          case OpCodes.OP_7:
+          case OpCodes.OP_8:
+          case OpCodes.OP_9:
+          case OpCodes.OP_10:
+          case OpCodes.OP_11:
+          case OpCodes.OP_12:
+          case OpCodes.OP_13:
+          case OpCodes.OP_14:
+          case OpCodes.OP_15:
+          case OpCodes.OP_16:
+            stack.add(castToBuffer(BigInt.from(SVScript.decodeFromOpN(opcode))));
+            break;
+          case OpCodes.OP_NOP:
+            break;
+          case OpCodes.OP_VERIFY:
+            if (stack.size() < 1)
+              throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"-Attempted OpCodes.OP_VERIFY on an empty stack");
+            if (!castToBool(Uint8List.fromList(stack.pollLast())))
+              throw ScriptException(ScriptError.SCRIPT_ERR_VERIFY,"-OpCodes.OP_VERIFY failed");
+            break;
+          case OpCodes.OP_RETURN:
+            if (verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS)) {
+              if (ifStack.isEmpty) {
+                // Terminate the execution as successful. The remainder of the script does not affect the validity (even in
+                // presence of unbalanced IFs, invalid opcodes etc)
+                return;
+              }
+              nonTopLevelReturnAfterGenesis = true;
+            } else {
+              // Pre-Genesis OpCodes.OP_RETURN marks script as invalid
+              throw ScriptException(ScriptError.SCRIPT_ERR_OP_RETURN,"Script called OpCodes.OP_RETURN");
+            }
+            break;
+
+          case OpCodes.OP_TOALTSTACK:
+            if (stack.size() < 1)
+              throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_TOALTSTACK on an empty stack");
+            altstack.add(stack.pollLast());
+            break;
+          case OpCodes.OP_FROMALTSTACK:
+            if (altstack.size() < 1)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_ALTSTACK_OPERATION,"Attempted OpCodes.OP_FROMALTSTACK on an empty altstack");
+            stack.add(altstack.pollLast());
+            break;
+          case OpCodes.OP_2DROP:
+            if (stack.size() < 2)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_2DROP on a stack with size < 2");
+            stack.pollLast();
+            stack.pollLast();
+            break;
+          case OpCodes.OP_2DUP:
+            if (stack.size() < 2)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_2DUP on a stack with size < 2");
+            Iterator<List<int>> it2DUP = stack.descendingIterator();
+            it2DUP.moveNext();
+            List<int> OP2DUPtmpChunk2 = it2DUP.current;
+            it2DUP.moveNext();
+            stack.add(it2DUP.current);
+            stack.add(OP2DUPtmpChunk2);
+            break;
+          case OpCodes.OP_3DUP:
+            if (stack.size() < 3)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_3DUP on a stack with size < 3");
+            Iterator<List<int>> it3DUP = stack.descendingIterator();
+            it3DUP.moveNext();
+            List<int> OP3DUPtmpChunk3 = it3DUP.current;
+            it3DUP.moveNext();
+            List<int> OP3DUPtmpChunk2 = it3DUP.current;
+            it3DUP.moveNext();
+            stack.add(it3DUP.current);
+            stack.add(OP3DUPtmpChunk2);
+            stack.add(OP3DUPtmpChunk3);
+            break;
+          case OpCodes.OP_2OVER:
+            if (stack.size() < 4)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_2OVER on a stack with size < 4");
+            Iterator<List<int>> it2OVER = stack.descendingIterator();
+            it2OVER.moveNext();
+            it2OVER.moveNext();
+            it2OVER.moveNext();
+            List<int> OP2OVERtmpChunk2 = it2OVER.current;
+            it2OVER.moveNext();
+            stack.add(it2OVER.current);
+            stack.add(OP2OVERtmpChunk2);
+            break;
+          case OpCodes.OP_2ROT:
+            if (stack.size() < 6)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_2ROT on a stack with size < 6");
+            List<int> OP2ROTtmpChunk6 = stack.pollLast();
+            List<int> OP2ROTtmpChunk5 = stack.pollLast();
+            List<int> OP2ROTtmpChunk4 = stack.pollLast();
+            List<int> OP2ROTtmpChunk3 = stack.pollLast();
+            List<int> OP2ROTtmpChunk2 = stack.pollLast();
+            List<int> OP2ROTtmpChunk1 = stack.pollLast();
+            stack.add(OP2ROTtmpChunk3);
+            stack.add(OP2ROTtmpChunk4);
+            stack.add(OP2ROTtmpChunk5);
+            stack.add(OP2ROTtmpChunk6);
+            stack.add(OP2ROTtmpChunk1);
+            stack.add(OP2ROTtmpChunk2);
+            break;
+          case OpCodes.OP_2SWAP:
+            if (stack.size() < 4)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_2SWAP on a stack with size < 4");
+            List<int> OP2SWAPtmpChunk4 = stack.pollLast();
+            List<int> OP2SWAPtmpChunk3 = stack.pollLast();
+            List<int> OP2SWAPtmpChunk2 = stack.pollLast();
+            List<int> OP2SWAPtmpChunk1 = stack.pollLast();
+            stack.add(OP2SWAPtmpChunk3);
+            stack.add(OP2SWAPtmpChunk4);
+            stack.add(OP2SWAPtmpChunk1);
+            stack.add(OP2SWAPtmpChunk2);
+            break;
+          case OpCodes.OP_IFDUP:
+            if (stack.size() < 1)
+              throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"-Attempted OpCodes.OP_IFDUP on an empty stack");
+            if (castToBool(Uint8List.fromList(stack.getLast())))
+              stack.add(stack.getLast());
+            break;
+          case OpCodes.OP_DEPTH:
+            stack.add(castToBuffer(BigInt.from(stack.size())));
+            break;
+          case OpCodes.OP_DROP:
+            if (stack.size() < 1)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"-Attempted OpCodes.OP_DROP on an empty stack");
+            stack.pollLast();
+            break;
+          case OpCodes.OP_DUP:
+            if (stack.size() < 1)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"-Attempted OpCodes.OP_DUP on an empty stack");
+            stack.add(stack.getLast());
+            break;
+          case OpCodes.OP_NIP:
+            if (stack.size() < 2)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"-Attempted OpCodes.OP_NIP on a stack with size < 2");
+            List<int> OPNIPtmpChunk = stack.pollLast();
+            stack.pollLast();
+            stack.add(OPNIPtmpChunk);
+            break;
+          case OpCodes.OP_OVER:
+            if (stack.size() < 2)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_OVER on a stack with size < 2");
+            Iterator<List<int>> itOVER = stack.descendingIterator();
+            itOVER.moveNext();
+            itOVER.moveNext();
+            stack.add(itOVER.current);
+            break;
+          case OpCodes.OP_PICK:
+          case OpCodes.OP_ROLL:
+            if (stack.size() < 1)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_PICK/OpCodes.OP_ROLL on an empty stack");
+            int val = castToBigInt(stack.pollLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA),  nMaxNumSize: maxScriptNumLength).toInt();
+            if (val < 0 || val >= stack.size())
+              throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"OpCodes.OP_PICK/OpCodes.OP_ROLL attempted to get data deeper than stack size");
+
+            if (opcode == OpCodes.OP_PICK){
+              stack.copyToTop(val);
+            }else if (opcode == OpCodes.OP_ROLL){
+              stack.moveToTop(val);
+            }
+
+            break;
+          case OpCodes.OP_ROT:
+            if (stack.size() < 3)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_ROT on a stack with size < 3");
+            List<int> OPROTtmpChunk3 = stack.pollLast();
+            List<int> OPROTtmpChunk2 = stack.pollLast();
+            List<int> OPROTtmpChunk1 = stack.pollLast();
+            stack.add(OPROTtmpChunk2);
+            stack.add(OPROTtmpChunk3);
+            stack.add(OPROTtmpChunk1);
+            break;
+          case OpCodes.OP_SWAP:
+          case OpCodes.OP_TUCK:
+            if (stack.size() < 2)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_SWAP on a stack with size < 2");
+            List<int> OPSWAPtmpChunk2 = stack.pollLast();
+            List<int> OPSWAPtmpChunk1 = stack.pollLast();
+            stack.add(OPSWAPtmpChunk2);
+            stack.add(OPSWAPtmpChunk1);
+            if (opcode == OpCodes.OP_TUCK)
+              stack.add(OPSWAPtmpChunk2);
+            break;
+
+
+          case OpCodes.OP_CAT:
+            if (stack.size() < 2)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Invalid stack operation.");
+            List<int> catBytes2 = stack.pollLast();
+            List<int> catBytes1 = stack.pollLast();
+
+            int len = catBytes1.length + catBytes2.length;
+            if (!verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && len > MAX_SCRIPT_ELEMENT_SIZE_BEFORE_GENESIS)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_PUSH_SIZE,"Push value size limit exceeded.");
+
+            var writer = ByteDataWriter();
+            writer.write(catBytes1);
+            writer.write(catBytes2);
+            stack.add(writer.toBytes());
+
+            break;
+
+          case OpCodes.OP_NUM2BIN:
+            if (stack.size() < 2)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Invalid stack operation.");
+
+            int numSize = castToBigInt(stack.pollLast(),  enforceMinimal, nMaxNumSize: maxScriptNumLength).toInt();
+
+            if (!verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && numSize > MAX_SCRIPT_ELEMENT_SIZE_BEFORE_GENESIS)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_PUSH_SIZE,"Push value size limit exceeded.");
+
+            List<int> rawNumBytes = stack.pollLast();
+
+            // Try to see if we can fit that number in the number of
+            // byte requested.
+            List<int> minimalNumBytes = minimallyEncode(rawNumBytes);
+            if (minimalNumBytes.length > numSize) {
+              //we can't
+              throw new ScriptException(ScriptError.SCRIPT_ERR_PUSH_SIZE,"The requested encoding is impossible to satisfy.");
+            }
+
+            if (minimalNumBytes.length == numSize) {
+              //already the right size so just push it to stack
+              stack.add(minimalNumBytes);
+            } else if (numSize == 0) {
+              stack.add([]);
+            } else {
+              int signBit = 0x00;
+              if (minimalNumBytes.length > 0) {
+                signBit = minimalNumBytes[minimalNumBytes.length - 1] & 0x80;
+                minimalNumBytes[minimalNumBytes.length - 1] &= 0x7f;
+              }
+              int minimalBytesToCopy = minimalNumBytes.length > numSize ? numSize : minimalNumBytes.length;
+              List<int> expandedNumBytes = List<int>.generate(numSize,(i) => 0); //initialized to all zeroes
+              expandedNumBytes.setRange(0, minimalBytesToCopy, minimalNumBytes);
+              // System.arraycopy(minimalNumBytes, 0, expandedNumBytes, 0, minimalBytesToCopy);
+              expandedNumBytes[expandedNumBytes.length - 1] =  signBit;
+              stack.add(expandedNumBytes);
+            }
+            break;
+
+          case OpCodes.OP_SPLIT:
+            if (stack.size() < 2)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Invalid stack operation.");
+
+            BigInt biSplitPos = castToBigInt(stack.pollLast(), enforceMinimal, nMaxNumSize: maxScriptNumLength );
+
+            //sanity check in case we aren't enforcing minimal number encoding
+            //we will check that the biSplitPos value can be safely held in an int
+            //before we cast it as BigInt will behave similar to casting if the value
+            //is greater than the target type can hold.
+            BigInt biMaxInt = BigInt.from(UINT32_MAX);
+            if (biSplitPos.compareTo(biMaxInt) >= 0)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR,"Invalid OpCodes.OP_SPLIT range.");
+
+            int splitPos = biSplitPos.toInt();
+            List<int> splitBytes = stack.pollLast();
+
+            if (splitPos > splitBytes.length || splitPos < 0)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_SPLIT_RANGE,"Invalid OpCodes.OP_SPLIT range.");
+
+            Uint8List splitOut1 = Uint8List(splitPos);
+            Uint8List splitOut2 = Uint8List(splitBytes.length - splitPos);
+
+            splitOut1.setRange(0, splitPos, splitBytes);
+            // System.arraycopy(splitBytes, 0, splitOut1, 0, splitPos);
+            splitOut2.setRange(0, splitOut2.length, splitBytes, splitPos);
+            // System.arraycopy(splitBytes, splitPos, splitOut2, 0, splitOut2.length);
+
+            stack.add(splitOut1);
+            stack.add(splitOut2);
+            break;
+
+          case OpCodes.OP_BIN2NUM:
+            if (stack.size() < 1)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Invalid stack operation.");
+
+            Uint8List binBytes = Uint8List.fromList(stack.pollLast());
+            Uint8List numBytes = Uint8List.fromList(minimallyEncode(binBytes.toList()));
+
+            if (!checkMinimallyEncoded(numBytes, maxScriptNumLength))
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_NUMBER_RANGE,"Given operand is not a number within the valid range [-2^31...2^31]");
+
+            stack.add(numBytes);
+
+            break;
+          case OpCodes.OP_SIZE:
+            if (stack.size() < 1)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_SIZE on an empty stack");
+            stack.add(castToBuffer(BigInt.from(stack.getLast().length)));
+            break;
+
+          case OpCodes.OP_LSHIFT:
+          case OpCodes.OP_RSHIFT:
+            if (stack.size() < 2)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Too few items on stack for SHIFT Op");
+
+            List<int> shiftCountBuf = stack.getLast();
+            List<int> valueToShiftBuf = stack.getAt(stack.size() - 2);
+
+            if (valueToShiftBuf.length == 0) {
+              stack.pop();
+            } else {
+              final BigInt shiftCount = castToBigInt(shiftCountBuf, verifyFlags.contains(VerifyFlag.MINIMALDATA), nMaxNumSize: 5);
+
+              int n = shiftCount.toInt();
+              if (n < 0)
+                throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_NUMBER_RANGE,"Can't shift negative number of bits (n < 0)");
+
+              stack.pop();
+              stack.pop();
+
+              late BigInt shifted;
+              //using the Bytes lib. In-place byte-ops.
+              // Bytes shifted = Bytes.wrap(valueToShiftBuf, ByteOrder.BIG_ENDIAN);
+
+              var valueToShift = decodeBigIntSV(valueToShiftBuf);
+
+              if (opcode == OpCodes.OP_LSHIFT) {
+                //Dart BigInt automagically right-pads the shifted bits
+                do{
+                  valueToShiftBuf = LShift(valueToShiftBuf, n);
+                  n -= UINT32_MAX;
+                }while(n > 0);
+                // shifted = valueToShift << n; // bn1.ushln(n);
+              }
+              if (opcode == OpCodes.OP_RSHIFT) {
+                do {
+                  valueToShiftBuf = RShift(valueToShiftBuf, n);
+                  n -= UINT32_MAX;
+                }while(n >0);
+                // shifted = valueToShift >> n;
+              }
+
+              if (n > 0) {
+                //shift occured
+                stack.push(valueToShiftBuf);
+              } else {
+                //no shift, just push original value back onto stack
+                stack.push(valueToShiftBuf);
+              }
+            }
+
+            break;
+          case OpCodes.OP_INVERT:
+            {
+              if (stack.size() < 1) {
+                throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"No elements left on stack.");
+              }
+              Uint8List vch1 = Uint8List.fromList(stack.pollLast());
+              // To avoid allocating, we modify vch1 in place
+              for (int i = 0; i < vch1.length; i++) {
+                vch1[i] = (~vch1[i] & 0xFF);
+              }
+              stack.push(vch1);
+
+              break;
+            }
+          case OpCodes.OP_AND:
+          case OpCodes.OP_OR:
+          case OpCodes.OP_XOR:
+          // (x1 x2 - out)
+            if (stack.size() < 2) {
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Invalid stack operation.");
+            }
+
+            //valtype &vch2 = stacktop(-1);
+            //valtype &vch1 = stacktop(-2);
+            Uint8List vch2 = Uint8List.fromList(stack.pollLast());
+            Uint8List vch1 = Uint8List.fromList(stack.pollLast());
+
+            // Inputs must be the same size
+            if (vch1.length != vch2.length) {
+              throw new ScriptException(ScriptError.SCRIPT_ERR_OPERAND_SIZE,"Invalid operand size.");
+            }
+
+            // To avoid allocating, we modify vch1 in place.
+            switch (opcode) {
+              case OpCodes.OP_AND:
+                for (int i = 0; i < vch1.length; i++) {
+                  vch1[i] &= vch2[i];
+                }
+                break;
+              case OpCodes.OP_OR:
+                for (int i = 0; i < vch1.length; i++) {
+                  vch1[i] |= vch2[i];
+                }
+                break;
+              case OpCodes.OP_XOR:
+                for (int i = 0; i < vch1.length; i++) {
+                  vch1[i] ^= vch2[i];
+                }
+                break;
+              default:
+                break;
+            }
+
+            // And pop vch2.
+            //popstack(stack);
+
+            //put vch1 back on stack
+            stack.add(vch1);
+
+            break;
+
+          case OpCodes.OP_EQUAL:
+            if (stack.size() < 2)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_EQUAL on a stack with size < 2");
+            stack.add(ListEquality().equals(stack.pollLast(), stack.pollLast()) ? [1] : []);
+            break;
+          case OpCodes.OP_EQUALVERIFY:
+            if (stack.size() < 2)
+              throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_EQUALVERIFY on a stack with size < 2");
+            if (!ListEquality().equals(stack.pollLast(), stack.pollLast()))
+              throw new ScriptException(ScriptError.SCRIPT_ERR_EQUALVERIFY,"OpCodes.OP_EQUALVERIFY: non-equal data");
+            break;
+          case OpCodes.OP_1ADD:
+          case OpCodes.OP_1SUB:
+          case OpCodes.OP_NEGATE:
+          case OpCodes.OP_ABS:
+          case OpCodes.OP_NOT:
+          case OpCodes.OP_0NOTEQUAL:
+            if (stack.size() < 1)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted a numeric op on an empty stack");
+            BigInt numericOPnum = castToBigInt(stack.pollLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA), nMaxNumSize: maxScriptNumLength );
+
+            switch (opcode) {
+              case OpCodes.OP_1ADD:
+                numericOPnum = numericOPnum + BigInt.one;
+                break;
+              case OpCodes.OP_1SUB:
+                numericOPnum = numericOPnum - BigInt.one;
+                break;
+              case OpCodes.OP_NEGATE:
+                numericOPnum = -numericOPnum;
+                break;
+              case OpCodes.OP_ABS:
+                if (numericOPnum.isNegative)
+                  numericOPnum = -numericOPnum;
+                break;
+              case OpCodes.OP_NOT:
+                if (numericOPnum == BigInt.zero)
+                  numericOPnum = BigInt.one;
+                else
+                  numericOPnum = BigInt.zero;
+                break;
+              case OpCodes.OP_0NOTEQUAL:
+                if (numericOPnum == BigInt.zero)
+                  numericOPnum = BigInt.zero;
+                else
+                  numericOPnum = BigInt.one;
+                break;
+              default:
+                throw new AssertionError("Unreachable");
+            }
+
+            stack.add(castToBuffer(numericOPnum));
+            break;
+          case OpCodes.OP_ADD:
+          case OpCodes.OP_SUB:
+          case OpCodes.OP_DIV:
+          case OpCodes.OP_MUL:
+          case OpCodes.OP_MOD:
+          case OpCodes.OP_BOOLAND:
+          case OpCodes.OP_BOOLOR:
+          case OpCodes.OP_NUMEQUAL:
+          case OpCodes.OP_NUMNOTEQUAL:
+          case OpCodes.OP_LESSTHAN:
+          case OpCodes.OP_GREATERTHAN:
+          case OpCodes.OP_LESSTHANOREQUAL:
+          case OpCodes.OP_GREATERTHANOREQUAL:
+          case OpCodes.OP_MIN:
+          case OpCodes.OP_MAX:
+            if (stack.size() < 2)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted a numeric op on a stack with size < 2");
+            BigInt numericOPnum2 = castToBigInt(stack.pollLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA), nMaxNumSize: maxScriptNumLength );
+            BigInt numericOPnum1 = castToBigInt(stack.pollLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA), nMaxNumSize: maxScriptNumLength );
+
+            BigInt numericOPresult;
+            switch (opcode) {
+              case OpCodes.OP_ADD:
+                numericOPresult = numericOPnum1 +numericOPnum2;
+                break;
+              case OpCodes.OP_SUB:
+                numericOPresult = numericOPnum1 - numericOPnum2;
+                break;
+
+              case OpCodes.OP_MUL:
+                numericOPresult = numericOPnum1 * numericOPnum2;
+                break;
+
+              case OpCodes.OP_DIV:
+                if (numericOPnum2.toInt() == 0)
+                  throw ScriptException(ScriptError.SCRIPT_ERR_DIV_BY_ZERO,"Division by zero error");
+                numericOPresult = numericOPnum1 ~/ numericOPnum2;
+                break;
+
+              case OpCodes.OP_MOD:
+                if (numericOPnum2.toInt() == 0)
+                  throw new ScriptException(ScriptError.SCRIPT_ERR_MOD_BY_ZERO,"Modulo by zero error");
+
+                /**
+                 * BigInt doesn't behave the way we want for modulo operations.  Firstly it's
+                 * always guaranteed to return a +ve result.  Secondly it will throw an exception
+                 * if the 2nd operand is negative.
+                 * Instead we will use the Decimal to perform modular arithmetic, then convert
+                 * back to BigInt
+                 */
+
+                Decimal bd1 = Decimal.fromBigInt(numericOPnum1);
+                Decimal bd2 = Decimal.fromBigInt(numericOPnum2);
+
+                numericOPresult = bd1.remainder(bd2).toBigInt();
+
+                break;
+
+              case OpCodes.OP_BOOLAND:
+                if (!(numericOPnum1 == BigInt.zero) && !(numericOPnum2 == BigInt.zero))
+                  numericOPresult = BigInt.one;
+                else
+                  numericOPresult = BigInt.zero;
+                break;
+              case OpCodes.OP_BOOLOR:
+                if (!(numericOPnum1 == BigInt.zero) || !(numericOPnum2 == BigInt.zero))
+                  numericOPresult = BigInt.one;
+                else
+                  numericOPresult = BigInt.zero;
+                break;
+              case OpCodes.OP_NUMEQUAL:
+                if (numericOPnum1 == numericOPnum2)
+                  numericOPresult = BigInt.one;
+                else
+                  numericOPresult = BigInt.zero;
+                break;
+              case OpCodes.OP_NUMNOTEQUAL:
+                if (numericOPnum1 != numericOPnum2)
+                  numericOPresult = BigInt.one;
+                else
+                  numericOPresult = BigInt.zero;
+                break;
+              case OpCodes.OP_LESSTHAN:
+                if (numericOPnum1.compareTo(numericOPnum2) < 0)
+                  numericOPresult = BigInt.one;
+                else
+                  numericOPresult = BigInt.zero;
+                break;
+              case OpCodes.OP_GREATERTHAN:
+                if (numericOPnum1.compareTo(numericOPnum2) > 0)
+                  numericOPresult = BigInt.one;
+                else
+                  numericOPresult = BigInt.zero;
+                break;
+              case OpCodes.OP_LESSTHANOREQUAL:
+                if (numericOPnum1.compareTo(numericOPnum2) <= 0)
+                  numericOPresult = BigInt.one;
+                else
+                  numericOPresult = BigInt.zero;
+                break;
+              case OpCodes.OP_GREATERTHANOREQUAL:
+                if (numericOPnum1.compareTo(numericOPnum2) >= 0)
+                  numericOPresult = BigInt.one;
+                else
+                  numericOPresult = BigInt.zero;
+                break;
+              case OpCodes.OP_MIN:
+                if (numericOPnum1.compareTo(numericOPnum2) < 0)
+                  numericOPresult = numericOPnum1;
+                else
+                  numericOPresult = numericOPnum2;
+                break;
+              case OpCodes.OP_MAX:
+                if (numericOPnum1.compareTo(numericOPnum2) > 0)
+                  numericOPresult = numericOPnum1;
+                else
+                  numericOPresult = numericOPnum2;
+                break;
+              default:
+                throw new Exception("Opcode switched at runtime?");
+            }
+
+            stack.add(castToBuffer(numericOPresult));
+            break;
+          case OpCodes.OP_NUMEQUALVERIFY:
+            if (stack.size() < 2)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_NUMEQUALVERIFY on a stack with size < 2");
+            BigInt OPNUMEQUALVERIFYnum2 = castToBigInt(stack.pollLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA),nMaxNumSize: maxScriptNumLength );
+            BigInt OPNUMEQUALVERIFYnum1 = castToBigInt(stack.pollLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA),nMaxNumSize: maxScriptNumLength );
+
+            if (!(OPNUMEQUALVERIFYnum1 == OPNUMEQUALVERIFYnum2))
+              throw new ScriptException(ScriptError.SCRIPT_ERR_NUMEQUALVERIFY,"OpCodes.OP_NUMEQUALVERIFY failed");
+            break;
+          case OpCodes.OP_WITHIN:
+            if (stack.size() < 3)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_WITHIN on a stack with size < 3");
+            BigInt OPWITHINnum3 = castToBigInt(stack.pollLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA), nMaxNumSize: maxScriptNumLength );
+            BigInt OPWITHINnum2 = castToBigInt(stack.pollLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA), nMaxNumSize: maxScriptNumLength );
+            BigInt OPWITHINnum1 = castToBigInt(stack.pollLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA), nMaxNumSize: maxScriptNumLength );
+            if (OPWITHINnum2.compareTo(OPWITHINnum1) <= 0 && OPWITHINnum1.compareTo(OPWITHINnum3) < 0)
+              stack.add(castToBuffer(BigInt.one));
+            else
+              stack.add(castToBuffer(BigInt.zero));
+            break;
+          case OpCodes.OP_RIPEMD160:
+            if (stack.size() < 1)
+              throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_RIPEMD160 on an empty stack");
+            stack.add(ripemd160(stack.pollLast()));
+            break;
+          case OpCodes.OP_SHA1:
+            if (stack.size() < 1)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_SHA1 on an empty stack");
+            stack.add(sha1(stack.pollLast()));
+
+            break;
+          case OpCodes.OP_SHA256:
+            if (stack.size() < 1)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_SHA256 on an empty stack");
+            stack.add(sha256(stack.pollLast()));
+            break;
+          case OpCodes.OP_HASH160:
+            if (stack.size() < 1)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_HASH160 on an empty stack");
+            stack.add(hash160(stack.pollLast()));
+            break;
+          case OpCodes.OP_HASH256:
+            if (stack.size() < 1)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_SHA256 on an empty stack");
+            stack.add(sha256Twice(stack.pollLast()));
+            break;
+          case OpCodes.OP_CODESEPARATOR:
+            lastCodeSepLocation = nextLocationInScript;
+            break;
+          case OpCodes.OP_CHECKSIG:
+          case OpCodes.OP_CHECKSIGVERIFY:
+            if (txContainingThis == null)
+              throw new IllegalStateException("Script attempted signature check but no tx was provided");
+
+            try {
+              executeCheckSig(
+                  txContainingThis,
+                  index, script, stack, lastCodeSepLocation, opcode, Coin.valueOf(value), verifyFlags);
+            } on SignatureEncodingException catch (ex) {
+              stack.add([]); //push false onto stack
+              throw ScriptException(ex.error, ex.cause);
+            } on PubKeyEncodingException catch (ex) {
+              stack.add([]); //push false onto stack
+              throw ScriptException(ex.error, ex.toString());
+            }
+
+            break;
+
+          case OpCodes.OP_CHECKMULTISIG:
+          case OpCodes.OP_CHECKMULTISIGVERIFY:
+            if (txContainingThis == null)
+              throw IllegalStateException("Script attempted signature check but no tx was provided");
+            try {
+              opCount = executeMultiSig(
+                  txContainingThis,
+                   index, script, stack, opCount, lastCodeSepLocation, opcode, Coin.valueOf(value), verifyFlags);
+            } on SignatureEncodingException catch (ex) {
+              stack.add([]); //push false onto stack
+              throw ScriptException(ex.error, ex.cause);
+            } on PubKeyEncodingException catch (ex) {
+              stack.add([]); //push false onto stack
+              throw new ScriptException(ex.error, ex.cause);
+            }
+            break;
+
+          case OpCodes.OP_CHECKLOCKTIMEVERIFY:
+            if (!verifyFlags.contains(VerifyFlag.CHECKLOCKTIMEVERIFY) || verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS)) {
+              // not enabled; treat as a NOP2
+              if (verifyFlags.contains(VerifyFlag.DISCOURAGE_UPGRADABLE_NOPS)) {
+                throw new ScriptException(ScriptError.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS,"Script used a reserved opcode ${opcode}");
+              }
+              break;
+            }
+            executeCheckLockTimeVerify(txContainingThis!, index, stack, verifyFlags);
+            break;
+
+          case OpCodes.OP_CHECKSEQUENCEVERIFY:
+            if (!verifyFlags.contains(VerifyFlag.CHECKSEQUENCEVERIFY) || verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS)) {
+              // not enabled; treat as a NOP3
+              if (verifyFlags.contains(VerifyFlag.DISCOURAGE_UPGRADABLE_NOPS)) {
+                throw new ScriptException(ScriptError.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS,"Script used a reserved opcode ${opcode}");
+              }
+              break;
+            }
+            executeCheckSequenceVerify(txContainingThis!, index, stack, verifyFlags);
+            break;
+          case OpCodes.OP_NOP1:
+          case OpCodes.OP_NOP4:
+          case OpCodes.OP_NOP5:
+          case OpCodes.OP_NOP6:
+          case OpCodes.OP_NOP7:
+          case OpCodes.OP_NOP8:
+          case OpCodes.OP_NOP9:
+          case OpCodes.OP_NOP10:
+            if (verifyFlags.contains(VerifyFlag.DISCOURAGE_UPGRADABLE_NOPS)) {
+              throw new ScriptException(ScriptError.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS,"Script used a reserved opcode ${opcode}" );
+            }
+            break;
+
+          default:
+            if (isInvalidBranchingOpcode(opcode) && verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && !shouldExecute) {
+              break;
+            }
+            throw new ScriptException(ScriptError.SCRIPT_ERR_BAD_OPCODE,"Script used a reserved or disabled opcode: ${opcode}" );
+        }
+      }
+
+      if (stack.size() + altstack.size() > MAX_STACK_SIZE || stack.size() + altstack.size() < 0)
+        throw new ScriptException(ScriptError.SCRIPT_ERR_STACK_SIZE,"Stack size exceeded range");
+    }
+
+    if (!ifStack.isEmpty)
+      throw new ScriptException(ScriptError.SCRIPT_ERR_UNBALANCED_CONDITIONAL,"OpCodes.OP_IF/OpCodes.OP_NOTIF without OpCodes.OP_ENDIF");
+  }
+
+  static bool isInvalidBranchingOpcode(int opcode) {
+    return opcode == OpCodes.OP_VERIF || opcode == OpCodes.OP_VERNOTIF;
+  }
+
+
+  // This is more or less a direct translation of the code in Bitcoin Core
+  void executeCheckLockTimeVerify(Transaction txContainingThis, int index, InterpreterStack<List<int>> stack, Set<VerifyFlag> verifyFlags) {
+    if (stack.size() < 1)
+      throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_CHECKLOCKTIMEVERIFY on a stack with size < 1");
+
+    // Thus as a special case we tell CScriptNum to accept up
+    // to 5-byte bignums to avoid year 2038 issue.
+    final BigInt nLockTime = castToBigInt(stack.getLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA), nMaxNumSize: 5 );
+
+    if (nLockTime.compareTo(BigInt.zero) < 0)
+      throw new ScriptException(ScriptError.SCRIPT_ERR_NEGATIVE_LOCKTIME,"Negative locktime");
+
+    // There are two kinds of nLockTime: lock-by-blockheight and
+    // lock-by-blocktime, distinguished by whether nLockTime <
+    // LOCKTIME_THRESHOLD.
+    //
+    // We want to compare apples to apples, so fail the script unless the type
+    // of nLockTime being tested is the same as the nLockTime in the
+    // transaction.
+    if (!(((txContainingThis.getLockTime() < Transaction.LOCKTIME_THRESHOLD) &&
+        (nLockTime.compareTo(Transaction.LOCKTIME_THRESHOLD_BIG)) < 0) ||
+        ((txContainingThis.getLockTime() >= Transaction.LOCKTIME_THRESHOLD) &&
+            (nLockTime.compareTo(Transaction.LOCKTIME_THRESHOLD_BIG)) >= 0))) {
+      throw new ScriptException(ScriptError.SCRIPT_ERR_UNSATISFIED_LOCKTIME,"Locktime requirement type mismatch");
+    }
+
+    // Now that we know we're comparing apples-to-apples, the comparison is a
+    // simple numeric one.
+    if (nLockTime.compareTo(BigInt.from(txContainingThis.getLockTime())) > 0)
+      throw new ScriptException(ScriptError.SCRIPT_ERR_NEGATIVE_LOCKTIME,"Negative locktime");
+
+    // Finally the nLockTime feature can be disabled and thus
+    // CHECKLOCKTIMEVERIFY bypassed if every txin has been finalized by setting
+    // nSequence to maxint. The transaction would be allowed into the
+    // blockchain, making the opcode ineffective.
+    //
+    // Testing if this vin is not final is sufficient to prevent this condition.
+    // Alternatively we could test all inputs, but testing just this input
+    // minimizes the data required to prove correct CHECKLOCKTIMEVERIFY
+    // execution.
+    if (!txContainingThis.inputs[index].isFinal())
+      throw new ScriptException(
+          ScriptError.SCRIPT_ERR_UNSATISFIED_LOCKTIME,"Transaction contains a final transaction input for a CHECKLOCKTIMEVERIFY script. ");
+  }
+
+
+  // void correctlySpends(SVScript scriptSig, SVScript scriptPubKey, Transaction txn, int scriptSigIndex, Set<VerifyFlag> verifyFlags) {
+  //   correctlySpends(scriptSig, scriptPubKey, txn, scriptSigIndex, verifyFlags, Coin.ZERO);
+  // }
+
+  /**
+   * Verifies that this script (interpreted as a scriptSig) correctly spends the given scriptPubKey.
+   * TODO: Verify why I'd need to pass in scriptSig again if I already have it from the [txn] + [scriptSigIndex] parameter
+   *
+   * @param scriptSig the spending Script
+   * @param scriptSigIndex The index in the provided txn of the scriptSig
+   * @param txn The transaction in which the provided scriptSig resides.
+   *            Accessing txn from another thread while this method runs results in undefined behavior.
+   * @param scriptPubKey The connected scriptPubKey (in output ) containing the conditions needed to claim the value.
+   * @param verifyFlags Each flag enables one validation rule.
+   * @param satoshis Value of the input ? Needed for verification when ForkId sighash is used
+   */
+  void correctlySpends(SVScript scriptSig, SVScript scriptPubKey, Transaction txn, int scriptSigIndex, Set<VerifyFlag> verifyFlags, Coin coinSats) {
+
+    if (verifyFlags.contains(VerifyFlag.SIGPUSHONLY) && !scriptSig.isPushOnly()) {
+      throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_PUSHONLY," - No pushdata operations allowed in scriptSig");
+    }
+
+
+  // Clone the transaction because executing the script involves editing it, and if we die, we'll leave
+  // the tx half broken (also it's not so thread safe to work on it directly.)
+    Transaction transaction;
+    try {
+      transaction = Transaction.fromHex(txn.serialize());
+    } on Exception catch(e){
+        throw TransactionException("Transaction serialize/parse failure");
+    }
+
+    if (verifyFlags.contains(VerifyFlag.P2SH) && verifyFlags.contains(VerifyFlag.STRICTENC)) {
+      if (scriptSig
+          .buffer
+          .length > 10000 || scriptPubKey
+          .buffer
+          .length > 10000)
+        throw new ScriptException(ScriptError.SCRIPT_ERR_SCRIPT_SIZE," - Script larger than 10,000 bytes");
+    }
+
+    InterpreterStack<List<int>> stack = InterpreterStack<List<int>>();
+    InterpreterStack<List<int>> p2shStack = InterpreterStack<List<int>>.fromList(List.empty());
+
+    executeScript(transaction, scriptSigIndex, scriptSig, stack, coinSats.getValue(), verifyFlags);
+    if (verifyFlags.contains(VerifyFlag.P2SH) && !(verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS))) {
+      p2shStack = InterpreterStack.fromList(stack.iterator.toList());
+    }
+
+    executeScript(transaction, scriptSigIndex, scriptPubKey, stack, coinSats.getValue(), verifyFlags);
+
+    if (stack.size() == 0)
+      throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE," - Stack empty at end of script execution.");
+
+    if (!castToBool(Uint8List.fromList(stack.getLast())))
+      throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE," - Script resulted in a non-true stack:  ${stack}");
+
+// P2SH is pay to script hash. It means that the scriptPubKey has a special form which is a valid
+// program but it has "useless" form that if evaluated as a normal program always returns true.
+// Instead, miners recognize it as special based on its template - it provides a hash of the real scriptPubKey
+// and that must be provided by the input. The goal of this bizarre arrangement is twofold:
+//
+// (1) You can sum up a large, complex script (like a CHECKMULTISIG script) with an address that's the same
+//     size as a regular address. This means it doesn't overload scannable QR codes/NFC tags or become
+//     un-wieldy to copy/paste.
+// (2) It allows the working set to be smaller: nodes perform best when they can store as many unspent outputs
+//     in RAM as possible, so if the outputs are made smaller and the inputs get bigger, then it's better for
+//     overall scalability and performance.
+
+// TODO: Check if we can take out enforceP2SH if there's a checkpoint at the enforcement block.
+    if (verifyFlags.contains(VerifyFlag.P2SH)
+        && ScriptPattern.isP2SH(scriptPubKey)
+        && !(verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS))) {
+      for (ScriptChunk chunk in scriptSig.chunks)
+        if (chunk.isOpCode() && chunk.opcodenum > OpCodes.OP_16)
+          throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_PUSHONLY, " - Attempted to spend a P2SH scriptPubKey with a script that contained script ops");
+
+      stack = InterpreterStack<List<int>>.fromList(p2shStack.iterator.toList()); //restore stack
+// stack cannot be empty here, because if it was the P2SH  HASH <> EQUAL
+// scriptPubKey would be evaluated with an empty stack and the
+// EvalScript above would return false.
+      assert(!stack.isEmpty);
+
+      List<int> scriptPubKeyBytes = stack.pollLast();
+      SVScript scriptPubKeyP2SH = SVScript.fromBuffer(Uint8List.fromList(scriptPubKeyBytes));
+
+      executeScript(transaction, scriptSigIndex, scriptPubKeyP2SH, stack, coinSats.getValue(), verifyFlags);
+
+      if (stack.isEmpty) throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE, " - P2SH stack empty at end of script execution.");
+
+      if (!castToBool(Uint8List.fromList(stack.getLast())))
+        throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE, " - P2SH script execution resulted in a non-true stack");
+    }
+
+// The CLEANSTACK check is only performed after potential P2SH evaluation,
+// as the non-P2SH evaluation of a P2SH script will obviously not result in
+// a clean stack (the P2SH inputs remain). The same holds for witness
+// evaluation.
+    if (verifyFlags.contains(VerifyFlag.CLEANSTACK)) {
+// Disallow CLEANSTACK without P2SH, as otherwise a switch
+// CLEANSTACK->P2SH+CLEANSTACK would be possible, which is not a
+// softfork (and P2SH should be one).
+      assert(verifyFlags.contains(VerifyFlag.P2SH));
+      if (stack.size() != 1) {
+        throw new ScriptException(ScriptError.SCRIPT_ERR_CLEANSTACK, "Cleanstack is disallowed without P2SH");
+      }
+    }
+  }
+
+
+  static void executeCheckSig(
+      Transaction txContainingThis,
+      int index,
+      SVScript script,
+      InterpreterStack<List<int>> stack,
+      int lastCodeSepLocation,
+      int opcode,
+      Coin coinValue,
+      Set<VerifyFlag> verifyFlags) {
+    final bool requireCanonical = verifyFlags.contains(VerifyFlag.STRICTENC)
+        || verifyFlags.contains(VerifyFlag.LOW_S);
+
+    if (stack.size() < 2)
+      throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_CHECKSIG(VERIFY) on a stack with size < 2");
+    List<int> pubKeyBuffer = stack.pollLast();
+    List<int> sigBytes = stack.pollLast();
+
+    List<int> prog = script.buffer;
+
+    List<int> connectedScript = prog.getRange(lastCodeSepLocation, prog.length).toList();
+    var outStream = ByteDataWriter();
+    try {
+      SVScript.writeBytes(outStream, sigBytes);
+    } on IOException catch (e) {
+      throw new Exception(e); // Cannot happen
+    }
+    connectedScript = SVScript.removeAllInstancesOf(connectedScript, outStream.toBytes());
+
+// TODO: Use int for indexes everywhere, we can't have that many inputs/outputs
+    bool sigValid = false;
+
+    checkSignatureEncoding(sigBytes, verifyFlags);
+    checkPubKeyEncoding(pubKeyBuffer, verifyFlags);
+
+//default to 1 in case of empty Sigs
+    int sigHashType = SighashType.UNSET.value;
+
+    if (sigBytes.length > 0) {
+      sigHashType = sigBytes[sigBytes.length - 1] & 0xFF;
+    }
+
+    try {
+      if (SVSignature.hasForkId(sigBytes)) {
+        if (!verifyFlags.contains(VerifyFlag.SIGHASH_FORKID)) {
+          throw new ScriptException(ScriptError.SCRIPT_ERR_ILLEGAL_FORKID,"ForkID is not enabled, yet the flag is set");
+        }
+      }
+
+      SVSignature sig = SVSignature.fromTxFormat(HEX.encode(sigBytes));
+      SVScript subScript = SVScript.fromBuffer(Uint8List.fromList(connectedScript));
+
+      Sighash sigHash = new Sighash();
+      String hash = sigHash.hash(txContainingThis, sig.nhashtype, index, subScript, coinValue.getValue());
+
+      var pubKey = SVPublicKey.fromHex(HEX.encode(pubKeyBuffer), strict: false);
+      var ecPubKey=  ECPublicKey(pubKey.point, _domainParams);
+      _dsaSigner.init(false, PublicKeyParameter(ecPubKey));
+
+      //TODO: How odd that my hashes are upside-down
+      var reversedHash = Uint8List.fromList(HEX.decode(hash).reversed.toList());
+      sigValid = _dsaSigner.verifySignature(reversedHash, ECSignature(sig.r, sig.s));
+
+
+    } on RangeError catch (r1) {
+// There is (at least) one exception that could be hit here (EOFException, if the sig is too short)
+// Because I can't verify there aren't more, we use a very generic Exception catch
+
+// This Exception occurs when signing as we run partial/invalid scripts to see if they need more
+// signing work to be done inside LocalTransactionSigner.signInputs.
+//       if (!e1.getMessage().contains("Reached past end of ASN.1 stream"))
+//         log.warn("Signature checking failed!", e1);
+      print("Range Error. Likely read past end of ASN.1 stream - ${r1.message}");
+    } on Exception catch(ex){
+
+    }
+
+
+    if (!sigValid && verifyFlags.contains(VerifyFlag.NULLFAIL) && sigBytes.length > 0) {
+      throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_NULLFAIL,"Failed strict DER Signature coding. ");
+    }
+
+    if (opcode == OpCodes.OP_CHECKSIG)
+      stack.add(sigValid ? [1] : []);
+    else if (opcode == OpCodes.OP_CHECKSIGVERIFY)
+      if (!sigValid)
+        throw new ScriptException(ScriptError.SCRIPT_ERR_CHECKSIGVERIFY," Script failed OpCodes.OP_CHECKSIGVERIFY ");
+  }
+
+  /**
+   * A canonical signature exists of: <30> <total len> <02> <len R> <R> <02> <len
+   * S> <S> <hashtype>, where R and S are not negative (their first byte has its
+   * highest bit not set), and not excessively padded (do not start with a 0 byte,
+   * unless an otherwise negative number follows, in which case a single 0 byte is
+   * necessary and even required).
+   *
+   * See https://bitcointalk.org/index.php?topic=8392.msg127623#msg127623
+   *
+   * This function is consensus-critical since BIP66.
+   */
+  static bool isValidSignatureEncoding (List<int> sigBytes) {
+// Format: 0x30 [total-length] 0x02 [R-length] [R] 0x02 [S-length] [S]
+// [sighash]
+// * total-length: 1-byte length descriptor of everything that follows,
+// excluding the sighash byte.
+// * R-length: 1-byte length descriptor of the R value that follows.
+// * R: arbitrary-length big-endian encoded R value. It must use the
+// shortest possible encoding for a positive integers (which means no null
+// bytes at the start, except a single one when the next byte has its
+// highest bit set).
+// * S-length: 1-byte length descriptor of the S value that follows.
+// * S: arbitrary-length big-endian encoded S value. The same rules apply.
+// * sighash: 1-byte value indicating what data is hashed (not part of the
+// DER signature)
+
+// Minimum and maximum size constraints.
+    if (sigBytes.length < 9) return false;
+    if (sigBytes.length > 73) return false;
+
+// A signature is of type 0x30 (compound).
+    if (sigBytes[0] != 0x30) return false;
+
+// Make sure the length covers the entire signature.
+    if (sigBytes[1] != sigBytes.length - 3) return false;
+
+// Extract the length of the R element.
+    int lenR = sigBytes[3];
+
+// Make sure the length of the S element is still inside the signature.
+    if (5 + lenR >= sigBytes.length) return false;
+
+// Extract the length of the S element.
+    int lenS = sigBytes[5 + lenR];
+
+// Verify that the length of the signature matches the sum of the length
+// of the elements.
+    if ((lenR + lenS + 7) != sigBytes.length) return false;
+
+// Check whether the R element is an integer.
+    if (sigBytes[2] != 0x02) return false;
+
+// Zero-length integers are not allowed for R.
+    if (lenR == 0) return false;
+
+// Negative numbers are not allowed for R.
+    if ((sigBytes[4] & 0x80) != 0) return false; //FIXME: Check
+
+// Null bytes at the start of R are not allowed, unless R would otherwise be
+// interpreted as a negative number.
+    if (lenR > 1 && (sigBytes[4] == 0x00) && ((sigBytes[5] & 0x80) == 0)) return false; //FIXME: Check
+
+// Check whether the S element is an integer.
+    if (sigBytes[lenR + 4] != 0x02) return false;
+
+// Zero-length integers are not allowed for S.
+    if (lenS == 0) return false;
+
+// Negative numbers are not allowed for S.
+    if ((sigBytes[lenR + 6] & 0x80) != 0) return false;
+
+// Null bytes at the start of S are not allowed, unless S would otherwise be
+// interpreted as a negative number.
+    if (lenS > 1 && (sigBytes[lenR + 6] == 0x00) && ((sigBytes[lenR + 7] & 0x80) == 0)) { //FIXME: Check
+      return false;
+    }
+
+    return true;
+  }
+
+
+  ///Comparable to bitcoind's IsLowDERSignature. Returns true if the signature has a 'low' S-value.
+  ///
+  ///See also ECDSA signature algorithm which enforces
+  ///See also BIP 62, 'low S values in signatures'
+  static bool hasLowS(Uint8List sigBytes) {
+    BigInt maxVal = BigInt.parse("7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0",radix: 16);
+
+    try {
+      SVSignature sig = SVSignature.fromDER(HEX.encode(sigBytes));
+      // ECKey.ECDSASignature sig = ECKey.ECDSASignature.decodeFromDER(sigBytes);
+      if ((sig.s < BigInt.one) || (sig.s > maxVal)) {
+        return false;
+      }
+    } on SignatureDecodeException catch(ex) {
+      return false;
+    }
+
+    return
+      true;
+  }
+
+  static void checkIsLowDERSignature(List<int> sigBytes) {
+    if (!isValidSignatureEncoding(sigBytes)) {
+      throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_DER,"Invalid signature encoding");
+    }
+    List<int> sigCopy = List<int>.generate(sigBytes.length - 1, (i) => 0);
+    sigCopy.setRange(0, sigBytes.length - 1, sigBytes);//drop Sighash flag
+    // Uint8List sigCopy = Arrays.copyOf(sigBytes, sigBytes.length - 1); //drop Sighash flag
+    if (!hasLowS(Uint8List.fromList(sigCopy))) {
+      throw ScriptException(ScriptError.SCRIPT_ERR_SIG_HIGH_S,"Signature has high S. Low S expected.");
+    }
+  }
+
+  static void checkSignatureEncoding(List<int> sigBytes, Set<VerifyFlag> flags) {
+// Empty signature. Not strictly DER encoded, but allowed to provide a
+// compact way to provide an invalid signature for use with CHECK(MULTI)SIG
+    if (sigBytes.length == 0) {
+      return;
+    }
+    if ((flags.contains(VerifyFlag.DERSIG) | flags.contains(VerifyFlag.LOW_S) |
+    flags.contains(VerifyFlag.STRICTENC)) &&
+        !isValidSignatureEncoding(sigBytes)) {
+      throw new SignatureEncodingException(ScriptError.SCRIPT_ERR_SIG_DER," - Invalid Signature Encoding");
+    }
+    if (flags.contains(VerifyFlag.LOW_S)) {
+      checkIsLowDERSignature(sigBytes);
+    }
+
+    if (flags.contains(VerifyFlag.STRICTENC)) {
+      int sigHashType = sigBytes[sigBytes.length - 1];
+
+
+      bool usesForkId = (sigHashType & SighashType.SIGHASH_FORKID.value) != 0;
+      bool forkIdEnabled = flags.contains(VerifyFlag.SIGHASH_FORKID);
+      if (!forkIdEnabled && usesForkId) {
+        throw new SignatureEncodingException(ScriptError.SCRIPT_ERR_ILLEGAL_FORKID,"ForkID is not enabled, yet the flag is set");
+      }
+      if (forkIdEnabled && !usesForkId) {
+        throw new SignatureEncodingException(ScriptError.SCRIPT_ERR_MUST_USE_FORKID,"ForkID flag is required");
+      }
+
+//check for valid sighashType
+      if (!SighashType.hasValue(sigHashType)) {
+        throw new SignatureEncodingException(ScriptError.SCRIPT_ERR_SIG_HASHTYPE,"Invalid Sighash type");
+      }
+    }
+  }
+
+  static bool isCanonicalPubkey(List<int> pubkey) {
+    if (pubkey.length < 33) {
+//  Non-canonical  key: too short
+      return false;
+    }
+    if (pubkey[0] == 0x04) {
+      if (pubkey.length != 65) {
+//  Non-canonical  key: invalid length for uncompressed key
+        return false;
+      }
+    } else if (pubkey[0] == 0x02 || pubkey[0] == 0x03) {
+      if (pubkey.length != 33) {
+//  Non-canonical  key: invalid length for compressed key
+        return false;
+      }
+    } else {
+//  Non-canonical  key: neither compressed nor uncompressed
+      return false;
+    }
+    return true;
+  }
+
+  static bool isCompressedPubKey(List<int> pubKey) {
+    if (pubKey.length != 33) {
+//  Non-canonical  key: invalid length for compressed key
+      return false;
+    }
+    if (pubKey[0] != 0x02 && pubKey[0] != 0x03) {
+//  Non-canonical  key: invalid prefix for compressed key
+      return false;
+    }
+    return true;
+  }
+
+
+  static bool checkPubKeyEncoding(List<int> pubKey, Set<VerifyFlag> flags) {
+    if (flags.contains(VerifyFlag.STRICTENC) && !isCanonicalPubkey(pubKey)) {
+      throw new PubKeyEncodingException(ScriptError.SCRIPT_ERR_PUBKEYTYPE," key has invalid encoding");
+    }
+
+    if (flags.contains(VerifyFlag.COMPRESSED_PUBKEYTYPE) && !isCompressedPubKey(pubKey)) {
+      throw new PubKeyEncodingException(ScriptError.SCRIPT_ERR_NONCOMPRESSED_PUBKEY," key has invalid encoding");
+    }
+
+    return
+
+      true;
+  }
+
+
+  static int executeMultiSig(Transaction txContainingThis, int index, SVScript script, InterpreterStack<List<int>> stack,
+      int opCount, int lastCodeSepLocation, int opcode, Coin coinValue,
+      Set<VerifyFlag> verifyFlags) {
+    final bool requireCanonical = verifyFlags.contains(VerifyFlag.STRICTENC)
+        || verifyFlags.contains(VerifyFlag.DERSIG)
+        || verifyFlags.contains(VerifyFlag.LOW_S);
+    final bool enforceMinimal = verifyFlags.contains(VerifyFlag.MINIMALDATA);
+    final bool utxoAfterGenesis = verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS);
+
+    if (
+    stack.size() < 1)
+      throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_CHECKMULTISIG(VERIFY) on a stack with size < 2");
+
+    int pubKeyCount = castToBigInt(stack.pollLast(), enforceMinimal, nMaxNumSize: getMaxScriptNumLength(utxoAfterGenesis) ).toInt();
+    if (pubKeyCount < 0 || (!verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && pubKeyCount > 20)
+        || (verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && pubKeyCount > UINT32_MAX))
+      throw new ScriptException(ScriptError.SCRIPT_ERR_PUBKEY_COUNT,"OpCodes.OP_CHECKMULTISIG(VERIFY) with pubkey count out of range");
+    opCount += pubKeyCount;
+
+    if (!isValidMaxOpsPerScript(opCount, utxoAfterGenesis))
+      throw new ScriptException(ScriptError.SCRIPT_ERR_CHECKMULTISIGVERIFY,"Total op (count > 250 * 1024) during OpCodes.OP_CHECKMULTISIG(VERIFY)");
+
+    if (stack.size() < pubKeyCount + 1)
+      throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_CHECKMULTISIG(VERIFY) on a stack with size < num_of_pubkeys + 2");
+
+//take all pubkeys off the stack
+    InterpreterStack<List<int>> pubkeys = InterpreterStack<List<int>>();
+    for (int i = 0; i < pubKeyCount; i++) {
+      List<int> pubKey = stack.pollLast();
+      pubkeys.add(pubKey);
+    }
+
+    int sigCount = castToBigInt(stack.pollLast(), enforceMinimal, nMaxNumSize: getMaxScriptNumLength(utxoAfterGenesis) ).toInt();
+    if (sigCount < 0 || sigCount > pubKeyCount)
+      throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_COUNT,"OpCodes.OP_CHECKMULTISIG(VERIFY) with sig count out of range");
+    if (stack.size() < sigCount + 1)
+      throw new ScriptException( ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_CHECKMULTISIG(VERIFY) on a stack with size < num_of_pubkeys + num_of_signatures + 3");
+
+//take all signatures off the stack
+    InterpreterStack<List<int>> sigs = new InterpreterStack<List<int>>();
+    for (int i = 0; i < sigCount; i++) {
+      List<int> sig = stack.pollLast();
+      sigs.add(sig);
+    }
+
+    List<int> prog = script.buffer;
+    List<int> connectedScript = List<int>.generate(prog.length, (index) => 0);
+    connectedScript.setRange(0, prog.length, prog, lastCodeSepLocation);
+
+    sigs.iterator.forEach((sig) {
+      var outStream = ByteDataWriter();
+      try {
+        SVScript.writeBytes(outStream, sig);
+      } on Exception catch (e) {
+        throw Exception(e); // Cannot happen
+      }
+      connectedScript = SVScript.removeAllInstancesOf(connectedScript, outStream.toBytes());
+    });
+
+
+// ikey2 is the position of last non-signature item in
+// the stack. Top stack item = 1. With
+// SCRIPT_VERIFY_NULLFAIL, this is used for cleanup if
+// operation fails.
+    int ikey2 = pubKeyCount + 2;
+
+    bool valid = true;
+
+    while (valid && sigs.size() > 0) {
+      List<int> pubKey = pubkeys.pollFirst();
+      List<int> sigBytes = sigs.getFirst();
+// We could reasonably move this out of the loop, but because signature verification is significantly
+// more expensive than hashing, its not a big deal.
+
+      checkSignatureEncoding(sigBytes, verifyFlags);
+      checkPubKeyEncoding(pubKey, verifyFlags);
+
+
+//default to 1 in case of empty Sigs
+      int sigHashType = SighashType.UNSET.value;
+
+      if (sigBytes.length > 0) {
+        sigHashType = sigBytes[sigBytes.length - 1];
+      }
+
+
+      try {
+        SVSignature sig = SVSignature.fromTxFormat(HEX.encode(sigBytes));
+        SVScript subScript = SVScript.fromBuffer(Uint8List.fromList(connectedScript));
+
+       // TODO: Should check hash type is known?
+        Sighash sigHash = new Sighash();
+
+        int sighashMode = sig.nhashtype;
+        if (SVSignature.hasForkId(sigBytes)) {
+          sighashMode = sig.nhashtype | SighashType.SIGHASH_FORKID.value;
+        }
+
+        //FIXME: Use Coin instead ?
+        String hash = sigHash.hash(txContainingThis, sighashMode, index, subScript, coinValue.getValue());
+        var svPubKey = SVPublicKey.fromBuffer(pubKey);
+        var publicKey =  ECPublicKey(svPubKey.point, _domainParams);
+        _dsaSigner.init(false, PublicKeyParameter(publicKey));
+        var reversedHash = Uint8List.fromList((HEX.decode(hash).reversed.toList()));
+        var verified = _dsaSigner.verifySignature(reversedHash,ECSignature(sig.r, sig.s));
+
+        if (verified) {
+          sigs.pollFirst(); //pop a successfully validated sig
+        }
+
+        pubKeyCount--;
+      } on Exception catch (e) {
+// There is (at least) one exception that could be hit here (EOFException, if the sig is too short)
+// Because I can't verify there aren't more, we use a very generic Exception catch
+      }
+
+// If there are more signatures left than keys left,
+// then too many signatures have failed. Exit early,
+// without checking any further signatures.
+      if (sigs.size() > pubkeys.size()) {
+        valid = false;
+      }
+    }
+
+// If the operation failed, we require that all
+// signatures must be empty vector
+    while (sigs.size() > 0) {
+      if (!valid && verifyFlags.contains(VerifyFlag.NULLFAIL) && sigs
+          .getLast()
+          .length > 0) {
+        throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_NULLFAIL,"Failed strict DER Signature coding. ");
+      }
+
+      sigs.pollLast();
+    }
+
+// A bug causes CHECKMULTISIG to consume one extra
+// argument whose contents were not checked in any way.
+//
+// Unfortunately this is a potential source of
+// mutability, so optionally verify it is exactly equal
+// to zero prior to removing it from the stack.
+    if (stack.size() < 1) {
+      throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"No dummy element left on stack to compensate for Core bug");
+    }
+
+//pop the dummy element (core bug argument)
+    List<int> nullDummy = stack.pollLast();
+    if (verifyFlags.contains(VerifyFlag.NULLDUMMY) && nullDummy.length > 0)
+      throw ScriptException(
+          ScriptError.SCRIPT_ERR_SIG_NULLDUMMY,"OpCodes.OP_CHECKMULTISIG(VERIFY) with non-null nulldummy: ${nullDummy.toString()}" );
+
+
+    if (opcode == OpCodes.OP_CHECKMULTISIG) {
+      stack.add(valid ? [1] : []);
+    } else if (opcode == OpCodes.OP_CHECKMULTISIGVERIFY) {
+      if (!valid)
+        throw new ScriptException(ScriptError.SCRIPT_ERR_CHECKMULTISIGVERIFY,"Script failed OpCodes.OP_CHECKMULTISIGVERIFY");
+    }
+    return
+      opCount;
+  }
+
+
+  static void executeCheckSequenceVerify(Transaction txContainingThis, int index, InterpreterStack<List<int>> stack, Set<VerifyFlag> verifyFlags) {
+    if (stack.size() < 1)
+      throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_CHECKSEQUENCEVERIFY on a stack with size < 1");
+
+// Note that elsewhere numeric opcodes are limited to
+// operands in the range -2**31+1 to 2**31-1, however it is
+// legal for opcodes to produce results exceeding that
+// range. This limitation is implemented by CScriptNum's
+// default 4-byte limit.
+//
+// Thus as a special case we tell CScriptNum to accept up
+// to 5-byte bignums, which are good until 2**39-1, well
+// beyond the 2**32-1 limit of the nSequence field itself.
+    final int nSequence = castToBigInt(stack.getLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA), nMaxNumSize: 5).toInt();
+
+// In the rare event that the argument may be < 0 due to
+// some arithmetic being done first, you can always use
+// 0 MAX CHECKSEQUENCEVERIFY.
+    if (nSequence < 0)
+      throw new ScriptException(ScriptError.SCRIPT_ERR_NEGATIVE_LOCKTIME,"Negative sequence");
+
+// To provide for future soft-fork extensibility, if the
+// operand has the disabled lock-time flag set,
+// CHECKSEQUENCEVERIFY behaves as a NOP.
+    if ((nSequence & TransactionInput.SEQUENCE_LOCKTIME_DISABLE_FLAG) != 0)
+      return;
+
+// Compare the specified sequence number with the input.
+    checkSequence(nSequence, txContainingThis, index);
+  }
+
+  static void checkSequence(int nSequence, Transaction txContainingThis, int index) {
+// Relative lock times are supported by comparing the passed
+// in operand to the sequence number of the input.
+    int txToSequence = txContainingThis.inputs[index].sequenceNumber;
+
+// Fail if the transaction's version number is not set high
+// enough to trigger BIP 68 rules.
+    if (
+    txContainingThis.version < 2)
+      throw new ScriptException(ScriptError.SCRIPT_ERR_UNSATISFIED_LOCKTIME,"Transaction version is < 2");
+
+// Sequence numbers with their most significant bit set are not
+// consensus constrained. Testing that the transaction's sequence
+// number do not have this bit set prevents using this property
+// to get around a CHECKSEQUENCEVERIFY check.
+    if ((txToSequence & TransactionInput.SEQUENCE_LOCKTIME_DISABLE_FLAG) != 0)
+      throw new ScriptException(ScriptError.SCRIPT_ERR_UNSATISFIED_LOCKTIME,"Sequence disable flag is set");
+
+// Mask off any bits that do not have consensus-enforced meaning
+// before doing the integer comparisons
+    int nLockTimeMask = TransactionInput.SEQUENCE_LOCKTIME_TYPE_FLAG | TransactionInput.SEQUENCE_LOCKTIME_MASK;
+    int txToSequenceMasked = txToSequence & nLockTimeMask;
+    int nSequenceMasked = nSequence & nLockTimeMask;
+
+// There are two kinds of nSequence: lock-by-blockheight
+// and lock-by-blocktime, distinguished by whether
+// nSequenceMasked < CTxIn::SEQUENCE_LOCKTIME_TYPE_FLAG.
+//
+// We want to compare apples to apples, so fail the script
+// unless the type of nSequenceMasked being tested is the same as
+// the nSequenceMasked in the transaction.
+    if (!((txToSequenceMasked < TransactionInput.SEQUENCE_LOCKTIME_TYPE_FLAG && nSequenceMasked < TransactionInput.SEQUENCE_LOCKTIME_TYPE_FLAG) ||
+        (txToSequenceMasked >= TransactionInput.SEQUENCE_LOCKTIME_TYPE_FLAG && nSequenceMasked >= TransactionInput.SEQUENCE_LOCKTIME_TYPE_FLAG))) {
+      throw new ScriptException(ScriptError.SCRIPT_ERR_UNSATISFIED_LOCKTIME,"Relative locktime requirement type mismatch");
+    }
+
+// Now that we know we're comparing apples-to-apples, the
+// comparison is a simple numeric one.
+    if (nSequenceMasked > txToSequenceMasked)
+      throw new ScriptException(ScriptError.SCRIPT_ERR_UNSATISFIED_LOCKTIME,"Relative locktime requirement not satisfied");
+  }
+
+  static int getMaxScriptNumLength(bool isGenesisEnabled) {
+    if (!isGenesisEnabled) {
+      return MAX_SCRIPT_NUM_LENGTH_BEFORE_GENESIS;
+    }
+
+    return MAX_SCRIPT_NUM_LENGTH_AFTER_GENESIS; // use new limit after genesis
+  }
+
+  static int getMaxOpsPerScript(bool isGenesisEnabled) {
+    if (!isGenesisEnabled) {
+      return MAX_OPS_PER_SCRIPT_BEFORE_GENESIS; // no changes before genesis
+    }
+
+    return MAX_OPS_PER_SCRIPT_AFTER_GENESIS; // use new limit after genesis
+  }
+
+  static bool isValidMaxOpsPerScript(int nOpCount, bool isGenesisEnabled) {
+    return (nOpCount <= getMaxOpsPerScript(isGenesisEnabled));
+  }
+}
