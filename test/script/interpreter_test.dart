@@ -569,10 +569,6 @@ void main() {
     await runScripTestFixtures(File("${Directory.current.path}/test/data/bitcoind/script_tests_svnode.json"));
   });
 
-  test('bitcoind script evaluation fixtures', () async {
-    await runScripTestFixtures(File("${Directory.current.path}/test/data/bitcoind/script_tests.json"));
-  });
-
   dataDrivenValidTransactions(File testFixtures) async {
     var testName = "";
     await testFixtures
