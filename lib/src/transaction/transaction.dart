@@ -242,7 +242,8 @@ class Transaction {
     writer.writeInt32(version, Endian.little);
 
     // set the number of inputs
-    writer.write(varintBufNum(inputs.length));
+    var numInputs= VarInt.fromInt(inputs.length);
+    writer.write(numInputs.encode());
 
     // write the inputs
     inputs.forEach((input) {
@@ -250,7 +251,8 @@ class Transaction {
     });
 
     //set the number of outputs to come
-    writer.write(varintBufNum(outputs.length));
+    var numOutputs= VarInt.fromInt(outputs.length);
+    writer.write(numOutputs.encode());
 
     // write the outputs
     outputs.forEach((output) {

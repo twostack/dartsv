@@ -727,6 +727,10 @@ class SVScript {
       os.writeUint8(OpCodes.OP_PUSHDATA2);
       os.writeUint16(buf.length, Endian.little);
       os.write(buf);
+    } else if (buf.length < pow(2, 32)) {
+      os.writeUint8(OpCodes.OP_PUSHDATA4);
+      os.writeUint32(buf.length, Endian.little);
+      os.write(buf);
     } else {
       throw Exception("Unimplemented");
     }

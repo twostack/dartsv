@@ -101,7 +101,9 @@ class TransactionInput {
 
         var scriptBytes = _unlockingScriptBuilder!.getScriptSig().buffer;
 
-        writer.write(varIntWriter(scriptBytes.length).toList(), copy: true);
+        // varIntWriter(scriptBytes.length).toList()
+        var scriptSize = VarInt.fromInt(scriptBytes.length);
+        writer.write(scriptSize.encode(), copy: true);
         writer.write(scriptBytes, copy: true);
 
         writer.writeUint32(sequenceNumber, Endian.little);

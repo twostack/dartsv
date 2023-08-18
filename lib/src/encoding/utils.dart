@@ -56,24 +56,25 @@ BigInt hexToUint64(List<int> hexBuffer) {
   return BigInt.parse(HEX.encode(hexBuffer), radix: 16).toUnsigned(64);
 }
 
-List<int> varintBufNum(n) {
-//    List<int> buf ;
-  ByteDataWriter writer = ByteDataWriter();
-  if (n < 253) {
-    writer.writeUint8(n);
-  } else if (n < 0x10000) {
-    writer.writeUint8(253);
-    writer.writeUint16(n, Endian.little);
-  } else if (n < 0x100000000) {
-    writer.writeUint8(254);
-    writer.writeUint32(n, Endian.little);
-  } else {
-    writer.writeUint8(255);
-    writer.writeInt32(n & -1, Endian.little);
-    writer.writeUint32((n / 0x100000000).floor(), Endian.little);
-  }
-  return writer.toBytes().toList();
-}
+// List<int> varintBufNum(n) {
+// //    List<int> buf ;
+//   ByteDataWriter writer = ByteDataWriter();
+//   if (n < 253) {
+//     writer.writeUint8(n);
+//   } else if (n < 0x10000) {
+//     writer.writeUint8(253);
+//     writer.writeUint16(n, Endian.little);
+//   } else if (n < 0x100000000) {
+//     writer.writeUint8(254);
+//     writer.writeUint32(n, Endian.little);
+//   } else {
+//     writer.writeUint8(255);
+//     writer.writeInt32(n & -1, Endian.little);
+//     writer.writeUint32((n / 0x100000000).floor(), Endian.little);
+//   }
+//   return writer.toBytes().toList();
+// }
+
 
 Uint8List varIntWriter(int? length) {
   ByteDataWriter writer = ByteDataWriter();
@@ -114,22 +115,41 @@ Uint8List varIntWriter(int? length) {
   return writer.toBytes();
 }
 
-List<int> calcVarInt(int? length) {
-  if (length == null) return Uint8List(0);
-
-  if (length < 0xFD) return HEX.decode(length.toRadixString(16));
-
-  if (length < 0xFFFF) return HEX.decode("FD" + length.toRadixString(16));
-
-  if (length < 0xFFFFFFFF) return HEX.decode("FE" + length.toRadixString(16));
-
-  if (BigInt.parse("0xFFFFFFFFFFFFFFFF").compareTo(BigInt.from(length)) == -1)
-    return HEX.decode("FF" + length.toRadixString(16));
-
-  return Uint8List(0);
+/**
+ * Returns the minimum encoded size of the given unsigned long value.
+ *
+ * @param value the unsigned long value (beware widening conversion of negatives!)
+ */
+int sizeOf(int value) {
+  // if negative, it's actually a very large unsigned long value
+  if (value < 0) return 9; // 1 marker + 8 data bytes
+  if (value < 253) return 1; // 1 data byte
+  if (value <= 0xFFFF) return 3; // 1 marker + 2 data bytes
+  if (value <= 0xFFFFFFFF) return 5; // 1 marker + 4 data bytes
+  return 9; // 1 marker + 8 data bytes
 }
 
-//Implementation from bsv lib
+List<int> calcVarInt(int value) {
+  var writer = ByteDataWriter();
+  switch (sizeOf(value)) {
+    case 1:
+      return [value];
+    case 3:
+      writer.writeUint8(253);
+      writer.writeUint16(value, Endian.little);
+      return writer.toBytes();
+    case 5:
+      writer.writeUint8(254);
+      writer.writeUint32(value, Endian.little);
+      return writer.toBytes();
+
+    default:
+      writer.writeUint8(255);
+      writer.writeInt64(value, Endian.little);
+      return writer.toBytes();
+  }
+}
+
 int readVarIntNum(ByteDataReader reader) {
   var varint = VarInt.fromStream(reader);
   return varint.value;
@@ -154,16 +174,6 @@ BigInt readVarInt(Uint8List buffer) {
     default:
       return BigInt.from(first);
   }
-}
-
-int? getBufferOffset(int count) {
-  if (count < 0xFD) return 1;
-
-  if (count == 0xFD) return 3; //2 bytes ==  Uint16
-
-  if (count == 0xFE) return 5; //4 bytes == Uint32
-
-  if (count == 0xFF) return 9;
 }
 
 Uint8List encodeBigIntSV(BigInt number) {

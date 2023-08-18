@@ -825,5 +825,53 @@ main() {
     expect(() => interp.correctlySpends(scriptSig, scriptPubKey, txSpend,  0, scriptFlags, Coin.ZERO), returnsNormally);
 
   });
-}
 
+
+  testLargeOutput(File file) async {
+
+    var fundingTxHex = "0200000004419066dec2905bf2dd48b4983efb874e7d727fe42a888480df31168060bd9faa0000000049483045022100fd73b305714b5ecfe1ea7c37a73633ffba06a9aea218e2e431aaa33d331fac2d02203ce9c16d7abc4f1e66ffa076356ec3bfe08878bca08629fe7db75541c251007541fefffffff7aa7a800840c04eddcad5380a472dae7829e0b3f4cc0a7f943dd95deaefd4a00000000048473044022056a6436a3591e6975bf31c8265f250a64581b46aa56822a31a483006e802ae3602202e0909897f39dc1dc2e2b18ef5842c08a0a6e9e6552abe13a75dcf8fd820ce5541feffffffc82066e8120f1f2a82b1b485ce1170a7c4a148af4725146a6d7c05f64ea87c6d000000004847304402200269b3b8c43faf4a318adb87a06d6b5935a9348102cd2136fe9be1ef7c45047e02203151d9736d7f1d86467d8571dd0f0d207094c14492eb5312957b296df12e8b9e41feffffff806d7cf11b9766d6cc0fcf7d9644ffcd46b97a56bb19158e1d9c964620f684ac010000006b4830450221008403260de0b52f63ee74a758e1ffd1d78f25faea99b04914d124f2fd909f3b10022018a3b712e1ee431ba5d08116f6540361db2f2e1210444d1375758459555c435d412102726a0bf178f2cd5986fcf0ad788058d0bc1eda7dbc97fa31e1d18fdde4522ebffeffffff0200e1f505000000001976a91488d9931ea73d60eaf7e5671efc0552b912911f2a88acb7181400000000001976a91451951cf496faa66920dbd3eda83792603a83f95088aca2070000";
+    var fundingTx = Transaction.fromHex(fundingTxHex);
+    var outputAmount = fundingTx.outputs[0].satoshis;
+    var fundingOutput = fundingTx.outputs[0];
+    var changeAddress = Address.fromPublicKey(privateKey.publicKey, NetworkType.TEST);
+
+    var largeData  = await file;
+
+    var dataLockBuilder = UnspendableDataLockBuilder(largeData.readAsBytesSync());
+    var sighashType = SighashType.SIGHASH_FORKID.value | SighashType.SIGHASH_ALL.value;
+    var signer = TransactionSigner(sighashType, privateKey);
+
+    var outpoint = TransactionOutpoint(fundingTx.id, 0, outputAmount, fundingTx.outputs[0].script);
+
+    var unlocker = P2PKHUnlockBuilder(privateKey.publicKey);
+
+    var tx = TransactionBuilder()
+        .spendFromOutpointWithSigner(signer, outpoint, TransactionInput.MAX_SEQ_NUMBER, unlocker)
+        .spendToPKH(toAddress, BigInt.from(100000))
+        .spendToLockBuilder(dataLockBuilder, BigInt.zero)
+        .sendChangeToPKH(changeAddress)
+        .withFeePerKb(1000)
+        .withOption(TransactionOption.DISABLE_DUST_OUTPUTS)
+        .build(true);
+
+    // we then extract the signature from the first input
+    var inputIndex = 0;
+
+    var scriptSig = tx.inputs[0].script;
+    var scriptPubkey = fundingOutput.script;
+
+    var flags = Set<VerifyFlag>()..addAll([VerifyFlag.SIGHASH_FORKID, VerifyFlag.UTXO_AFTER_GENESIS]);
+    var interpreter = Interpreter();
+
+    interpreter.correctlySpends(scriptSig!, scriptPubkey,  tx, inputIndex, flags,  Coin.ofSat(outputAmount ));
+  }
+
+
+  test('can craft a large output txn > 256 < 65535 bytes', () async {
+    await testLargeOutput(File("${Directory.current.path}/test/data/lorem_ipsum.txt"));
+  });
+
+  test('can craft a large output txn > 65535 bytes', () async {
+    await testLargeOutput(File("${Directory.current.path}/test/data/bitcoin_whitepaper.pdf"));
+  });
+}

@@ -319,7 +319,8 @@ class Sighash {
         writer.writeUint32(input.prevTxnOutputIndex, Endian.little);
 
         // scriptCode of the input (serialized as scripts inside CTxOuts)
-        writer.write(varIntWriter(subscript.buffer.length).toList(), copy: true);
+        var scriptSize = VarInt.fromInt(subscript.buffer.length);
+        writer.write(scriptSize.encode(), copy: true);
         writer.write(subscript.buffer);
 
         // value of the output spent by this input (8-byte little endian)
