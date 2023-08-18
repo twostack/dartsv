@@ -7,6 +7,7 @@ import 'package:dartsv/src/transaction/transaction.dart';
 import 'package:dartsv/src/transaction/transaction_input.dart';
 
 import 'package:dartsv/src/transaction/transaction_output.dart';
+import 'package:dartsv/src/varint.dart';
 import 'package:hex/hex.dart';
 import 'exceptions.dart';
 import 'script/opcodes.dart';
@@ -312,7 +313,8 @@ class Sighash {
         writer.writeUint32(input.prevTxnOutputIndex, Endian.little);
 
         // scriptCode of the input (serialized as scripts inside CTxOuts)
-        writer.write(varIntWriter(subscript.buffer.length).toList(), copy: true);
+        var scriptLength = VarInt.fromInt(subscript.buffer.length);
+        writer.write( scriptLength.encode(), copy: true);
         writer.write(subscript.buffer);
 
         // value of the output spent by this input (8-byte little endian)

@@ -5,6 +5,7 @@ import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/script/svscript.dart';
 import 'package:dartsv/src/transaction/signed_unlock_builder.dart';
 import 'package:dartsv/src/transaction/transaction_output.dart';
+import 'package:dartsv/src/varint.dart';
 import 'package:hex/hex.dart';
 import 'package:buffer/buffer.dart';
 
@@ -95,8 +96,9 @@ class TransactionInput {
         writer.writeUint32(_prevTxnOutputIndex!, Endian.little);
 
         var scriptHex = HEX.decode(_scriptBuilder!.getScriptSig().toHex());
+        var scriptLength = VarInt.fromInt(scriptHex.length);
 
-        writer.write(varIntWriter(scriptHex.length).toList(), copy: true);
+        writer.write(scriptLength.encode(), copy: true);
         writer.write(scriptHex, copy: true);
 
         writer.writeUint32(sequenceNumber, Endian.little);

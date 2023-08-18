@@ -21,37 +21,18 @@ mixin DataLockMixin on _DataLockBuilder implements LockingScriptBuilder {
 
     var scriptPubkey = 'OP_FALSE OP_RETURN';
 
+    var dataScript = SVScript();
+    dataScript.add("OP_FALSE");
+    dataScript.add("OP_RETURN");
     dataStack.forEach((entry) {
 
       if (entry != null && HEX.encode(entry).isNotEmpty){
 
-        var opcodenum;
-        var len = entry.length;
-
-        if (len >= 0 && len < OpCodes.OP_PUSHDATA1) {
-          opcodenum = len;
-        } else if (len < pow(2, 8)) {
-          opcodenum = OpCodes.OP_PUSHDATA1;
-        } else if (len < pow(2, 16)) {
-          opcodenum = OpCodes.OP_PUSHDATA2;
-        } else if (len < pow(2, 32)) {
-          opcodenum = OpCodes.OP_PUSHDATA4;
-        } else {
-          throw new ScriptException("You can't push that much data");
-        }
-
-        var encodedData = HEX.encode(entry);
-
-        if (len < OpCodes.OP_PUSHDATA1) {
-          scriptPubkey = scriptPubkey + sprintf(' %s 0x%s', [len, encodedData]);
-        } else {
-          scriptPubkey = scriptPubkey + sprintf(' %s %s 0x%s', [OpCodes.fromNum(opcodenum), len, encodedData]);
-        }
+        dataScript.add(entry);
       }
 
     });
-
-    return SVScript.fromString(scriptPubkey);
+    return dataScript;
   }
 }
 

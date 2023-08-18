@@ -76,58 +76,79 @@ List<int> varintBufNum(n) {
     return writer.toBytes().toList();
 }
 
-Uint8List varIntWriter(int? length) {
-    ByteDataWriter writer = ByteDataWriter();
+// Uint8List varIntWriter(int? length) {
+//     ByteDataWriter writer = ByteDataWriter();
+//
+//     if (length == null) {
+//         return writer.toBytes();
+//     }
+//
+//     if (length < 0xFD) {
+//         writer.writeUint8(length);
+//         return writer.toBytes();
+//     }
+//
+//     if (length < 0xFFFF) {
+// //            return HEX.decode("FD" + length.toRadixString(16));
+//         writer.writeUint8(253);
+//         writer.writeUint16(length, Endian.little);
+//         return writer.toBytes();
+//     }
+//
+//     if (length < 0xFFFFFFFF) {
+// //            return HEX.decode("FE" + length.toRadixString(16));
+//
+//         writer.writeUint8(254);
+//         writer.writeUint32(length, Endian.little);
+//         return writer.toBytes();
+//     }
+//
+//     if (BigInt.parse("0xFFFFFFFFFFFFFFFF").compareTo(BigInt.from(length)) == -1) {
+// //            return HEX.decode("FF" + length.toRadixString(16));
+//
+//         writer.writeUint8(255);
+//         writer.writeInt32(length & -1, Endian.little);
+//         writer.writeUint32((length / 0x100000000).floor(), Endian.little);
+//         return writer.toBytes();
+//     }
+//
+//     return writer.toBytes();
+// }
 
-    if (length == null) {
-        return writer.toBytes();
-    }
-
-    if (length < 0xFD) {
-        writer.writeUint8(length);
-        return writer.toBytes();
-    }
-
-    if (length < 0xFFFF) {
-//            return HEX.decode("FD" + length.toRadixString(16));
-        writer.writeUint8(253);
-        writer.writeUint16(length, Endian.little);
-        return writer.toBytes();
-    }
-
-    if (length < 0xFFFFFFFF) {
-//            return HEX.decode("FE" + length.toRadixString(16));
-
-        writer.writeUint8(254);
-        writer.writeUint32(length, Endian.little);
-        return writer.toBytes();
-    }
-
-    if (BigInt.parse("0xFFFFFFFFFFFFFFFF").compareTo(BigInt.from(length)) == -1) {
-//            return HEX.decode("FF" + length.toRadixString(16));
-
-        writer.writeUint8(255);
-        writer.writeInt32(length & -1, Endian.little);
-        writer.writeUint32((length / 0x100000000).floor(), Endian.little);
-        return writer.toBytes();
-    }
-
-    return writer.toBytes();
+/**
+ * Returns the minimum encoded size of the given unsigned long value.
+ *
+ * @param value the unsigned long value (beware widening conversion of negatives!)
+ */
+int sizeOf(int value) {
+    // if negative, it's actually a very large unsigned long value
+    if (value < 0) return 9; // 1 marker + 8 data bytes
+    if (value < 253) return 1; // 1 data byte
+    if (value <= 0xFFFF) return 3; // 1 marker + 2 data bytes
+    if (value <= 0xFFFFFFFF) return 5; // 1 marker + 4 data bytes
+    return 9; // 1 marker + 8 data bytes
 }
 
-List<int> calcVarInt(int? length) {
-    if (length == null)
-        return Uint8List(0);
+List<int> calcVarInt(int value) {
 
-    if (length < 0xFD) return HEX.decode(length.toRadixString(16));
+    var writer = ByteDataWriter();
+    switch (sizeOf(value)) {
+        case 1:
+            return [value];
+        case 3:
+            writer.writeUint8(253);
+            writer.writeUint16(value, Endian.little);
+            return writer.toBytes();
+        case 5:
+            writer.writeUint8(254);
+            writer.writeUint32(value, Endian.little);
+            return writer.toBytes();
 
-    if (length < 0xFFFF) return HEX.decode("FD" + length.toRadixString(16));
-
-    if (length < 0xFFFFFFFF) return HEX.decode("FE" + length.toRadixString(16));
-
-    if (BigInt.parse("0xFFFFFFFFFFFFFFFF").compareTo(BigInt.from(length)) == -1) return HEX.decode("FF" + length.toRadixString(16));
-
-    return Uint8List(0);
+        default:
+            writer.writeUint8(255);
+            writer.writeInt64(value, Endian.little);
+            return writer.toBytes();
+    }
 }
 
 
@@ -154,41 +175,6 @@ int readVarIntNum(ByteDataReader reader){
             return first;
     }
 }
-
-
-//FIXME: Should probably have two versions of this function. One for BigInt, one for Int
-BigInt readVarInt(Uint8List buffer) {
-    var first = int.parse(HEX.encode(buffer.sublist(0, 1)), radix: 16).toUnsigned(8);
-
-    switch (first) {
-        case 0xFD :
-            return BigInt.from(hexToUint16(buffer.sublist(1, 3))); //2 bytes ==  Uint16
-
-        case 0xFE :
-            return BigInt.from(hexToUint32(buffer.sublist(1, 5))); //4 bytes == Uint32
-
-        case 0xFF :
-            return hexToUint64(buffer.sublist(1, 9)); //8 bytes == Uint64
-
-        default :
-            return BigInt.from(first);
-    }
-}
-
-int? getBufferOffset(int count) {
-    if (count < 0xFD)
-        return 1;
-
-    if (count == 0xFD)
-        return 3; //2 bytes ==  Uint16
-
-    if (count == 0xFE)
-        return 5; //4 bytes == Uint32
-
-    if (count == 0xFF)
-        return 9;
-}
-
 
 
 /// Decode a BigInt from bytes in big-endian encoding.

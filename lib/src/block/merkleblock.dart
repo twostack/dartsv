@@ -5,6 +5,7 @@ import 'package:buffer/buffer.dart';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/exceptions.dart';
 import 'package:dartsv/src/transaction/transaction.dart';
+import 'package:dartsv/src/varint.dart';
 import 'package:hex/hex.dart';
 
 import 'blockheader.dart';
@@ -285,13 +286,16 @@ class MerkleBlock {
 
         writer.write(_header!.buffer);
         writer.writeUint32(_numTransactions!, Endian.little);
-        writer.write(varIntWriter(_hashes!.length));
+
+        var hashCount = VarInt.fromInt(_hashes!.length);
+        writer.write(hashCount.encode());
 
         for (int i = 0; i < _hashes!.length; i++) {
             writer.write(HEX.decode(_hashes![i]));
         }
 
-        writer.write(varIntWriter(_flags!.length));
+        var flagSize = VarInt.fromInt(_flags!.length);
+        writer.write(flagSize.encode());
         for (int i = 0; i < _flags!.length; i++) {
             writer.writeUint8(_flags![i]);
         }

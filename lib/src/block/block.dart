@@ -6,6 +6,7 @@ import 'package:buffer/buffer.dart';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/exceptions.dart';
 import 'package:dartsv/src/transaction/transaction.dart';
+import 'package:dartsv/src/varint.dart';
 import 'package:hex/hex.dart';
 import 'blockheader.dart';
 
@@ -262,7 +263,8 @@ class Block {
         List<int> txBuf = _transactions!.fold(<int>[], (List<int> prev, Transaction tx) => prev + HEX.decode(tx.serialize(performChecks: false)));
 
         writer.write(_header!.buffer);
-        writer.write(varIntWriter(_transactions!.length).toList());
+        var txSize = VarInt.fromInt(_transactions!.length);
+        writer.write(txSize.encode());
         writer.write(txBuf);
 
         return writer.toBytes().toList();

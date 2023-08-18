@@ -54,6 +54,12 @@ class ScriptChunk {
         _buf = value;
     }
 
+    /**
+     * If this chunk is a single byte of non-pushdata content (could be OP_RESERVED or some invalid Opcode)
+     */
+    bool isOpCode() {
+      return _opcodenum > OpCodes.OP_PUSHDATA4;
+    }
 
 }
 
@@ -218,96 +224,75 @@ class SVScript with ScriptBuilder {
   }
 
   _convertChunksToByteArray() {
-//        String chunkString = _chunks.fold('', (prev, elem) => prev + _chunkToString(elem, type: 'asm'));
-//        _byteArray = Uint8List.fromList(HEX.decode(chunkString.replaceAll(' ', '')));
+        var stream =  ByteDataWriter();
 
-        var bw =  ByteDataWriter();
-
-        for (var i = 0; i < _chunks.length; i++) {
-            var chunk = _chunks[i];
-            var opcodenum = chunk.opcodenum;
-            bw.writeUint8(chunk.opcodenum);
-            if (chunk.buf.isNotEmpty) {
-                if (opcodenum < OpCodes.OP_PUSHDATA1) {
-                    bw.write(chunk.buf);
-                } else if (opcodenum == OpCodes.OP_PUSHDATA1) {
-                    bw.writeUint8(chunk.len);
-                    bw.write(chunk.buf);
-                } else if (opcodenum == OpCodes.OP_PUSHDATA2) {
-                    bw.writeUint16(chunk.len, Endian.little);
-                    bw.write(chunk.buf);
-                } else if (opcodenum == OpCodes.OP_PUSHDATA4) {
-                    bw.writeUint32(chunk.len, Endian.little);
-                    bw.write(chunk.buf);
-                }
+        for (ScriptChunk chunk in _chunks) {
+          if (chunk.isOpCode()) {
+            stream.writeUint8(chunk.opcodenum);
+          } else if (chunk.buf != null) {
+            if (chunk.opcodenum < OpCodes.OP_PUSHDATA1) {
+              stream.writeUint8(chunk.opcodenum);
+            } else if (chunk.opcodenum == OpCodes.OP_PUSHDATA1) {
+              stream.writeUint8(OpCodes.OP_PUSHDATA1);
+              stream.writeUint8(chunk.buf!.length);
+            } else if (chunk.opcodenum == OpCodes.OP_PUSHDATA2) {
+              stream.writeUint8(OpCodes.OP_PUSHDATA2);
+              stream.writeUint16(chunk.buf!.length, Endian.little);//Utils.uint16ToByteStreamLE(data.length, stream);
+            } else if (chunk.opcodenum == OpCodes.OP_PUSHDATA4) {
+              stream.writeUint8(OpCodes.OP_PUSHDATA4);
+              stream.writeUint32(chunk.buf!.length, Endian.little);//Utils.uint32ToByteStreamLE(data.length, stream);
+            } else {
+              throw new ScriptException("Unimplemented");
             }
-
+            stream.write(chunk.buf!);
+          } else {
+            stream.writeUint8(chunk.opcodenum); // smallNum
+          }
         }
 
-        _byteArray = bw.toBytes();
+        _byteArray = stream.toBytes();
     }
 
+  _processBuffer(Uint8List buffer) {
+    ByteDataReader byteDataReader = ByteDataReader();
+    byteDataReader.add(buffer);
+    while (byteDataReader.remainingLength > 0) {
+      try {
+        var opcodenum = byteDataReader.readUint8();
+        int len;
+        Uint8List buf;
+        if (opcodenum > 0 && opcodenum < OpCodes.OP_PUSHDATA1) {
+          len = opcodenum;
+          buf = byteDataReader.remainingLength >= len ? byteDataReader.read(len, copy: true) : Uint8List(0);
+          _chunks.add(ScriptChunk(buf, len, opcodenum));
+        } else if (opcodenum == OpCodes.OP_PUSHDATA1) {
+          len = byteDataReader.readUint8();
+          buf = byteDataReader.remainingLength >= len ? byteDataReader.read(len, copy: true) : Uint8List(0);
+          _chunks.add(ScriptChunk(buf, len, opcodenum));
+        } else if (opcodenum == OpCodes.OP_PUSHDATA2) {
+          len = byteDataReader.readUint16(Endian.little);
+          buf = byteDataReader.remainingLength >= len ? byteDataReader.read(len, copy: true) : Uint8List(0);
 
-    _processBuffer(Uint8List buffer) {
-        ByteDataReader byteDataReader = ByteDataReader();
-        byteDataReader.add(buffer);
-        while (byteDataReader.remainingLength > 0) {
-            try {
-                var opcodenum = byteDataReader.readUint8();
-                int len;
-                Uint8List buf;
-                if (opcodenum > 0 && opcodenum < OpCodes.OP_PUSHDATA1) {
-                    len = opcodenum;
-                    buf = byteDataReader.remainingLength >= len ? byteDataReader.read(len, copy: true) : Uint8List(0);
-                    _chunks.add(ScriptChunk(
-                        buf,
-                        len,
-                        opcodenum
-                    ));
-                } else if (opcodenum == OpCodes.OP_PUSHDATA1) {
-                    len = byteDataReader.readUint8();
-                    buf = byteDataReader.remainingLength >= len ? byteDataReader.read(len, copy: true) : Uint8List(0);
-                    _chunks.add(ScriptChunk(
-                        buf,
-                        len,
-                        opcodenum
-                    ));
-                } else if (opcodenum == OpCodes.OP_PUSHDATA2) {
-                    len = byteDataReader.readUint16(Endian.little);
-                    buf = byteDataReader.remainingLength >= len ? byteDataReader.read(len, copy: true) : Uint8List(0);
+          //Construct a scriptChunk
+          _chunks.add(ScriptChunk(buf, len, opcodenum));
+        } else if (opcodenum == OpCodes.OP_PUSHDATA4) {
+          len = byteDataReader.readUint32(Endian.little);
+          buf = byteDataReader.remainingLength >= len ? byteDataReader.read(len, copy: true) : Uint8List(0);
 
-                    //Construct a scriptChunk
-                    _chunks.add(ScriptChunk(
-                        buf,
-                        len,
-                        opcodenum
-                    ));
-                } else if (opcodenum == OpCodes.OP_PUSHDATA4) {
-                    len = byteDataReader.readUint32(Endian.little);
-                    buf = byteDataReader.remainingLength >= len ? byteDataReader.read(len, copy: true) : Uint8List(0);
-
-                    _chunks.add(ScriptChunk(
-                        buf,
-                        len,
-                        opcodenum
-                    ));
-                } else {
-                    _chunks.add(ScriptChunk(
-                        [],
-                        0,
-                        opcodenum
-                    ));
-                }
-            } catch (e) {
-
-                throw  ScriptException(HEX.encode(buffer));
-            }
-        };
-
-        _convertChunksToByteArray();
+          _chunks.add(ScriptChunk(buf, len, opcodenum));
+        } else {
+          _chunks.add(ScriptChunk([], 0, opcodenum));
+        }
+      } catch (e) {
+        throw ScriptException(HEX.encode(buffer));
+      }
     }
+    ;
 
-    _processChunks(String script) {
+    _convertChunksToByteArray();
+  }
+
+  _processChunks(String script) {
         if (script
             .trim()
             .isEmpty) {
