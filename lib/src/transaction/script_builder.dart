@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:dartsv/dartsv.dart';
@@ -42,7 +43,7 @@ class ScriptBuilder {
     int opcode;
 
     if (data.length == 0) {
-      opcode = 0;
+      opcode = OpCodes.OP_0;
     } else if (data.length == 1) {
       int b = data[0];
       if (b >= 1 && b <= 16) {
@@ -50,16 +51,16 @@ class ScriptBuilder {
       } else {
         opcode = 1;
       }
-    } else if (data.length < 76) {
+    } else if (data.length < OpCodes.OP_PUSHDATA1) {
       opcode = data.length;
     } else if (data.length < 256) {
-      opcode = 76;
-    } else {
-      if (data.length >= 65536) {
-        throw new Exception("Unimplemented");
-      }
-
-      opcode = 77;
+      opcode = OpCodes.OP_PUSHDATA1;
+    } else if (data.length < 65536) {
+      opcode = OpCodes.OP_PUSHDATA2;
+    } else if (data.length < pow(2, 32)){
+      opcode = OpCodes.OP_PUSHDATA4;
+    }else{
+      throw Exception ("Data push of > 2Gb size is not supported");
     }
 
     return this.insertChunk(index, ScriptChunk(copy, copy.length, opcode));

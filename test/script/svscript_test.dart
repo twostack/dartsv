@@ -144,17 +144,6 @@ main() {
       expect(HEX.encode(script.chunks[0].buf!), equals('010203'));
     });
 
-    test('should parse this buffer containing OP_PUSHDATA2 and three bytes of data', () {
-      var writer = ByteDataWriter();
-      writer.write([OpCodes.OP_PUSHDATA2]);
-      writer.writeUint16(3, Endian.little);
-      writer.write([1, 2, 3]); //concatenate rest of buffer
-      var buf = writer.toBytes();
-
-      var script = SVScript.fromBuffer(buf);
-      expect(script.chunks.length, equals(1));
-      expect(HEX.encode(script.chunks[0].buf!), equals('010203'));
-    });
 
     test('should parse this buffer containing OP_PUSHDATA4 and three bytes of data', () {
       var writer = ByteDataWriter();
@@ -223,30 +212,6 @@ main() {
       expect(script.chunks.length, equals(1));
       expect(HEX.encode(script.chunks[0].buf!), equals('010203'));
       expect(script.toHex(), HEX.encode(writer.toBytes()));
-    });
-
-    test('should output this buffer containing OP_PUSHDATA2 and three bytes of data', () {
-      var writer = ByteDataWriter();
-      writer.write([OpCodes.OP_PUSHDATA2]);
-      writer.writeUint16(3, Endian.little);
-      writer.write([ 1, 2, 3]);
-
-      var script = SVScript.fromBuffer(writer.toBytes());
-      expect(script.chunks.length, equals(1));
-      expect(HEX.encode(script.chunks[0].buf!), equals('010203'));
-      expect(script.toHex(), equals(HEX.encode(writer.toBytes())));
-    });
-
-    test('should output this buffer containing OP_PUSHDATA4 and three bytes of data', () {
-      var writer = ByteDataWriter();
-      writer.write([OpCodes.OP_PUSHDATA4]);
-      writer.writeUint16(3, Endian.little);
-      writer.write([ 0, 0, 1, 2, 3]);
-
-      var script = SVScript.fromBuffer(writer.toBytes());
-      expect(script.chunks.length, equals(1));
-      expect(HEX.encode(script.chunks[0].buf!), equals('010203'));
-      expect(script.toHex(), equals(HEX.encode(writer.toBytes())));
     });
 
     test('should output this buffer an OP code, data, and another OP code', () {

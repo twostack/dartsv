@@ -202,8 +202,7 @@ void main() {
       }
     } on ScriptException catch (e) {
       if (!(e.error == expectedError)) {
-        print(thisTest);
-        print(e);
+        print("${e.error} - ${e.cause}");
         throw e;
       }
     }
@@ -240,7 +239,7 @@ void main() {
     });
   }
 
-  test('bitcoin SV Node script evaluation fixtures', () async {
+  test('bitcoin SV Node Test vectors', () async {
     await runScripTestFixtures(File("${Directory.current.path}/test/data/bitcoind/script_tests_svnode.json"));
   });
 
