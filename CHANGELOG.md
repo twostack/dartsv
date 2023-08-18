@@ -1,3 +1,6 @@
+## 1.1.2
+- Fixed bugs that prevented large data pushes from being accepted by network
+
 ## 1.1.1
 - downgraded test dependencies to for Flutter compatibility
 

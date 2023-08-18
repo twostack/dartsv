@@ -922,7 +922,7 @@ main() {
       expect(interpreter.errstr, equals(""));
       expect(verified, isTrue);
 
-      print(tx.serialize());
+      // print(tx.serialize());
 
   });
 
