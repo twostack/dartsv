@@ -829,11 +829,14 @@ main() {
 
   testLargeOutput(File file) async {
 
-    var fundingTxHex = "0200000004419066dec2905bf2dd48b4983efb874e7d727fe42a888480df31168060bd9faa0000000049483045022100fd73b305714b5ecfe1ea7c37a73633ffba06a9aea218e2e431aaa33d331fac2d02203ce9c16d7abc4f1e66ffa076356ec3bfe08878bca08629fe7db75541c251007541fefffffff7aa7a800840c04eddcad5380a472dae7829e0b3f4cc0a7f943dd95deaefd4a00000000048473044022056a6436a3591e6975bf31c8265f250a64581b46aa56822a31a483006e802ae3602202e0909897f39dc1dc2e2b18ef5842c08a0a6e9e6552abe13a75dcf8fd820ce5541feffffffc82066e8120f1f2a82b1b485ce1170a7c4a148af4725146a6d7c05f64ea87c6d000000004847304402200269b3b8c43faf4a318adb87a06d6b5935a9348102cd2136fe9be1ef7c45047e02203151d9736d7f1d86467d8571dd0f0d207094c14492eb5312957b296df12e8b9e41feffffff806d7cf11b9766d6cc0fcf7d9644ffcd46b97a56bb19158e1d9c964620f684ac010000006b4830450221008403260de0b52f63ee74a758e1ffd1d78f25faea99b04914d124f2fd909f3b10022018a3b712e1ee431ba5d08116f6540361db2f2e1210444d1375758459555c435d412102726a0bf178f2cd5986fcf0ad788058d0bc1eda7dbc97fa31e1d18fdde4522ebffeffffff0200e1f505000000001976a91488d9931ea73d60eaf7e5671efc0552b912911f2a88acb7181400000000001976a91451951cf496faa66920dbd3eda83792603a83f95088aca2070000";
+    //fundingTxHex with at least 0.5 bitcoin locked in Output[0] and spendable by "privateKey" variable
+    var fundingTxHex = "02000000066073650adc5592616f3e103a7fc44afe2c8bca12c4e74745df40f3fa75385b6a0000000049483045022100ef53112f0385c43662f771997e4c764981fc5849f2fd714c5acea0aed0e2946e02202344aed194ed5aa47b946911b19df20bdbd9ab4d643632ed719d60942e2693c041feffffff22954849265e24fb0ceb9e51169cb4fc1c5b19f23fa57faa19980a92abecedc10000000049483045022100850575b97f912c6193f743d51cefc60bb5feea59558956db396f4849809d4d0b02200bd171eb869cf51dbb6aad9ee120520b6bc95f581ca365442970593dcfb7155a41feffffff750362cdfb3abf942ef2d9c1e6fe2e09e5e043a4a210944b9a28efe7662566420000000049483045022100f576e3e24d4e54be21c5e6adc6fccda99c59c3bb5d29ef73be29f7c7fc62e542022036e45ebf8bc95d043ec04cad88f200263de04241f653cca7458ed2051afb19ba41feffffff89cf145b3682c4d9508f7ce7e055d86090c279a1cfc069831508207ed3cd6ef3000000004847304402202e1b00a4f95a2a234c5f7c7e235b9e71c495d746b882930c4acebbe6f0ef51c202205155b873e7d5c7d64a04670d8f97d981fdeded3a05a5cadcfec86e23ce8c117741feffffffc4974ba60edc773723401d2215f9d286b872db4b6083c187e03aaf70c6f27a6b010000006a47304402201ff0969a3ebe8efa94a052c27a27bae21f83917f8f8b70c5e98abcb208b7ebe702200a7ceb66f03e352415145ff9d73edb559270a9a78526b1e67cd676f1217e1ceb4121028d6f19251b58baf0f561865adefc4550bfa72e94813b860d6095038fe1f32b22feffffff2a3c48e411ebf605dc03854321c157ec1ed8c0ffa7b0236d8f539d4f1099896e000000004847304402201834041195743a7821ea24c9a977f011a2be4cf717fcf8d3853b62f81cdd917c0220086da5e9bd72dac4ad89fec127572ad8b153c5a52cbe0bcf59f6dddd334eef1141feffffff0280f0fa02000000001976a91488d9931ea73d60eaf7e5671efc0552b912911f2a88ac3d2c1000000000001976a91453b4272cd0a2f32d3e1079822a90097dfff1a07688ac37090000";
     var fundingTx = Transaction.fromHex(fundingTxHex);
     var outputAmount = fundingTx.outputs[0].satoshis;
     var fundingOutput = fundingTx.outputs[0];
     var changeAddress = Address.fromPublicKey(privateKey.publicKey, NetworkType.TEST);
+
+    //address : mszYqVnqKoQx4jcTdJXxwKAissE3Jbrrc1
 
     var largeData  = await file;
 
@@ -845,14 +848,15 @@ main() {
 
     var unlocker = P2PKHUnlockBuilder(privateKey.publicKey);
 
-    var tx = TransactionBuilder()
+    var builder = TransactionBuilder()
         .spendFromOutpointWithSigner(signer, outpoint, TransactionInput.MAX_SEQ_NUMBER, unlocker)
         .spendToPKH(toAddress, BigInt.from(100000))
-        .spendToLockBuilder(dataLockBuilder, BigInt.zero)
+        .spendToLockBuilder(dataLockBuilder, BigInt.one)
         .sendChangeToPKH(changeAddress)
-        .withFeePerKb(1000)
-        .withOption(TransactionOption.DISABLE_DUST_OUTPUTS)
-        .build(true);
+        .withFeePerKb(50)
+        .withOption(TransactionOption.DISABLE_DUST_OUTPUTS);
+
+    var tx = builder.build(true);
 
     // we then extract the signature from the first input
     var inputIndex = 0;
@@ -864,6 +868,9 @@ main() {
     var interpreter = Interpreter();
 
     interpreter.correctlySpends(scriptSig!, scriptPubkey,  tx, inputIndex, flags,  Coin.ofSat(outputAmount ));
+
+    print("[ \n\n\n ${tx.serialize()} \n\n\n ]");
+    print("Miner fee - ${builder.getFee()}");
   }
 
 
@@ -873,5 +880,9 @@ main() {
 
   test('can craft a large output txn > 65535 bytes', () async {
     await testLargeOutput(File("${Directory.current.path}/test/data/bitcoin_whitepaper.pdf"));
+  });
+
+  test('print address', () async {
+    print(Address.fromPublicKey(privateKey.publicKey, NetworkType.TEST));
   });
 }

@@ -1,3 +1,8 @@
+## 2.0.0-rc2
+- Large data Transaction fixes. There was a bug which prevented the crafting of
+  large data transactions, i.e transactions with outputs that have PUSHDATA operations
+  that pushed more than 65k bytes onto the stack. 
+
 ## 2.0.0-rc1
 
 Version 2.x is a major refactor of the internals. 

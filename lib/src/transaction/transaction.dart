@@ -77,7 +77,6 @@ class Transaction {
   final ECDSASigner _dsaSigner = ECDSASigner(null, HMac(_sha256Digest, 64));
   final ECDomainParameters _domainParams = ECDomainParameters('secp256k1');
 
-  BigInt? _fee;
   bool _changeScriptFlag = false;
 
   var CURRENT_VERSION = 1;
