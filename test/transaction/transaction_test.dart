@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:collection/collection.dart';
 import 'package:dartsv/dartsv.dart';
 import 'package:test/test.dart';
 
@@ -220,13 +221,11 @@ main() {
     expect(transaction.serialize(), equals(tx1hex));
   });
 
+  group('transaction creation/serialization test vectors ', () {
+    var bipFileContents = File("${Directory.current.path}/test/data/tx_creation.json").readAsStringSync();
+    List.from(jsonDecode(bipFileContents)).forEachIndexed((index, item) {
 
-  test('transaction creation/serialization test vectors', () async {
-    await File("${Directory.current.path}/test/data/tx_creation.json")
-        .readAsString()
-        .then((contents) => jsonDecode(contents))
-        .then((jsonData) {
-      List.from(jsonData).forEach((item) {
+      test("Txn Vector #${index}", (){
         var privKey = SVPrivateKey.fromWIF(item['sign'][0]);
         Map<String, dynamic> utxoMap = item['from'][0][0];
 
@@ -247,6 +246,7 @@ main() {
         signer.sign(transaction, TransactionOutput(satoshis, scriptPubKey), 0);
         expect(transaction.serialize(), equals(item['serialize']));
       });
+
     });
   });
 
@@ -691,52 +691,47 @@ main() {
       return sorted.map((value) => original.indexOf(value)).toList();
     };
 
-    test('input sorting ', () async {
-      await File("${Directory.current.path}/test/data/bip69.json")
-          .readAsString()
-          .then((contents) => jsonDecode(contents))
-          .then((jsonData) {
-        HashMap.from(jsonData)["inputs"].forEach((vector) {
-          var inputSet = vector["inputs"];
-          var tx = new Transaction();
-          var txInputs = inputSet.map((input) {
-            return TransactionInput(
+    var bipFileContents = File("${Directory.current.path}/test/data/bip69.json").readAsStringSync();
+    HashMap.from(jsonDecode(bipFileContents))
+        .forEach((key, value) {
+      if (key == "outputs") {
+        value.forEach((outputSet) =>{
+          test("Input - ${outputSet['description']}", (){
+            var tx = new Transaction();
+
+            var txOutputs = outputSet["outputs"].map((output) {
+              var txOut = TransactionOutput(BigInt.from(output["value"]), P2PKHDataLockBuilder.fromAddress(fromAddress, utf8.encode(output["script"])).getScriptPubkey());
+              return txOut;
+            }).toList();
+
+            List<TransactionOutput> outputs = List<TransactionOutput>.from(txOutputs);
+            tx.outputs.addAll(outputs);
+            tx.sort();
+            expect(getIndexOrder(outputs, tx.outputs), equals(outputSet["expected"]));
+          })
+        });
+      }else if(key == "inputs"){
+        value.forEach((inputSet) => {
+          test("Output - ${inputSet['description']}", (){
+
+            var tx = new Transaction();
+            var txInputs = inputSet["inputs"].map((input) {
+              return TransactionInput(
                 input["txId"],
                 input["vout"],
                 TransactionInput.MAX_SEQ_NUMBER,
                 scriptBuilder: DefaultUnlockBuilder.fromScript(SVScript()));
-          }).toList();
+            }).toList();
 
-          List<TransactionInput> inputs = List<TransactionInput>.from(txInputs);
-          tx.inputs.addAll(inputs);
-          tx.sort();
-          expect(getIndexOrder(inputs, tx.inputs), equals(vector["expected"]));
+            List<TransactionInput> inputs = List<TransactionInput>.from(txInputs);
+            tx.inputs.addAll(inputs);
+            tx.sort();
+            expect(getIndexOrder(inputs, tx.inputs), equals(inputSet["expected"]));
+          })
         });
-      });
+      }
     });
 
-
-    test('output sorting ', () async {
-      await File("${Directory.current.path}/test/data/bip69.json")
-          .readAsString()
-          .then((contents) => jsonDecode(contents))
-          .then((jsonData) {
-        HashMap.from(jsonData)["outputs"].forEach((vector) {
-          var outputSet = vector["outputs"];
-          var tx = new Transaction();
-
-          var txOutputs = outputSet.map((output) {
-            var txOut = TransactionOutput(BigInt.from(output["value"]), P2PKHDataLockBuilder.fromAddress(fromAddress, utf8.encode(output["script"])).getScriptPubkey());
-            return txOut;
-          }).toList();
-
-          List<TransactionOutput> outputs = List<TransactionOutput>.from(txOutputs);
-          tx.outputs.addAll(outputs);
-          tx.sort();
-          expect(getIndexOrder(outputs, tx.outputs), equals(vector["expected"]));
-        });
-      });
-    });
   });
 
 
