@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:buffer/buffer.dart';
+import 'package:collection/collection.dart';
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/script/interpreter.dart';
@@ -209,54 +210,52 @@ void main() {
 
   };
 
-  runScripTestFixtures(File fixtureFile) async {
+  runScripTestFixtures(testData) {
+    var testName = "";
+    List.from(jsonDecode(testData)).forEachIndexed((index, vect) {
+      if (vect.length == 1) {
+        testName = vect[0];
+      } else {
 
-    await fixtureFile
-        .readAsString()
-        .then((contents) => jsonDecode(contents))
-        .then((jsonData) {
-      List.from(jsonData).forEach((vect) {
-        if (vect.length == 1) {
-          return;
+        if (vect.length == 5){
+          testName = vect[4];
+        }else{
+          testName = "vector #${index}";
         }
-        var extraData;
-        if (vect[0] is List) {
+        test("${testName}",() {
+          var extraData;
+          if (vect[0] is List) {
           extraData = (vect as List<dynamic>).removeAt(0);
-        }
+          }
 
-        String fullScriptString = "${vect[0]} ${vect[1]}";
-        bool expected = vect[3] == 'OK';
-        String comment = "";
-        if (vect.length > 4) {
+          String fullScriptString = "${vect[0]} ${vect[1]}";
+          bool expected = vect[3] == 'OK';
+          String comment = "";
+          if (vect.length > 4) {
           comment = vect[4];
-        }
+          }
 
-        var txt = "should ${vect[3]} script_tests vector : ${fullScriptString}${comment}";
-        print(txt);
+          var txt = "should ${vect[3]} script_tests vector : ${fullScriptString}${comment}";
+          print(txt);
 
-        testFixture(vect, expected, extraData);
-      });
+          testFixture(vect, expected, extraData);
+        });
+      }
     });
   }
 
-  test('bitcoin SV Node Test vectors', () async {
-    await runScripTestFixtures(File("${Directory.current.path}/test/data/bitcoind/script_tests_svnode.json"));
-  });
 
-  dataDrivenValidTransactions(File testFixtures) async {
+  dataDrivenValidTransactions(testData){
     var testName = "";
-    await testFixtures
-        .readAsString()
-        .then((contents) => jsonDecode(contents))
-        .then((jsonData) {
-      List.from(jsonData).forEach((vect) {
+    List.from(jsonDecode(testData)).forEach((vect){
 
-        if (vect.length == 1) {
-          testName = vect[0];
-          print("Testing : ${testName}");
-        }
+      if(vect.length == 1){
+        testName = vect[0];
+      }
 
-        if (vect.length > 1) {
+      if (vect.length > 1) {
+        test("$testName", (){
+
           Transaction spendingTx;
 
           try {
@@ -283,7 +282,7 @@ void main() {
                 input.prevTxnOutputIndex = -1;
               }
 
-              print("Spending INPUT : [${i}]");
+              // print("Spending INPUT : [${i}]");
 
               //reconstruct the key into our Map of Public Keys using the details from
               //the parsed transaction
@@ -307,94 +306,106 @@ void main() {
 
             throw e;
           }
-        }
-      });
+
+        });
+      }
     });
   }
 
-  dataDrivenInValidTransactions(File testFixtures) async {
+  dataDrivenInValidTransactions(testData) async {
+
     var testName = "";
-    await testFixtures.readAsString().then((contents) => jsonDecode(contents)).then((jsonData) {
-      List.from(jsonData).forEach((vect) {
+    List.from(jsonDecode(testData)).forEach((vect){
+
         if (vect.length == 1) {
           testName = vect[0];
           print("Testing : ${testName}");
         }
 
         if (vect.length > 1) {
-          Transaction spendingTx;
-          bool valid = true;
 
-          try {
-            var inputs = vect[0];
-            var map = {};
-            inputs.forEach((input) {
-              var txid = input[0];
-              var txoutnum = input[1];
-              var scriptPubKeyStr = input[2];
-              map[txid + ':' + txoutnum.toString()] = parseScriptString(scriptPubKeyStr);
-            });
+          test("$testName", ()
+          {
+            Transaction spendingTx;
+            bool valid = true;
 
-            spendingTx = Transaction.fromHex(vect[1]);
-            spendingTx.version = 1;
             try {
-              spendingTx.verify();
-            } on Exception catch (ex) {
+              var inputs = vect[0];
+              var map = {};
+              inputs.forEach((input) {
+                var txid = input[0];
+                var txoutnum = input[1];
+                var scriptPubKeyStr = input[2];
+                map[txid + ':' + txoutnum.toString()] = parseScriptString(scriptPubKeyStr);
+              });
+
+              spendingTx = Transaction.fromHex(vect[1]);
+              spendingTx.version = 1;
+              try {
+                spendingTx.verify();
+              } on Exception catch (ex) {
+                valid = false;
+              }
+
+              ///all this ceremony to extract Verify Flags
+              var verifyFlags = parseVerifyFlags(vect[2]);
+
+              for (int i = 0; i < spendingTx.inputs.length; i++) {
+                TransactionInput input = spendingTx.inputs[i];
+                if (input.prevTxnOutputIndex == 0xffffffff) {
+                  input.prevTxnOutputIndex = -1;
+                }
+
+                print("Spending INPUT : [${i}]");
+
+                //reconstruct the key into our Map of Public Keys using the details from
+                //the parsed transaction
+                // String txId = HEX.encode(input.prevTxnId);
+                String keyName = "${input.prevTxnId}:${input.prevTxnOutputIndex}";
+
+                //assert that our parsed transaction has correctly extracted the provided
+                //UTXO details
+                // expect(scriptPubKeys.containsKey(keyName), true);
+                var interp = Interpreter();
+                interp.correctlySpends(input.script!, map[keyName], spendingTx, i, verifyFlags, Coin.ZERO);
+
+                //TODO: Would be better to assert expectation that no exception is thrown ?
+                //Ans: The whole of the Script Interpreter uses Exception-Handling for error-handling. So no,
+                //     not without a deep refactor of the code.
+              }
+            } on Exception catch (e) {
               valid = false;
             }
 
-            ///all this ceremony to extract Verify Flags
-            var verifyFlags = parseVerifyFlags(vect[2]);
-
-            for (int i = 0; i < spendingTx.inputs.length; i++) {
-              TransactionInput input = spendingTx.inputs[i];
-              if (input.prevTxnOutputIndex == 0xffffffff) {
-                input.prevTxnOutputIndex = -1;
-              }
-
-              print("Spending INPUT : [${i}]");
-
-              //reconstruct the key into our Map of Public Keys using the details from
-              //the parsed transaction
-              // String txId = HEX.encode(input.prevTxnId);
-              String keyName = "${input.prevTxnId}:${input.prevTxnOutputIndex}";
-
-              //assert that our parsed transaction has correctly extracted the provided
-              //UTXO details
-              // expect(scriptPubKeys.containsKey(keyName), true);
-              var interp = Interpreter();
-              interp.correctlySpends(input.script!, map[keyName], spendingTx, i, verifyFlags, Coin.ZERO);
-
-              //TODO: Would be better to assert expectation that no exception is thrown ?
-              //Ans: The whole of the Script Interpreter uses Exception-Handling for error-handling. So no,
-              //     not without a deep refactor of the code.
-            }
-          } on Exception catch (e) {
-            valid = false;
-          }
-
-          if (valid) fail(testName);
+            if (valid) fail(testName);
+          });
         }
       });
-    });
   }
 
-
-  test('bitcoin SV Node valid transaction evaluation fixtures', () async {
-    await dataDrivenValidTransactions(File("${Directory.current.path}/test/data/bitcoind/tx_valid_svnode.json"));
+  group('bitcoin SV Node Test vectors', () {
+    var testData = File("${Directory.current.path}/test/data/bitcoind/script_tests_svnode.json").readAsStringSync();
+    runScripTestFixtures(testData);
   });
 
-
-  test('bitcoin SV Node invalid transaction evaluation fixtures', () async {
-    await dataDrivenInValidTransactions(File("${Directory.current.path}/test/data/bitcoind/tx_invalid_svnode.json"));
+  group('bitcoin SV Node valid transaction evaluation fixtures', () {
+    var testData = File("${Directory.current.path}/test/data/bitcoind/tx_valid_svnode.json").readAsStringSync();
+    dataDrivenValidTransactions(testData);
   });
 
-  test('bitcoind valid transaction evaluation fixtures', () async {
-    await dataDrivenValidTransactions(File("${Directory.current.path}/test/data/bitcoind/tx_valid.json"));
+  group('bitcoin SV Node invalid transaction evaluation fixtures', () {
+    var testData = File("${Directory.current.path}/test/data/bitcoind/tx_invalid_svnode.json").readAsStringSync();
+    dataDrivenInValidTransactions(testData);
   });
 
-  test('bitcoind invalid transaction evaluation fixtures', () async {
-    await dataDrivenInValidTransactions(File("${Directory.current.path}/test/data/bitcoind/tx_invalid.json"));
+  group('bitcoind valid transaction evaluation fixtures', () {
+    var testData = File("${Directory.current.path}/test/data/bitcoind/tx_valid.json").readAsStringSync();
+    dataDrivenValidTransactions(testData);
+  });
+
+  group('bitcoind invalid transaction evaluation fixtures', () {
+    var testData = File("${Directory.current.path}/test/data/bitcoind/tx_invalid.json").readAsStringSync();
+    dataDrivenInValidTransactions(testData);
   });
 
 
