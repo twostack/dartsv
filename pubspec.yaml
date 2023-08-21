@@ -4,7 +4,7 @@ version: 2.0.0-rc2
 homepage: https://github.com/twostack/dartsv
 
 environment:
-  sdk: '>=2.18.0 <4.0.0'
+  sdk: '>=2.17.0 <4.0.0'
 
 dependencies:
   hex: ^0.2.0
