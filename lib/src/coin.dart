@@ -1,6 +1,5 @@
 import 'dart:math';
 
-import 'package:dartsv/src/transaction/preconditions.dart';
 import 'package:decimal/decimal.dart';
 
 /**
