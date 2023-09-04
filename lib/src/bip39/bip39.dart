@@ -42,7 +42,7 @@ class Mnemonic {
   Wordlist DEFAULT_WORDLIST = Wordlist.ENGLISH;
 
   static const int _SIZE_8BITS = 255;
-  static const String _INVALID_ENTROPY = 'Invalid entroy';
+  static const String _INVALID_ENTROPY = 'Invalid entropy';
   static const String _INVALID_MNEMONIC = 'Invalid mnemonic';
   static const String _INVALID_CHECKSUM = 'Invalid checksum';
 
@@ -71,7 +71,19 @@ class Mnemonic {
 
     final entropy = randomBytes(strength ~/ 8);
 
-    return await _entropyToMnemonic(entropy);
+    return await _entropyToMnemonic(entropy, loadWordResource);
+  }
+
+
+
+
+  Future<String> generateMnemonic2(Future<String> Function(Wordlist? wordlist, String wordListName) loader, { int strength = 128, RandomBytes randomBytes = _nextBytes }) async {
+
+    assert(strength % 32 == 0);
+
+    final entropy = randomBytes(strength ~/ 8);
+
+    return await _entropyToMnemonic(entropy, loader);
   }
 
   /// Converts [mnemonic] code to seed.
@@ -107,7 +119,17 @@ class Mnemonic {
   /// Returns *true* if the mnemonic is valid
   Future<bool> validateMnemonic(String mnemonic) async {
     try {
-      await _mnemonicToEntropy(mnemonic);
+      await _mnemonicToEntropy(mnemonic, loadWordResource);
+    } catch (e) {
+      return false;
+    }
+    return true;
+  }
+
+  Future<bool> validateMnemonic2(String mnemonic,  Future<String> Function(Wordlist? wordlist, String wordListName) loader ) async {
+
+    try {
+      await _mnemonicToEntropy(mnemonic, loader);
     } catch (e) {
       return false;
     }
@@ -118,11 +140,11 @@ class Mnemonic {
   ///
   /// [wordList] - The word list to return words for
   Future<List<String> ?> getWordList(Wordlist wordList) async {
-    return _loadWordlist(wordList);
+    return _loadWordlist(wordList, loadWordResource);
   }
 
   /// Converts [entropy] to mnemonic code.
-  Future<String> _entropyToMnemonic(Uint8List entropy) async {
+  Future<String> _entropyToMnemonic(Uint8List entropy, Future<String> Function(Wordlist? wordlist, String wordListName) loader) async {
 
     if (entropy.length < 16) {
       throw ArgumentError(_INVALID_ENTROPY);
@@ -145,7 +167,7 @@ class Mnemonic {
         .map((match) => match.group(0))
         .toList(growable: false);
 
-    _wordRes = await _loadWordlist(DEFAULT_WORDLIST);
+    _wordRes = await _loadWordlist(DEFAULT_WORDLIST, loader);
 
     return chunks
         .map((binary) => _wordRes![_binaryToByte(binary!)])
@@ -155,8 +177,8 @@ class Mnemonic {
   /// Converts [mnemonic] code to entropy.
   ///
   /// [mnemonic] - An existing mnemonic string that will be deterministically converted into a seed.
-  Future<Uint8List> _mnemonicToEntropy(String mnemonic) async {
-    _wordRes = await _loadWordlist(DEFAULT_WORDLIST);
+  Future<Uint8List> _mnemonicToEntropy(String mnemonic, Future<String> Function(Wordlist? wordlist, String wordListName) loader) async {
+    _wordRes = await _loadWordlist(DEFAULT_WORDLIST, loader);
     final words = nfkd(mnemonic).split(' ');
 
     if (words.length % 3 != 0) {
@@ -230,12 +252,18 @@ class Mnemonic {
   }
 
 
-  Future<List<String>?> _loadWordlist(Wordlist? wordlist) async {
+  Future<String> Function(Wordlist? wordlist, String wordListName) loadWordResource = (wordlist, wordlistName) async {
+    final res = Resource( 'package:dartsv/src/bip39/wordlists/${wordlistName}.txt');
+    final rawWords = await res.readAsString(encoding: utf8);
+    return rawWords;
+  };
+
+
+  Future<List<String>?> _loadWordlist(Wordlist? wordlist, Future<String> Function(Wordlist? wordlist, String wordListName) wordLoader) async {
     if (_wordlistCache.containsKey(wordlist)) {
       return _wordlistCache[wordlist] as FutureOr<List<String>?>;
     } else {
-      final res = Resource( 'package:dartsv/src/bip39/wordlists/${_getWordlistName(wordlist)}.txt');
-      final rawWords = await res.readAsString(encoding: utf8);
+      String rawWords = await wordLoader(wordlist, _getWordlistName(wordlist));
       final result = rawWords
           .split('\n')
           .map((s) => s.trim())
@@ -245,6 +273,7 @@ class Mnemonic {
       return result;
     }
   }
+
 
   String _getWordlistName(Wordlist? wordlist) {
     switch (wordlist) {
