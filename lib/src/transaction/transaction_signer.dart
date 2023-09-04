@@ -62,7 +62,7 @@ class TransactionSigner {
     return unsignedTxn; //signature has been added
   }
 
-  SVSignature signPreimage(SVPrivateKey signingKey, Uint8List preImage, int sigHashType) {
+  static SVSignature signPreimage(SVPrivateKey signingKey, Uint8List preImage, int sigHashType) {
 
     var hash = sha256Twice(preImage.toList());
     var hashHex = HEX.encode(hash);
