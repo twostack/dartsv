@@ -103,7 +103,7 @@ class Coin {
   static Coin parseCoin(final String str) {
     try {
       BigInt satoshis = Decimal.parse(str)
-          .shift(SMALLEST_UNIT_EXPONENT)
+          .shift(-SMALLEST_UNIT_EXPONENT)
           .toBigInt();
       return Coin.valueOf(satoshis);
     } on FormatException catch (e) {
@@ -128,7 +128,7 @@ class Coin {
    * @return number of bitcoins (in BTC)
    */
   static Decimal satoshiToBtc(BigInt satoshis) {
-    return new Decimal.fromBigInt(satoshis).shift(SMALLEST_UNIT_EXPONENT);
+    return new Decimal.fromBigInt(satoshis).shift(-SMALLEST_UNIT_EXPONENT);
   }
 
   /**
@@ -174,7 +174,7 @@ class Coin {
   static Coin parseCoinInexact(final String str) {
     try {
       BigInt satoshis = Decimal.parse(str)
-          .shift(SMALLEST_UNIT_EXPONENT)
+          .shift(-SMALLEST_UNIT_EXPONENT)
           .toBigInt();
       return Coin.valueOf(satoshis);
     } on FormatException catch (e) {
