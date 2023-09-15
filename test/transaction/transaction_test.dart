@@ -194,7 +194,7 @@ main() {
         .build(true);
 
     expect(transaction.outputs.length, equals(2));
-    expect(transaction.outputs[1].satoshis, equals(BigInt.from(499744)));
+    expect(transaction.outputs[1].satoshis, equals(BigInt.from(499997)));
     expect(transaction.outputs[1].script.toString(), equals(P2PKHLockBuilder.fromAddress(changeAddress).getScriptPubkey().toString()));
     var changeLocker = P2PKHLockBuilder.fromAddress(changeAddress);
 
@@ -385,7 +385,7 @@ main() {
     var transaction = builder.build(false);
 
     expect(transaction.outputs.length, equals(2));
-    expect(transaction.outputs[1].satoshis, equals(BigInt.from(49744)));
+    expect(transaction.outputs[1].satoshis, equals(BigInt.from(49997)));
   });
 
 

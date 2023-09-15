@@ -392,9 +392,9 @@ class TransactionBuilder {
       throw new TransactionException("Invalid quantity of satoshis");
     }
 
-    if (_changeOutput == null){
-      throw new TransactionFeeException("No change output was specified");
-    }
+    // if (_changeOutput == null){
+    //   throw new TransactionException("No change output was specified");
+    // }
 
     BigInt inOutDiff =  calcInputTotals() - calcRecipientTotals();
     if (inOutDiff < BigInt.zero) {
@@ -582,8 +582,9 @@ class TransactionBuilder {
     }
 
     //if no change output set, fees should equal to all the unspent amount
-    if (_changeOutput == null) {
-      return calcInputTotals() - calcRecipientTotals();
+    var fee = calcInputTotals() - calcRecipientTotals();
+    if (_changeOutput == null && fee > BigInt.zero) {
+      return fee;
     }
 
     return estimateFee();
@@ -592,13 +593,13 @@ class TransactionBuilder {
   BigInt estimateFee() {
     int size = estimateSize();
 
-    BigInt fee = BigInt.from((size / 1000 * _feePerKb).toInt());
+    BigInt fee = BigInt.from(((size / 1000 * _feePerKb).ceil()).toInt());
 
     //if fee is less that 256, set fee at 256 satoshis
     //this is current minimum we set automatically if no explicit fee given
     //FIXME: Make this configurable
     if (fee < BigInt.from(256)) {
-      fee = BigInt.from(256);
+      fee = BigInt.from(256) > fee ? fee : BigInt.from(256);
     }
 
     return fee;
