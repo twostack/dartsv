@@ -49,5 +49,6 @@ export 'src/encoding/utils.dart';
 export 'src/encoding/base58check.dart';
 export 'src/crypto/ecies.dart';
 export 'src/crypto/hdutils.dart';
+export 'src/crypto/childnumber.dart';
 
 
