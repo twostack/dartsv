@@ -68,7 +68,11 @@ class HDUtils {
     static List<ChildNumber> parsePath(String path) {
 
         if (!(path.startsWith("m") || path.startsWith("M")))
-            throw new InvalidPathException("Valid paths start with an 'm' or an 'M'");
+            throw InvalidPathException("Valid paths start with an 'm' or an 'M'");
+
+        final regex = RegExp(r"^([mM]\/)?(\d+'?\/)*\d+'?$");
+        if (!regex.hasMatch(path)) throw InvalidPathException("Invalid path expression");
+
 
         path = path.toUpperCase();
         path = path.replaceAll("'", "H");
