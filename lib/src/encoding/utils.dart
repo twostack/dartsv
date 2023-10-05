@@ -1,4 +1,3 @@
-import 'dart:ffi';
 
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/exceptions.dart';
@@ -6,10 +5,8 @@ import 'package:dartsv/src/varint.dart';
 import 'package:hex/hex.dart';
 import 'dart:typed_data';
 import 'package:buffer/buffer.dart';
-import 'dart:math';
 
 import 'package:pointycastle/export.dart';
-import 'package:pointycastle/src/utils.dart';
 
 List<int> sha256Twice(List<int> bytes) {
   var first = new SHA256Digest().process(Uint8List.fromList(bytes));
