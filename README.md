@@ -64,7 +64,7 @@ Generally Supported features are :
 ### Installation
 
 This library was built using version _3.0.7_ of the Dart SDK( [https://dart.dev/tools/sdk](https://dart.dev/tools/sdk) ).  
-As of Version 1.0.0 this library supports Dart Null Safety. Current minimum Dart SDK version required is version _2.18.0_.
+As of Version 1.0.0 this library supports Dart Null Safety. Current minimum Dart SDK version required is version _2.17.0_. 
 
 Navigate to the root folder of this project, and pull the required supported Dart libraries using the `pub` package manager.
 

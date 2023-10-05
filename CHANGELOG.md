@@ -1,3 +1,26 @@
+## 2.0.0  
+- Removed uncessary FFI dependency
+
+- Hardened path verification / validation
+  - Added addtional regex check to the path validation string
+  - Exposed ChildNumber class in the API
+
+- Tightened up the fee calculations
+  - Removed the hard requirement of a change output during txn validation
+  - Removed the hard lower limit of 256 sats per transaction as a fee basis
+  
+- fixed decimal display of coins
+
+- Solve/work-around for issue-54
+  - Problem: When importing the lib into flutter and attempting to
+    generate mnemonics, it fails with "Unsupported operation: Isolate.resolvePackageUri"
+    FIX: Allow passing a function to the library to help resolve resources using
+    Flutter AssetBundle APIs .
+
+- Refactoring tests for clarity
+
+- Dart SDK version minimum set to 2.17
+
 ## 2.0.0-rc2
 - Large data Transaction fixes. There was a bug which prevented the crafting of
   large data transactions, i.e transactions with outputs that have PUSHDATA operations
