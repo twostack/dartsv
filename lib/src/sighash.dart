@@ -324,7 +324,7 @@ class Sighash {
         writer.write(subscript.buffer);
 
         // value of the output spent by this input (8-byte little endian)
-        writer.writeUint64(satoshis.toInt(), Endian.little);
+        writer.write(encodeBigIntSV(satoshis));
 
         // nSequence of the input (4-byte little endian)
         var sequenceNumber = input.sequenceNumber;

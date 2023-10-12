@@ -176,6 +176,8 @@ BigInt readVarInt(Uint8List buffer) {
 Uint8List encodeBigIntSV(BigInt number) {
   int size = (number.bitLength + 7) >> 3;
 
+  if (size == 0) size = 8; //always padd to 64 bits if zero
+
   var result = Uint8List(size);
   for (int i = 0; i < size; i++) {
     result[size - i - 1] = (number & _byteMask).toInt();
