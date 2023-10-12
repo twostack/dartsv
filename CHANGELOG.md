@@ -1,3 +1,9 @@
+## 1.1.3
+BugFix: Uint64 conversion errors with Dart2JS / Flutter Web
+
+- Removed all direct reading and writing of Uint64 types. Dart2JS can't
+  handle the size.
+
 ## 1.1.2
 - Fixed bugs that prevented large data pushes from being accepted by network
 
