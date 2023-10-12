@@ -1,3 +1,9 @@
+## 2.0.1
+Bugfix: Uint64 error when using with Flutter Web
+
+- Dart2JS does not handle Uint64. Remove all references to readUint64 
+  and writeUint64 for handling big numbers. 
+
 ## 2.0.0  
 - Removed uncessary FFI dependency
 
