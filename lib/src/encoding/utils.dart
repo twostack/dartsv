@@ -76,44 +76,44 @@ List<int> varintBufNum(n) {
     return writer.toBytes().toList();
 }
 
-// Uint8List varIntWriter(int? length) {
-//     ByteDataWriter writer = ByteDataWriter();
-//
-//     if (length == null) {
-//         return writer.toBytes();
-//     }
-//
-//     if (length < 0xFD) {
-//         writer.writeUint8(length);
-//         return writer.toBytes();
-//     }
-//
-//     if (length < 0xFFFF) {
-// //            return HEX.decode("FD" + length.toRadixString(16));
-//         writer.writeUint8(253);
-//         writer.writeUint16(length, Endian.little);
-//         return writer.toBytes();
-//     }
-//
-//     if (length < 0xFFFFFFFF) {
-// //            return HEX.decode("FE" + length.toRadixString(16));
-//
-//         writer.writeUint8(254);
-//         writer.writeUint32(length, Endian.little);
-//         return writer.toBytes();
-//     }
-//
-//     if (BigInt.parse("0xFFFFFFFFFFFFFFFF").compareTo(BigInt.from(length)) == -1) {
-// //            return HEX.decode("FF" + length.toRadixString(16));
-//
-//         writer.writeUint8(255);
-//         writer.writeInt32(length & -1, Endian.little);
-//         writer.writeUint32((length / 0x100000000).floor(), Endian.little);
-//         return writer.toBytes();
-//     }
-//
-//     return writer.toBytes();
-// }
+List<int> encodeBigIntLE(BigInt number) {
+    int size = 8; //(number.bitLength + 7) >> 3;
+
+    // if (size == 0) size = 8; //always padd to 64 bits if zero
+
+    var result = Uint8List(size);
+    for (int i = 0; i < size; i++) {
+        result[size - i - 1] = (number & _byteMask).toInt();
+        number = number >> 8;
+    }
+    return result.reversed.toList();
+}
+
+BigInt castToBigInt(List<int> buf, bool fRequireMinimal, {int nMaxNumSize = 4}) {
+    if (!(buf.length <= nMaxNumSize)) {
+        throw new ScriptException('script number overflow');
+    }
+    if (fRequireMinimal && buf.length > 0) {
+        // Check that the number is encoded with the minimum possible
+        // number of bytes.
+        //
+        // If the most-significant-byte - excluding the sign bit - is zero
+        // then we're not minimal. Note how this test also rejects the
+        // negative-zero encoding, 0x80.
+        if ((buf[buf.length - 1] & 0x7f) == 0) {
+            // One exception: if there's more than one byte and the most
+            // significant bit of the second-most-significant-byte is set
+            // it would conflict with the sign bit. An example of this case
+            // is +-255, which encode to 0xff00 and 0xff80 respectively.
+            // (big-endian).
+            if (buf.length <= 1 || (buf[buf.length - 2] & 0x80) == 0) {
+                throw new ScriptException( 'non-minimally encoded script number');
+            }
+        }
+    }
+    return fromSM(Uint8List.fromList(buf), endian: Endian.little);
+}
+
 
 /**
  * Returns the minimum encoded size of the given unsigned long value.
@@ -163,7 +163,8 @@ int readVarIntNum(ByteDataReader reader){
             return reader.readUint32(Endian.little);
             break;
         case 0xFF:
-            var bn = BigInt.from(reader.readUint64(Endian.little));
+            var buffer = reader.read(8);
+            var bn = castToBigInt(buffer, false, nMaxNumSize: 8);
             var n = bn.toInt();
             if (n <= pow(2, 53)) {
                 return n;

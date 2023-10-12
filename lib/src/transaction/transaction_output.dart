@@ -47,7 +47,9 @@ class TransactionOutput {
 
         _scriptBuilder = scriptBuilder ??= DefaultLockBuilder();
 
-        this.satoshis = BigInt.from(reader.readUint64(Endian.little));
+        var buffer = reader.read(8);
+        this.satoshis = castToBigInt(buffer, false, nMaxNumSize: 8);
+
         var size = readVarIntNum(reader);
         if (size != 0) {
             var script = SVScript.fromBuffer(reader.read(size, copy: true));
@@ -175,20 +177,6 @@ class TransactionOutput {
 
     /// Returns the current instance of LockingScriptBuilder in use by this instance
     LockingScriptBuilder get scriptBuilder => _scriptBuilder!;
-
-//FIXME: Swing back to this leaner implementation based on ByteDataWriter()
-//    List<int> serialize2(){
-//        var writer = ByteDataWriter();
-//
-//        writer.writeUint64(this._satoshis.toInt(), Endian.little);
-//
-//        var scriptHex = HEX.decode(this.script.toHex());
-//        writer.write(varIntWriter(scriptHex.length).toList(), copy: true);
-//
-//        writer.write(this.script.buffer);
-//
-//        return writer.toBytes().toList();
-//    }
 
 
 }
