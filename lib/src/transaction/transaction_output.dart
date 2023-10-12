@@ -37,7 +37,8 @@ class TransactionOutput {
     /// being used.
     TransactionOutput.fromReader(ByteDataReader reader) {
 
-        this.satoshis = BigInt.from(reader.readUint64(Endian.little));
+        var buffer = reader.read(8);
+        this.satoshis = castToBigInt(buffer, false, nMaxNumSize: 8);
         var size = readVarIntNum(reader);
         if (size != 0) {
             _script = SVScript.fromBuffer(reader.read(size, copy: true));
