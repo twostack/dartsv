@@ -173,6 +173,19 @@ BigInt readVarInt(Uint8List buffer) {
   }
 }
 
+
+List<int> encodeBigIntLE(BigInt number) {
+  int size = 8;
+
+  var result = Uint8List(size);
+  for (int i = 0; i < size; i++) {
+    result[size - i - 1] = (number & _byteMask).toInt();
+    number = number >> 8;
+  }
+
+  return result.reversed.toList();
+}
+
 Uint8List encodeBigIntSV(BigInt number) {
   int size = (number.bitLength + 7) >> 3;
 
