@@ -248,8 +248,7 @@ class SVPrivateKey {
     /// Convenience method that jumps through the hoops of generating and [Address] from this
     /// Private Key's corresponding [SVPublicKey].
     Address toAddress({NetworkType networkType = NetworkType.MAIN}) {
-        //FIXME: set network type to default parameter unless explicitly specified ?
-        return _svPublicKey!.toAddress(_networkType);
+        return _svPublicKey!.toAddress(networkType);
     }
 
     Uint8List _seed() {
