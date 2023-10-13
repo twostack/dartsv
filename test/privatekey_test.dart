@@ -116,8 +116,23 @@ main(){
 
     test('should output this known testnet address correctly', () {
         var privkey = SVPrivateKey.fromWIF('cR4qogdN9UxLZJXCNFNwDRRZNeLRWuds9TTSuLNweFVjiaE4gPaq');
-        var address = privkey.toAddress();
+        var address = privkey.toAddress(networkType: NetworkType.TEST);
         expect(address.toString(), equals('mtX8nPZZdJ8d3QNLRJ1oJTiEi26Sj6LQXS'));
+    });
+
+    test('should honor the network type setting for toAddress() ', () {
+
+        //take a wif from mainnet
+        SVPrivateKey privateKey = SVPrivateKey.fromWIF('L3T1s1TYP9oyhHpXgkyLoJFGniEgkv2Jhi138d7R2yJ9F4QdDU2m');
+        Address testnetAddress = privateKey.toAddress(networkType: NetworkType.TEST);
+
+        //expect a testnet address
+        expect(testnetAddress.toString(), equals('mpcsB4yVbWGGDLsx5R3Gi8uLvwDJDLAVcv'));
+
+        //expect a mainnet address
+        Address mainnetAddress= privateKey.toAddress(networkType: NetworkType.MAIN);
+        expect(mainnetAddress.toString(), equals('1A6ut1tWnUq1SEQLMr4ttDh24wcbJ5o9TT'));
+
     });
 
     test('should parse this compressed testnet address correctly', () {
