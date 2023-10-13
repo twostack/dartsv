@@ -1,3 +1,8 @@
+## 2.0.2
+Bugfix: Bigint amount incorrectly encoded during sighash
+
+- Fixes a bug in the buffer conversion to a bigintLE during sighash preimage calculation
+
 ## 2.0.1
 Bugfix: Uint64 error when using with Flutter Web
 
