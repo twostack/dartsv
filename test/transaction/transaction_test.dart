@@ -880,4 +880,36 @@ main() {
   test('print address', () async {
     print(Address.fromPublicKey(privateKey.publicKey, NetworkType.TEST));
   });
+
+
+  test('must create this expected serialized txn', () async {
+
+  });
+
+  test('verify encoding and field size on output amount during sighash preimage calc ', (){
+    var bobWif = "cStLVGeWx7fVYKKDXYWVeEbEcPZEC4TD73DjQpHCks2Y8EAjVDSS";
+    var fundingTxHex = "02000000010000000000000000000000000000000000000000000000000000000000000000ffffffff03570101ffffffff0100f2052a01000000232103f5e57bb21f772e16eee6593f8b324fae3c226045dfc8e221397a643adf9eff4cac00000000";
+    var expectedTxHex = "0200000001ea5a4152878ad9ff6f464d0415a3404c36c4f67973e137bc0147f5fe7473ddc6000000006b4830450221008a413fca7bf901c86bc29e6032f9bdf66700e3e10e5c44d0e072ae515d12c90702202bf76989fba58e7423cfe2eef85b2cd60abaa6dce98c0795ece5220c98a567a041210330aff1a7e5417393f90eb1bf221c86686e0e3ba25d2696aaa20da549b7d4b3f9ffffffff0200e1f505000000001976a914650c4adb156f19e36a755c820d892cda108299c488acc4101024010000001976a914650c4adb156f19e36a755c820d892cda108299c488ac00000000";
+    var fundingTx = Transaction.fromHex(fundingTxHex);
+
+    var sighashType = SighashType.SIGHASH_FORKID.value | SighashType.SIGHASH_ALL.value;
+    var signingKey = SVPrivateKey.fromWIF(bobWif);
+    var txSigner = TransactionSigner(sighashType, signingKey);
+
+    var ownerAddress = signingKey.toAddress(networkType: NetworkType.TEST);
+    var unlocker = P2PKHUnlockBuilder(signingKey.publicKey);
+    var locker = P2PKHLockBuilder.fromPublicKey(signingKey.publicKey, networkType: NetworkType.TEST);
+    var builder = TransactionBuilder();
+    var signedTx = builder
+        .spendToLockBuilder(locker, BigInt.from(100000000))
+        .spendFromTxnWithSigner(txSigner, fundingTx, 0, TransactionInput.MAX_SEQ_NUMBER, unlocker)
+        .sendChangeToPKH(ownerAddress)
+        .withFeePerKb(1000)
+        .withOption(TransactionOption.DISABLE_DUST_OUTPUTS)
+        .build(true);
+
+    var actualTxHex = signedTx.serialize();
+
+    expect(expectedTxHex, equals(actualTxHex));
+  });
 }
