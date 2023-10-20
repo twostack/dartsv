@@ -232,5 +232,12 @@ void main() {
       expect(address.toString(), equals('16JXnhxjJUhxfyx4y6H4sFcxrgt8kQ8ewX'));
   });
 
+  test('should create an address from Public Key Hash (PKH)',(){
+      var pubkeyHash = '3c3fa3d4adcaf8f52d5b1843975e122548269937';
+      var address = Address.fromPubkeyHash(pubkeyHash, NetworkType.MAIN);
+
+      expect(address.toBase58(), equals("16VZnHwRhwrExfeHFHGjwrgEMq8VcYPs9r"));
+  });
+
 }
 
