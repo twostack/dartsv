@@ -9,18 +9,20 @@ class P2PKHLockBuilder extends LockingScriptBuilder {
 
   Address? address;
   List<int>? pubkeyHash;
+  NetworkType? networkType;
 
   P2PKHLockBuilder.fromAddress(Address address){
     this.address = address;
+    this.networkType = address.networkType;
     pubkeyHash = HEX.decode(address.pubkeyHash160);
   }
 
-  P2PKHLockBuilder.fromPublicKey(SVPublicKey publicKey, {NetworkType networkType = NetworkType.MAIN}){
-    this.address = publicKey.toAddress(networkType);
+  P2PKHLockBuilder.fromPublicKey(SVPublicKey publicKey, {this.networkType = NetworkType.MAIN}){
+    this.address = publicKey.toAddress(networkType ?? NetworkType.MAIN);
     pubkeyHash = HEX.decode(address!.pubkeyHash160);
   }
 
-  P2PKHLockBuilder.fromScript(SVScript script) : super.fromScript(script);
+  P2PKHLockBuilder.fromScript(SVScript script, {this.networkType = NetworkType.MAIN}) : super.fromScript(script);
 
   @override
   SVScript getScriptPubkey() {
@@ -60,6 +62,7 @@ class P2PKHLockBuilder extends LockingScriptBuilder {
       }
 
       pubkeyHash = chunkList[2].buf;
+      address = Address.fromPubkeyHash(HEX.encode(pubkeyHash ?? []), networkType ?? NetworkType.MAIN);
     }
   }
 
