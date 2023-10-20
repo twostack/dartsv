@@ -105,6 +105,10 @@ class Address {
 
   }
 
+  Address.fromPubkeyHash(String pubkeyHashHex, NetworkType networkType){
+    _fromPubkeyHash(pubkeyHashHex, networkType);
+  }
+
 
   /// Serialise this address object to a base58-encoded string
   ///
@@ -156,6 +160,24 @@ class Address {
       var utf8Decoded = utf8.decode(encoded);
 
       return utf8Decoded;
+  }
+
+  void _fromPubkeyHash(String pubkeyHashHex, NetworkType networkType){
+
+    var versionByte;
+    if (networkType == NetworkType.MAIN) {
+      versionByte = Networks.getNetworkVersion(NetworkAddressType.MAIN_PKH);
+    }
+    else {
+      versionByte = Networks.getNetworkVersion(NetworkAddressType.TEST_PKH);
+    }
+    _version = versionByte & 0XFF;
+
+    _networkTypes = Networks.getNetworkTypes(_version!);
+    _addressType = Networks.getAddressType(_version!);
+    _networkType = Networks.getNetworkTypes(_version!)[0];
+    _publicKeyHash = pubkeyHashHex;
+
   }
 
   void _fromBase58(String address){
