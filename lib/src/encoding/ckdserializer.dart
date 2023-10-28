@@ -1,4 +1,6 @@
 
+import 'package:collection/collection.dart';
+
 import '../networks.dart';
 import 'package:hex/hex.dart';
 import 'dart:convert';
@@ -37,6 +39,8 @@ abstract class CKDSerializer {
         this._keyHex   = decoded.sublist(45, 78);
 
         var version = HEX.encode(this._versionBytes.map( (elem) => elem.toUnsigned(8) ).toList());
+
+        this.networkType = getXPrivNetworkType(HEX.decode(version));
 
     }
 
@@ -82,6 +86,21 @@ abstract class CKDSerializer {
                 return this._keyType == KeyType.PUBLIC ? TESTNET_PUBLIC : TESTNET_PRIVATE;
             }
         }
+    }
+
+    Function eq = const ListEquality().equals;
+
+    NetworkType getXPrivNetworkType(List<int> versionBytes){
+
+        if (eq(versionBytes, MAINNET_PUBLIC) || eq(versionBytes, MAINNET_PRIVATE)){
+            return NetworkType.MAIN;
+        }
+
+        if (eq(versionBytes, TESTNET_PUBLIC) || eq(versionBytes, TESTNET_PRIVATE)){
+            return NetworkType.TEST;
+        }
+
+        return NetworkType.TEST;
     }
 
     set chainCode(List<int> bytes) {

@@ -76,7 +76,6 @@ class HDPublicKey extends CKDSerializer {
 
     /// Constructs a new public key from it's `xpub`-encoded representation
     HDPublicKey.fromXpub(String vector){
-        this.networkType = NetworkType.MAIN;
         this.keyType = KeyType.PUBLIC;
         deserialize(vector);
     }

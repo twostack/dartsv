@@ -62,7 +62,9 @@ class HDPrivateKey extends CKDSerializer{
     /// Reconstruct a private key from a standard `xpriv` string.
     ///
     HDPrivateKey.fromXpriv(String vector){
-        this.networkType = NetworkType.MAIN;
+
+
+
         this.keyType = KeyType.PRIVATE;
 
         this.deserialize(vector);
