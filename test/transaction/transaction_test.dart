@@ -803,9 +803,8 @@ main() {
     //assemble preimage >
     var txSpendForPreimage = buildSpendingTransaction(txCredit!!, ScriptBuilder().build());
     var sigHashType = SighashType.SIGHASH_ALL.value | SighashType.SIGHASH_FORKID.value;
-    var hasher = Sighash();
-    hasher.hash(txSpendForPreimage, sigHashType, 0, scriptPubKey, BigInt.zero);
-    var txCreditPreImage = hasher.preImage;
+    var sigHash = Sighash();
+    var txCreditPreImage = sigHash.createSighashPreImage(txSpendForPreimage, sigHashType, 0, scriptPubKey, BigInt.zero);
     //assemble preimage <
 
     //create scriptSig with pre-image data

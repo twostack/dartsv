@@ -115,6 +115,11 @@ class Sighash {
     ///           and refers to `SCRIPT_ENABLE_SIGHASH_FORKID` and `SCRIPT_ENABLE_REPLAY_PROTECTION`
     Sighash();
 
+
+    /**
+     * Calling this method presumes that the subscript has already been prepared
+     * by stripping off all code up to and including the first OP_CODESEPARATOR
+     */
     String hash(Transaction txn, int sighashType, int inputNumber, SVScript subscript, BigInt? satoshis, {flags = _DEFAULT_SIGN_FLAGS }) {
 
         var txnCopy = Transaction.fromHex(txn.serialize()); //make a copy
@@ -131,7 +136,24 @@ class Sighash {
         }
 
         if ((sighashType & SighashType.SIGHASH_FORKID.value != 0) && (flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID != 0)) {
-            return HEX.encode(this._sigHashForForkid(txnCopy, sighashType, inputNumber, subscriptCopy, satoshis));
+
+            //remove everything up to first OpCodeSeparator
+            // var sub = sub.where((byte) => byte != OpCodes.OP_CODESEPARATOR).toList();
+            // int firstOpCodeSep = 0;
+            // int chunkIndex = 0;
+            // for (var chunk in subscriptCopy.chunks){
+            //     if (chunk.opcodenum == OpCodes.OP_CODESEPARATOR) {
+            //         firstOpCodeSep = chunkIndex + 1;
+            //         break;
+            //     }
+            //     chunkIndex++;
+            // }
+
+            // var newSubScript = SVScript.fromChunks(subscriptCopy.chunks.sublist(firstOpCodeSep, subscriptCopy.chunks.length));
+
+            _preImage = this._sigHashPreImageForForkid(txnCopy, sighashType, inputNumber, subscriptCopy, satoshis);
+            var ret = sha256Twice(_preImage!.toList());
+            return HEX.encode(ret.reversed.toList());
         }
 
         this._sighashType = sighashType;
@@ -236,7 +258,7 @@ class Sighash {
     }
 
 
-    List<int> _sigHashForForkid(Transaction txn, int sighashType, int inputNumber, SVScript subscript, BigInt? satoshis, {flags = _DEFAULT_SIGN_FLAGS }) {
+    Uint8List _sigHashPreImageForForkid(Transaction txn, int sighashType, int inputNumber, SVScript subscript, BigInt? satoshis, {flags = _DEFAULT_SIGN_FLAGS }) {
 
         if (satoshis == null){
             throw BadParameterException("For ForkId=0 signatures, satoshis or complete input must be provided");
@@ -339,9 +361,53 @@ class Sighash {
         // sighashType
         writer.writeUint32(sighashType >> 0, Endian.little);
 
-        _preImage = writer.toBytes();
-        var ret = sha256Twice(_preImage!.toList());
-        return ret.reversed.toList();
+        return writer.toBytes();
+    }
+
+
+    /**
+     * Only call this for BitcoinSV where ForkId is assumed to be enabled !
+     * It is assumed that the passed in subscript has NOT been prepared by stripping
+     * up to the first OP_CODE_SEPARATOR
+     */
+    Uint8List? createSighashPreImage(Transaction txn, int sighashType, int inputNumber, SVScript subscript, BigInt? satoshis, {flags = _DEFAULT_SIGN_FLAGS }) {
+
+        var txnCopy = Transaction.fromHex(txn.serialize()); //make a copy
+        this._txn = txnCopy;
+        var subscriptCopy = SVScript.fromHex(subscript.toHex()); //make a copy
+
+        if (flags & ScriptFlags.SCRIPT_ENABLE_REPLAY_PROTECTION > 0) {
+            // Legacy chain's value for fork id must be of the form 0xffxxxx.
+            // By xoring with 0xdead, we ensure that the value will be different
+            // from the original one, even if it already starts with 0xff.
+            var forkValue = sighashType >> 8;
+            var newForkValue = 0xff0000 | (forkValue ^ 0xdead);
+            sighashType = (newForkValue << 8) | (sighashType & 0xff);
+        }
+
+        this._sighashType = sighashType;
+
+        if ((sighashType & SighashType.SIGHASH_FORKID.value != 0) && (flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID != 0)) {
+            //remove everything up to first OpCodeSeparator
+            int firstOpCodeSep = 0;
+            int chunkIndex = 0;
+            for (var chunk in subscriptCopy.chunks) {
+                if (chunk.opcodenum == OpCodes.OP_CODESEPARATOR) {
+                    firstOpCodeSep = chunkIndex + 1;
+                    break;
+                }
+                chunkIndex++;
+            }
+
+            var newSubScript = SVScript.fromChunks(subscriptCopy.chunks.sublist(firstOpCodeSep, subscriptCopy.chunks.length));
+
+            this._preImage = this._sigHashPreImageForForkid(txnCopy, sighashType, inputNumber, newSubScript, satoshis);
+            return _preImage;
+
+        }else{
+            throw SignatureException("This preImage calculation can only be done with ForkId enabled");
+        }
+
     }
 
 }
