@@ -61,25 +61,19 @@ class TransactionOutput {
 
     /// Returns a byte array containing the raw transaction output
     List<int> serialize() {
-        List<int> buffer = <int>[];
+        ByteDataWriter writer = new ByteDataWriter();
 
-        //add value in satoshis - 8 bytes BigInt
-        var satArr = sprintf("%016s", [this._satoshis.abs().toRadixString(16)]); //lazy way to get to 8 byte padding
-        satArr = satArr.replaceAll(" ", "0"); // hack around sprintf not padding zeros
-        buffer.addAll(HEX
-            .decode(satArr)
-            .reversed
-            .toList());
+        //write satoshi value
+        writer.writeInt64(satoshis.toInt(), Endian.little);
 
-        //add scriptPubKey size - varInt
-        var scriptHex = HEX.decode(this.script.toHex());
-        var varIntVal = calcVarInt(scriptHex.length);
-        buffer.addAll(varIntVal);
+        //write the locking script
+        List<int> scriptBytes = script.buffer;
+        VarInt varInt = VarInt.fromInt(scriptBytes.length);
+        List<int> varIntBytes = varInt.encode();
+        writer.write(varIntBytes);
 
-        //add scriptPubKey hex
-        buffer.addAll(scriptHex);
-
-        return buffer;
+        writer.write(scriptBytes);
+        return writer.toBytes();
     }
 
 

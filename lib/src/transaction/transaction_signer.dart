@@ -48,7 +48,11 @@ class TransactionSigner {
     if (preImage == null) throw SignatureException(
         "Preimage calcumation failed");
 
-    SVSignature sig = signPreimage(signingKey, preImage, sigHashType);
+    // SVSignature sig = signPreimage(signingKey, preImage, sigHashType);
+
+    var sig = SVSignature.fromPrivateKey(signingKey);
+    sig.nhashtype = sigHashType;
+    sig.sign(reversedHash);
 
     TransactionInput input = unsignedTxn.inputs[inputIndex];
     if (input != null){
