@@ -39,7 +39,7 @@ class TransactionSigner {
     var sigHash = Sighash();
 
     //NOTE: Return hash in LittleEndian (already double-sha256 applied)
-    // var preImage = sigHash.getSighashPreimage(unsignedTxn, sigHashType, inputIndex, subscript, utxo.getAmount());
+    var pi = sigHash.createSighashPreImage(unsignedTxn, sigHashType, inputIndex, subscript, utxo.satoshis);
     var hash = sigHash.hash(unsignedTxn, sigHashType, inputIndex, subscript, utxo.satoshis);
     var reversedHash = HEX.encode(HEX.decode(hash).reversed.toList());
     var preImage = sigHash.preImage;

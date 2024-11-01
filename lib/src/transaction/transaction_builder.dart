@@ -328,7 +328,7 @@ class TransactionBuilder {
   Transaction build(bool performChecks) {
 
     //make sure change calculations are in order
-    updateChangeOutput();
+    // updateChangeOutput();
 
     if (performChecks) {
       runTransactionChecks();
