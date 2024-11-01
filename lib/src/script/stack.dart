@@ -84,13 +84,30 @@ class InterpreterStack <T> {
 
     }
 
+    /*
+     Index here counts backwards into the list. So effectively "index" items
+     deep into the stack.
+     */
+    T removeAt(int index){
+
+      if (_list.length - index - 1 >= 0) {
+        return _list.removeAt(_list.length - index - 1);
+      }else{
+        throw Exception("Invalid ");
+      }
+
+    }
+
     /// Replace item at 'index' with 'value'
+    /*
     void replaceAt(int index, T value) {
         List<T> buffer = _list.toList();
         buffer.removeAt(index);
         buffer.insert(index, value);
         _list = List<T>.from(buffer);
     }
+
+     */
 
   bool contains(T item) {
         return _list.contains(item);

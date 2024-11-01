@@ -34,7 +34,7 @@ class TransactionBuilder {
 
   int _txVersion = 2;
 
-  final int DEFAULT_FEE_PER_KB = 50; //amount in satoshis
+  final int DEFAULT_FEE_PER_KB = 512; //amount in satoshis
 
   static final BigInt DUST_AMOUNT = BigInt.from(50); //set a safe dust limit
 
@@ -328,7 +328,7 @@ class TransactionBuilder {
   Transaction build(bool performChecks) {
 
     //make sure change calculations are in order
-    updateChangeOutput();
+    // updateChangeOutput();
 
     if (performChecks) {
       runTransactionChecks();
@@ -341,8 +341,6 @@ class TransactionBuilder {
     //add transaction inputs
     tx.addInputs(_inputs);
 
-    //add transaction outputs
-    tx.addOutputs(_outputs);
 
     if (_changeScriptBuilder != null) {
 
@@ -356,6 +354,10 @@ class TransactionBuilder {
           tx.addOutput(changeOutput);
       }
     }
+
+    //add transaction outputs
+    tx.addOutputs(_outputs);
+
 
     tx.nLockTime = _nLockTime;
 

@@ -307,8 +307,9 @@ class SVScript {
       if (dataToRead == -1) {
         _chunks.add(ScriptChunk(null, 0, opcode));
       } else {
-        if (dataToRead > bis.remainingLength)
+        if (dataToRead > bis.remainingLength){
           throw ScriptException(ScriptError.SCRIPT_ERR_BAD_OPCODE, " - Length of push value is not equal to length of data");
+        }
 
         try {
           ScriptChunk chunk;
@@ -414,11 +415,26 @@ class SVScript {
 
     /// Returns *true* if this script matches the Pay-To-Public-Key-Hash template
     bool isScriptHashOut() {
-        var buf = buffer;
-        return (buf.length == 23 &&
-        buf[0] == OpCodes.OP_HASH160 &&
-        buf[1] == 0x14 &&
-        buf[buf.length - 1] == OpCodes.OP_EQUAL);
+      return isP2PKH();
+    }
+
+    bool isP2PKH() {
+      if (chunks.length != 5)
+        return false;
+      if (!chunks[0].equalsOpCode(OpCodes.OP_DUP))
+        return false;
+      if (!chunks[1].equalsOpCode(OpCodes.OP_HASH160))
+        return false;
+      var chunk2data = chunks[2].buf;
+      if (chunk2data == null)
+        return false;
+      if (chunk2data.length != 20) //LegacyAddress.LENGTH
+        return false;
+      if (!chunks[3].equalsOpCode(OpCodes.OP_EQUALVERIFY))
+        return false;
+      if (!chunks[4].equalsOpCode(OpCodes.OP_CHECKSIG))
+        return false;
+      return true;
     }
 
     /// Return this script in it's hexadecimal form as a bytearray

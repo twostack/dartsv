@@ -137,29 +137,24 @@ class Sighash {
 
         if ((sighashType & SighashType.SIGHASH_FORKID.value != 0) && (flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID != 0)) {
 
-            //remove everything up to first OpCodeSeparator
-            // var sub = sub.where((byte) => byte != OpCodes.OP_CODESEPARATOR).toList();
-            // int firstOpCodeSep = 0;
-            // int chunkIndex = 0;
-            // for (var chunk in subscriptCopy.chunks){
-            //     if (chunk.opcodenum == OpCodes.OP_CODESEPARATOR) {
-            //         firstOpCodeSep = chunkIndex + 1;
-            //         break;
-            //     }
-            //     chunkIndex++;
-            // }
+            //remove up to first CODE_SEP
+            // SVScript stripped = stripUptoFirstCodeSep(subscriptCopy);
+            //
+            // var sighashPreImage = this._sigHashPreImageForForkid(txnCopy, sighashType, inputNumber, stripped, satoshis);
+            //
+            // this._preImage = Uint8List.fromList(sighashPreImage);
+            // var ret = sha256Twice(sighashPreImage);
+            // return HEX.encode(ret.reversed.toList());
 
-            // var newSubScript = SVScript.fromChunks(subscriptCopy.chunks.sublist(firstOpCodeSep, subscriptCopy.chunks.length));
-
-            _preImage = this._sigHashPreImageForForkid(txnCopy, sighashType, inputNumber, subscriptCopy, satoshis);
+            this._preImage = this._sigHashPreImageForForkid(txnCopy, sighashType, inputNumber, subscriptCopy, satoshis);
             var ret = sha256Twice(_preImage!.toList());
             return HEX.encode(ret.reversed.toList());
         }
 
         this._sighashType = sighashType;
 
-        // For no ForkId sighash, separators need to be removed.
-        this._subScript = subscript.removeCodeseparators(); //FIXME: This was removed in my implementation. How did I break things ?
+        // For no ForkId sighash (pre-segwit sighash), separators need to be removed.
+        this._subScript = subscript.removeCodeseparators();
 
         //blank out the txn input scripts
         txnCopy.inputs.forEach((input) {
@@ -409,5 +404,20 @@ class Sighash {
         }
 
     }
+
+    SVScript stripUptoFirstCodeSep(SVScript subscriptCopy) {
+        List<ScriptChunk> chunks = subscriptCopy.chunks;
+
+        int position = 0;
+        for (int i = 0; i < chunks.length; i++) {
+            if (chunks[i].opcodenum == OpCodes.OP_CODESEPARATOR) {
+                position = i + 1; //skip code separator
+                break;
+            }
+        }
+
+        return SVScript.fromChunks(chunks.sublist(position, chunks.length));
+    }
+
 
 }

@@ -108,7 +108,7 @@ class VarInt {
         return writer.toBytes().toList();
       case 5:
         var writer = ByteDataWriter();
-        writer.write([253]);
+        writer.write([254]);
         writer.writeUint32(value, Endian.little);
         return writer.toBytes().toList();
       default:

@@ -483,3 +483,15 @@ List<int> LShift(List<int> x, int n) {
   }
   return result;
 }
+
+
+List<int> writeInt64LE(BigInt val) {
+  final bytesBuilder = BytesBuilder();
+
+  for (int i = 0; i < 8; i++) {
+    // Shift right by 8 * i bits and get the lowest 8 bits as an int
+    bytesBuilder.addByte((val >> (8 * i) & BigInt.from(0xFF)).toInt());
+  }
+
+  return bytesBuilder.toBytes();
+}

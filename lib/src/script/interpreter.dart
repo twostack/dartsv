@@ -17,6 +17,7 @@
 import 'dart:collection';
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:convert';
 
 import 'package:buffer/buffer.dart';
 import 'package:collection/collection.dart';
@@ -379,12 +380,12 @@ class Interpreter {
           case OpCodes.OP_DUP:
             if (stack.size() < 1)
               throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"-Attempted OpCodes.OP_DUP on an empty stack");
-            stack.add(stack.getLast());
+            stack.add(List.from(stack.getLast()));
             break;
           case OpCodes.OP_NIP:
             if (stack.size() < 2)
               throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"-Attempted OpCodes.OP_NIP on a stack with size < 2");
-            List<int> OPNIPtmpChunk = stack.pollLast();
+            List<int> OPNIPtmpChunk = List.from(stack.pollLast());
             stack.pollLast();
             stack.add(OPNIPtmpChunk);
             break;
@@ -394,29 +395,41 @@ class Interpreter {
             Iterator<List<int>> itOVER = stack.descendingIterator();
             itOVER.moveNext();
             itOVER.moveNext();
-            stack.add(itOVER.current);
+            stack.add(List.from(itOVER.current));
             break;
           case OpCodes.OP_PICK:
           case OpCodes.OP_ROLL:
             if (stack.size() < 1)
               throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_PICK/OpCodes.OP_ROLL on an empty stack");
-            int val = castToBigInt(stack.pollLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA),  nMaxNumSize: maxScriptNumLength).toInt();
-            if (val < 0 || val >= stack.size())
-              throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"OpCodes.OP_PICK/OpCodes.OP_ROLL attempted to get data deeper than stack size");
+            int stackPosition = castToBigInt(stack.pollLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA),  nMaxNumSize: maxScriptNumLength).toInt();
 
-            if (opcode == OpCodes.OP_PICK){
-              stack.copyToTop(val);
-            }else if (opcode == OpCodes.OP_ROLL){
-              stack.moveToTop(val);
+            if (stackPosition < 0 || stackPosition >= stack.size())
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION, "OP_PICK/OP_ROLL attempted to get data deeper than stack size");
+
+            Iterator<List<int>> itPICK = stack.descendingIterator();
+            for (int i = 0; i <= stackPosition; i++) {
+              itPICK.moveNext();
             }
+
+            List<int> copySrc = List.from(itPICK.current);
+            List<int> OPROLLtmpChunk = List.filled(copySrc.length, 0); //new byte[copySrc.length];
+            List.copyRange(OPROLLtmpChunk, 0, copySrc);
+
+            if (opcode == OpCodes.OP_ROLL) {
+              stack.removeAt(stackPosition); //zero-indexed
+            }
+
+            //whether the value is derived doesn't depend on where in the stack
+            //it's picked from so just add the original StackItem
+            stack.add(copySrc);
 
             break;
           case OpCodes.OP_ROT:
             if (stack.size() < 3)
               throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_ROT on a stack with size < 3");
-            List<int> OPROTtmpChunk3 = stack.pollLast();
-            List<int> OPROTtmpChunk2 = stack.pollLast();
-            List<int> OPROTtmpChunk1 = stack.pollLast();
+            List<int> OPROTtmpChunk3 = List.from(stack.pollLast());
+            List<int> OPROTtmpChunk2 = List.from(stack.pollLast());
+            List<int> OPROTtmpChunk1 = List.from(stack.pollLast());
             stack.add(OPROTtmpChunk2);
             stack.add(OPROTtmpChunk3);
             stack.add(OPROTtmpChunk1);
@@ -425,8 +438,8 @@ class Interpreter {
           case OpCodes.OP_TUCK:
             if (stack.size() < 2)
               throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_SWAP on a stack with size < 2");
-            List<int> OPSWAPtmpChunk2 = stack.pollLast();
-            List<int> OPSWAPtmpChunk1 = stack.pollLast();
+            List<int> OPSWAPtmpChunk2 = List.from(stack.pollLast());
+            List<int> OPSWAPtmpChunk1 = List.from(stack.pollLast());
             stack.add(OPSWAPtmpChunk2);
             stack.add(OPSWAPtmpChunk1);
             if (opcode == OpCodes.OP_TUCK)
@@ -437,8 +450,8 @@ class Interpreter {
           case OpCodes.OP_CAT:
             if (stack.size() < 2)
               throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Invalid stack operation.");
-            List<int> catBytes2 = stack.pollLast();
-            List<int> catBytes1 = stack.pollLast();
+            List<int> catBytes2 = List.from(stack.pollLast());
+            List<int> catBytes1 = List.from(stack.pollLast());
 
             int len = catBytes1.length + catBytes2.length;
             if (!verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && len > MAX_SCRIPT_ELEMENT_SIZE_BEFORE_GENESIS)
@@ -460,7 +473,7 @@ class Interpreter {
             if (!verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && numSize > MAX_SCRIPT_ELEMENT_SIZE_BEFORE_GENESIS)
               throw new ScriptException(ScriptError.SCRIPT_ERR_PUSH_SIZE,"Push value size limit exceeded.");
 
-            List<int> rawNumBytes = stack.pollLast();
+            List<int> rawNumBytes = List.from(stack.pollLast());
 
             // Try to see if we can fit that number in the number of
             // byte requested.
@@ -546,9 +559,30 @@ class Interpreter {
             if (stack.size() < 2)
               throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Too few items on stack for SHIFT Op");
 
-            List<int> shiftCountBuf = stack.getLast();
-            List<int> valueToShiftBuf = stack.getAt(stack.size() - 2);
 
+            // List<int> shiftCountBuf = List.from(stack.getLast());
+            // List<int> valueToShiftBuf = List.from(stack.getAt(stack.size() - 2));
+            List<int> shiftNItem = List<int>.from(stack.pollLast());
+            List<int> shiftData = List<int>.from(stack.pollLast());
+            int shiftN = castToBigInt(shiftNItem, enforceMinimal, nMaxNumSize: maxScriptNumLength).toInt();
+            if (shiftN < 0)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_NUMBER_RANGE, "Invalid numer range.");
+
+            List<int> shifted;
+            switch (opcode) {
+              case OpCodes.OP_LSHIFT:
+                shifted = LShift(shiftData, shiftN);
+                break;
+              case OpCodes.OP_RSHIFT:
+                shifted = RShift(shiftData, shiftN);
+                break;
+              default:
+                throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION, "switched opcode at runtime"); //can't happen
+            }
+            stack.add(shifted);
+
+
+            /*
             if (valueToShiftBuf.length == 0) {
               stack.pop();
             } else {
@@ -591,6 +625,9 @@ class Interpreter {
                 stack.push(valueToShiftBuf);
               }
             }
+
+             */
+
 
             break;
           case OpCodes.OP_INVERT:
@@ -978,7 +1015,7 @@ class Interpreter {
 
     // Thus as a special case we tell CScriptNum to accept up
     // to 5-byte bignums to avoid year 2038 issue.
-    final BigInt nLockTime = castToBigInt(stack.getLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA), nMaxNumSize: 5 );
+    final BigInt nLockTime = castToBigInt(stack.getLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA),  nMaxNumSize: 5);
 
     if (nLockTime.compareTo(BigInt.zero) < 0)
       throw new ScriptException(ScriptError.SCRIPT_ERR_NEGATIVE_LOCKTIME,"Negative locktime");
@@ -1046,6 +1083,8 @@ class Interpreter {
     try {
       transaction = Transaction.fromHex(txn.serialize());
     } on Exception catch(e){
+
+        print(StackTrace.current);
         throw TransactionException("Transaction serialize/parse failure");
     }
 
@@ -1061,12 +1100,23 @@ class Interpreter {
     InterpreterStack<List<int>> stack = InterpreterStack<List<int>>();
     InterpreterStack<List<int>> p2shStack = InterpreterStack<List<int>>.fromList(List.empty());
 
-    executeScript(transaction, scriptSigIndex, scriptSig, stack, coinSats.getValue(), verifyFlags);
+    try {
+      executeScript( transaction, scriptSigIndex, scriptSig, stack, coinSats.getValue(), verifyFlags);
+    }catch(ex){
+      print(StackTrace.current);
+      throw(ex);
+    }
     if (verifyFlags.contains(VerifyFlag.P2SH) && !(verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS))) {
       p2shStack = InterpreterStack.fromList(stack.iterator.toList());
     }
 
-    executeScript(transaction, scriptSigIndex, scriptPubKey, stack, coinSats.getValue(), verifyFlags);
+    try {
+      executeScript( transaction, scriptSigIndex, scriptPubKey, stack, coinSats.getValue(), verifyFlags);
+    }catch(ex){
+      print(StackTrace.current);
+
+      throw(ex);
+    }
 
     if (stack.size() == 0)
       throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE," - Stack empty at end of script execution.");
