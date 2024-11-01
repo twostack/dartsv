@@ -59,12 +59,13 @@ class TransactionOutput {
         return false;
     }
 
+
     /// Returns a byte array containing the raw transaction output
     List<int> serialize() {
         ByteDataWriter writer = new ByteDataWriter();
 
-        //write satoshi value
-        writer.writeInt64(satoshis.toInt(), Endian.little);
+        var satsBuffer = writeInt64LE(satoshis);
+        writer.write(satsBuffer);
 
         //write the locking script
         List<int> scriptBytes = script.buffer;
@@ -74,6 +75,7 @@ class TransactionOutput {
 
         writer.write(scriptBytes);
         return writer.toBytes();
+
     }
 
 

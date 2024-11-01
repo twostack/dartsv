@@ -1015,7 +1015,7 @@ class Interpreter {
 
     // Thus as a special case we tell CScriptNum to accept up
     // to 5-byte bignums to avoid year 2038 issue.
-    final BigInt nLockTime = castToBigInt(stack.getLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA),  nMaxNumSize: getMaxScriptNumLength(verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS)) );
+    final BigInt nLockTime = castToBigInt(stack.getLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA),  nMaxNumSize: 5);
 
     if (nLockTime.compareTo(BigInt.zero) < 0)
       throw new ScriptException(ScriptError.SCRIPT_ERR_NEGATIVE_LOCKTIME,"Negative locktime");
@@ -1641,7 +1641,7 @@ class Interpreter {
 // Thus as a special case we tell CScriptNum to accept up
 // to 5-byte bignums, which are good until 2**39-1, well
 // beyond the 2**32-1 limit of the nSequence field itself.
-    final int nSequence = castToBigInt(stack.getLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA), nMaxNumSize: getMaxScriptNumLength(verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS)) ).toInt();
+    final int nSequence = castToBigInt(stack.getLast(), verifyFlags.contains(VerifyFlag.MINIMALDATA), nMaxNumSize: 5).toInt();
 
 // In the rare event that the argument may be < 0 due to
 // some arithmetic being done first, you can always use

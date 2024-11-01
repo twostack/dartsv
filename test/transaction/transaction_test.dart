@@ -194,14 +194,14 @@ main() {
         .build(true);
 
     expect(transaction.outputs.length, equals(2));
-    expect(transaction.outputs[1].satoshis, equals(BigInt.from(499997)));
-    expect(transaction.outputs[1].script.toString(), equals(P2PKHLockBuilder.fromAddress(changeAddress).getScriptPubkey().toString()));
+    expect(transaction.outputs[0].satoshis, equals(BigInt.from(499997)));
+    expect(transaction.outputs[0].script.toString(), equals(P2PKHLockBuilder.fromAddress(changeAddress).getScriptPubkey().toString()));
     var changeLocker = P2PKHLockBuilder.fromAddress(changeAddress);
 
-    var actual = transaction.outputs[1].script.toString();
+    var actual = transaction.outputs[0].script.toString();
     var expected = changeLocker.getScriptPubkey().toString();
     expect(actual, equals(expected));
-    expect(BigInt.from(500000), equals(transaction.outputs[0].satoshis));
+    expect(BigInt.from(500000), equals(transaction.outputs[1].satoshis));
   });
 
 
@@ -231,7 +231,7 @@ main() {
 
         var builder = TransactionBuilder()
             .spendFromUtxoMap(utxoMap, P2PKHUnlockBuilder(privKey.publicKey))
-            .withFeePerKb(50);
+            .withFeePerKb(1);
 
         for (var elem in item['to']) {
           var addr = Address(elem[0]);
@@ -324,11 +324,11 @@ main() {
         .build(false);
 
     var changeLocker = P2PKHLockBuilder.fromAddress(changeAddress);
-    expect(transaction.outputs[0].satoshis, equals(BigInt.from(50000)));
+    expect(transaction.outputs[1].satoshis, equals(BigInt.from(50000)));
 
     expect(transaction.outputs.length, equals(3));
-    expect(transaction.outputs[2].satoshis, equals(BigInt.from(30000)));
-    expect(transaction.outputs[2].script.toString(), equals(changeLocker.getScriptPubkey().toString()));
+    expect(transaction.outputs[0].satoshis, equals(BigInt.from(30000)));
+    expect(transaction.outputs[0].script.toString(), equals(changeLocker.getScriptPubkey().toString()));
   });
 
 
@@ -359,7 +359,7 @@ main() {
         .sendChangeToPKH(changeAddress)
         .build(false);
     expect(transaction.outputs.length, equals(2));
-    expect(transaction.outputs[1].satoshis, equals(BigInt.from(10000)));
+    expect(transaction.outputs[0].satoshis, equals(BigInt.from(10000)));
   });
 
 
@@ -375,17 +375,17 @@ main() {
     //try to add the same output multiple times
     var builder = new TransactionBuilder()
         .spendToPKH(toAddress, BigInt.from(950000))
-        .withFeePerKb(50)
-        .sendChangeToPKH(changeAddress);
+        .withFeePerKb(50);
     String transactionId = simpleUtxoWith1000000Satoshis['transactionId'] as String;
     int outputIndex = simpleUtxoWith1000000Satoshis['outputIndex'] as int;
     outputs.forEach((output) {
       builder.spendFromOutput(transactionId, outputIndex, output.satoshis, TransactionInput.MAX_SEQ_NUMBER, P2PKHUnlockBuilder(privateKey.publicKey));
     });
+    builder.sendChangeToPKH(changeAddress); //FIXME: Change ordering still matters
     var transaction = builder.build(false);
 
     expect(transaction.outputs.length, equals(2));
-    expect(transaction.outputs[1].satoshis, equals(BigInt.from(49997)));
+    expect(transaction.outputs[0].satoshis, equals(BigInt.from(49997)));
   });
 
 
@@ -752,7 +752,7 @@ main() {
           .spendToLockBuilder(P2PKHLockBuilder.fromAddress(toAddress), BigInt.from(1000))
           .withFeePerKb(100000)
           .build(false);
-      expect(transaction.outputs[1].satoshis, equals(BigInt.from(99993000)));
+      expect(transaction.outputs[0].satoshis, equals(BigInt.from(99993000)));
     });
   });
 
@@ -888,7 +888,7 @@ main() {
   test('verify encoding and field size on output amount during sighash preimage calc ', (){
     var bobWif = "cStLVGeWx7fVYKKDXYWVeEbEcPZEC4TD73DjQpHCks2Y8EAjVDSS";
     var fundingTxHex = "02000000010000000000000000000000000000000000000000000000000000000000000000ffffffff03570101ffffffff0100f2052a01000000232103f5e57bb21f772e16eee6593f8b324fae3c226045dfc8e221397a643adf9eff4cac00000000";
-    var expectedTxHex = "0200000001ea5a4152878ad9ff6f464d0415a3404c36c4f67973e137bc0147f5fe7473ddc6000000006b4830450221008a413fca7bf901c86bc29e6032f9bdf66700e3e10e5c44d0e072ae515d12c90702202bf76989fba58e7423cfe2eef85b2cd60abaa6dce98c0795ece5220c98a567a041210330aff1a7e5417393f90eb1bf221c86686e0e3ba25d2696aaa20da549b7d4b3f9ffffffff0200e1f505000000001976a914650c4adb156f19e36a755c820d892cda108299c488acc4101024010000001976a914650c4adb156f19e36a755c820d892cda108299c488ac00000000";
+    var expectedTxHex = "0200000001ea5a4152878ad9ff6f464d0415a3404c36c4f67973e137bc0147f5fe7473ddc6000000006b483045022100c07cc7364afffe6f73e27f5e238f7dcc3d788d97795c09213c21bdbd171f1cf2022013d571d2c29312417aba4f08e194cc149a846f4ff8e85acf06c0e222f79b5c0541210330aff1a7e5417393f90eb1bf221c86686e0e3ba25d2696aaa20da549b7d4b3f9ffffffff02c4101024010000001976a914650c4adb156f19e36a755c820d892cda108299c488ac00e1f505000000001976a914650c4adb156f19e36a755c820d892cda108299c488ac00000000";
     var fundingTx = Transaction.fromHex(fundingTxHex);
 
     var sighashType = SighashType.SIGHASH_FORKID.value | SighashType.SIGHASH_ALL.value;

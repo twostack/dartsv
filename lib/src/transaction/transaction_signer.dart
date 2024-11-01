@@ -39,16 +39,12 @@ class TransactionSigner {
     var sigHash = Sighash();
 
     //NOTE: Return hash in LittleEndian (already double-sha256 applied)
-    var pi = sigHash.createSighashPreImage(unsignedTxn, sigHashType, inputIndex, subscript, utxo.satoshis);
     var hash = sigHash.hash(unsignedTxn, sigHashType, inputIndex, subscript, utxo.satoshis);
     var reversedHash = HEX.encode(HEX.decode(hash).reversed.toList());
     var preImage = sigHash.preImage;
-    var preImageHex = HEX.encode(preImage!.toList());
 
     if (preImage == null) throw SignatureException(
         "Preimage calcumation failed");
-
-    // SVSignature sig = signPreimage(signingKey, preImage, sigHashType);
 
     var sig = SVSignature.fromPrivateKey(signingKey);
     sig.nhashtype = sigHashType;

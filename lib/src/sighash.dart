@@ -138,23 +138,23 @@ class Sighash {
         if ((sighashType & SighashType.SIGHASH_FORKID.value != 0) && (flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID != 0)) {
 
             //remove up to first CODE_SEP
-            SVScript stripped = stripUptoFirstCodeSep(subscriptCopy);
-
-            var sighashPreImage = this._sigHashPreImageForForkid(txnCopy, sighashType, inputNumber, stripped, satoshis);
-
-            var ret = sha256Twice(sighashPreImage);
-            this._preImage = Uint8List.fromList(sighashPreImage);
-            return HEX.encode(ret.reversed.toList());
-
-            // _preImage = this._sigHashPreImageForForkid(txnCopy, sighashType, inputNumber, subscriptCopy, satoshis);
-            // var ret = sha256Twice(_preImage!.toList());
+            // SVScript stripped = stripUptoFirstCodeSep(subscriptCopy);
+            //
+            // var sighashPreImage = this._sigHashPreImageForForkid(txnCopy, sighashType, inputNumber, stripped, satoshis);
+            //
+            // this._preImage = Uint8List.fromList(sighashPreImage);
+            // var ret = sha256Twice(sighashPreImage);
             // return HEX.encode(ret.reversed.toList());
+
+            this._preImage = this._sigHashPreImageForForkid(txnCopy, sighashType, inputNumber, subscriptCopy, satoshis);
+            var ret = sha256Twice(_preImage!.toList());
+            return HEX.encode(ret.reversed.toList());
         }
 
         this._sighashType = sighashType;
 
-        // For no ForkId sighash, separators need to be removed.
-        this._subScript = subscript.removeCodeseparators(); //FIXME: This was removed in my implementation. How did I break things ?
+        // For no ForkId sighash (pre-segwit sighash), separators need to be removed.
+        this._subScript = subscript.removeCodeseparators();
 
         //blank out the txn input scripts
         txnCopy.inputs.forEach((input) {
