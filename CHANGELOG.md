@@ -1,3 +1,12 @@
+## 2.1.0
+ Bugfix : xpriv network byte decoding
+ Bugfix : Script Interpreter fixes. Some of the OP_CODES were not properly processed 
+
+ New Feature: Dedicated PreImage generator for working with OP_PUSH_TX-style covenants.
+
+ Change: The Transaction Builder utility class now places the change output as the first 
+ output by default. 
+
 ## 2.0.2
 Bugfix: Bigint amount incorrectly encoded during sighash
 
