@@ -1,14 +1,10 @@
-import 'dart:typed_data';
 
 import 'package:buffer/buffer.dart';
-import 'package:dartsv/src/address.dart';
 import 'package:dartsv/src/encoding/utils.dart';
+import 'package:dartsv/src/script/opcodes.dart';
 import 'package:dartsv/src/script/svscript.dart';
-import 'package:hex/hex.dart';
-import '../../dartsv.dart';
-import 'default_builder.dart';
+import 'package:dartsv/src/varint.dart';
 import 'transaction.dart';
-import 'package:sprintf/sprintf.dart';
 
 /// Class that represents the output (UTXO) of a transaction.
 ///

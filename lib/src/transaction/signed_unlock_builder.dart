@@ -1,5 +1,6 @@
 
-import '../../dartsv.dart';
+
+import 'package:dartsv/src/signature.dart';
 
 /// All unlocking scripts that will use OP_CHECKSIG or OP_CHECKMULTISIG operations
 /// must implement this interface. Implementing this interface will signal to

@@ -49,10 +49,10 @@ abstract class CKDSerializer {
 
         var versionBytes =   getVersionBytes();
 
-        var depth = this._nodeDepth;
-        var fingerprint = this._parentFingerprint;
-        var chainCode = this._chainCode;
-        var pubkeyHex = this._keyHex;
+        // var depth = this._nodeDepth;
+        // var fingerprint = this._parentFingerprint;
+        // var chainCode = this._chainCode;
+        // var pubkeyHex = this._keyHex;
 
         List<int> serializedKey = List<int>.filled(78, 0);
         serializedKey.setRange(0, 4, versionBytes);

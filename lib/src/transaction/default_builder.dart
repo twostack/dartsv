@@ -1,11 +1,8 @@
 
-import 'dart:typed_data';
+import 'package:dartsv/src/script/svscript.dart';
 
-import 'package:dartsv/src/transaction/signed_unlock_builder.dart';
-import 'package:hex/hex.dart';
-import 'package:sprintf/sprintf.dart';
-
-import '../../dartsv.dart';
+import 'locking_script_builder.dart';
+import 'unlocking_script_builder.dart';
 
 
 class DefaultLockBuilder extends LockingScriptBuilder {

@@ -59,7 +59,7 @@ class ChildNumber implements Comparable<ChildNumber> {
 
     bool operator ==(otherChild){
 
-        if (otherChild == null || runtimeType != otherChild.runtimeType)
+        if (runtimeType != otherChild.runtimeType)
             return false;
 
         return this._i == (otherChild as ChildNumber).i;

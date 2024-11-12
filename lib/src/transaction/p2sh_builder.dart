@@ -1,13 +1,17 @@
 
 import 'dart:typed_data';
 
+import 'package:dartsv/src/encoding/utils.dart';
 import 'package:dartsv/src/exceptions.dart';
 import 'package:dartsv/src/script/opcodes.dart';
-import 'package:dartsv/src/transaction/signed_unlock_builder.dart';
+import 'package:dartsv/src/script/script_error.dart';
+import 'package:dartsv/src/script/svscript.dart';
+import 'package:dartsv/src/transaction/script_builder.dart';
 import 'package:hex/hex.dart';
-import 'package:sprintf/sprintf.dart';
 
-import '../../dartsv.dart';
+import 'locking_script_builder.dart';
+import 'unlocking_script_builder.dart';
+
 
 
 class P2SHLockBuilder extends LockingScriptBuilder {

@@ -34,8 +34,8 @@ class MerkleBlock {
     int? _numTransactions;
     List? _hashes;
     List? _flags;
-    int _flagBitsUsed = 0;
-    int _hashesUsed = 0;
+    // int _flagBitsUsed = 0;
+    // int _hashesUsed = 0;
 
 
 
