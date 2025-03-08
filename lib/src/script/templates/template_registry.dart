@@ -1,5 +1,7 @@
 import 'package:dartsv/src/script/script_template.dart';
 import 'package:dartsv/src/script/templates/p2pkh_template.dart';
+import 'package:dartsv/src/script/templates/p2pk_template.dart';
+import 'package:dartsv/src/script/templates/p2sh_template.dart';
 import 'package:dartsv/src/script/templates/p2ms_template.dart';
 import 'package:dartsv/src/script/templates/op_return_template.dart';
 import 'package:dartsv/src/script/templates/author_identity_template.dart';
@@ -14,6 +16,8 @@ class TemplateRegistry {
 
     // Register standard templates
     registry.register(P2PKHTemplate());
+    registry.register(P2PKTemplate());
+    registry.register(P2SHTemplate());
     registry.register(P2MSTemplate());
     registry.register(OpReturnTemplate());
     registry.register(AuthorIdentityTemplate());

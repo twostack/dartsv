@@ -27,6 +27,7 @@ export 'src/script/script_chunk.dart';
 export 'src/script/scriptflags.dart';
 export 'src/script/script_pattern.dart';
 export 'src/script/interpreter.dart';
+export 'src/script/templates/templates.dart';
 export 'src/transaction/transaction.dart';
 export 'src/transaction/transaction_builder.dart';
 export 'src/transaction/script_builder.dart';
