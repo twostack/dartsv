@@ -1,7 +1,4 @@
-import 'dart:collection';
-import 'dart:typed_data';
-
-import 'package:dartsv/src/script/interpreter.dart';
+// No imports needed for this class
 
 /// Utility class to represent the Script Interpreter Stack.
 ///

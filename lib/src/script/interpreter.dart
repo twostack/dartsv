@@ -17,7 +17,6 @@
 import 'dart:collection';
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:convert';
 
 import 'package:buffer/buffer.dart';
 import 'package:collection/collection.dart';
@@ -122,7 +121,7 @@ class Interpreter {
     SVScript script = ScriptBuilder().build();
     try {
       script = SVScript.fromByteArray(program);
-    } on ScriptException catch (e) {
+    } on ScriptException {
       // Ignore errors and count up to the parse-able length
     }
     return SVScript.getSigOpCount(script.chunks, false);
@@ -1082,8 +1081,7 @@ class Interpreter {
     Transaction transaction;
     try {
       transaction = Transaction.fromHex(txn.serialize());
-    } on Exception catch(e){
-
+    } on Exception {
         print(StackTrace.current);
         throw TransactionException("Transaction serialize/parse failure");
     }
@@ -1186,8 +1184,8 @@ class Interpreter {
       int opcode,
       Coin coinValue,
       Set<VerifyFlag> verifyFlags) {
-    final bool requireCanonical = verifyFlags.contains(VerifyFlag.STRICTENC)
-        || verifyFlags.contains(VerifyFlag.LOW_S);
+    // Check for strict encoding requirements
+    verifyFlags.contains(VerifyFlag.STRICTENC) || verifyFlags.contains(VerifyFlag.LOW_S);
 
     if (stack.size() < 2)
       throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_CHECKSIG(VERIFY) on a stack with size < 2");
@@ -1200,8 +1198,8 @@ class Interpreter {
     var outStream = ByteDataWriter();
     try {
       SVScript.writeBytes(outStream, sigBytes);
-    } on IOException catch (e) {
-      throw new Exception(e); // Cannot happen
+    } on IOException catch (error) {
+      throw Exception(error); // Cannot happen
     }
     connectedScript = SVScript.removeAllInstancesOf(connectedScript, outStream.toBytes());
 
@@ -1211,11 +1209,10 @@ class Interpreter {
     checkSignatureEncoding(sigBytes, verifyFlags);
     checkPubKeyEncoding(pubKeyBuffer, verifyFlags);
 
-//default to 1 in case of empty Sigs
-    int sigHashType = SighashType.UNSET.value;
-
+// Get signature hash type from the signature
+    // (Not used in this method but kept for documentation purposes)
     if (sigBytes.length > 0) {
-      sigHashType = sigBytes[sigBytes.length - 1] & 0xFF;
+      // sigHashType would be sigBytes[sigBytes.length - 1] & 0xFF
     }
 
     try {
@@ -1249,8 +1246,8 @@ class Interpreter {
 //       if (!e1.getMessage().contains("Reached past end of ASN.1 stream"))
 //         log.warn("Signature checking failed!", e1);
       print("Range Error. Likely read past end of ASN.1 stream - ${r1.message}");
-    } on Exception catch(ex){
-
+    } on Exception {
+      // Ignore exception
     }
 
 
@@ -1359,7 +1356,7 @@ class Interpreter {
       if ((sig.s < BigInt.one) || (sig.s > maxVal)) {
         return false;
       }
-    } on SignatureDecodeException catch(ex) {
+    } on SignatureDecodeException {
       return false;
     }
 
@@ -1467,7 +1464,8 @@ class Interpreter {
   static int executeMultiSig(Transaction txContainingThis, int index, SVScript script, InterpreterStack<List<int>> stack,
       int opCount, int lastCodeSepLocation, int opcode, Coin coinValue,
       Set<VerifyFlag> verifyFlags) {
-    final bool requireCanonical = verifyFlags.contains(VerifyFlag.STRICTENC)
+    // Check for strict encoding requirements
+    verifyFlags.contains(VerifyFlag.STRICTENC)
         || verifyFlags.contains(VerifyFlag.DERSIG)
         || verifyFlags.contains(VerifyFlag.LOW_S);
     final bool enforceMinimal = verifyFlags.contains(VerifyFlag.MINIMALDATA);
@@ -1517,8 +1515,8 @@ class Interpreter {
       var outStream = ByteDataWriter();
       try {
         SVScript.writeBytes(outStream, sig);
-      } on Exception catch (e) {
-        throw Exception(e); // Cannot happen
+      } on Exception catch (error) {
+        throw Exception(error); // Cannot happen
       }
       connectedScript = SVScript.removeAllInstancesOf(connectedScript, outStream.toBytes());
     });
@@ -1528,7 +1526,7 @@ class Interpreter {
 // the stack. Top stack item = 1. With
 // SCRIPT_VERIFY_NULLFAIL, this is used for cleanup if
 // operation fails.
-    int ikey2 = pubKeyCount + 2;
+    // int ikey2 = pubKeyCount + 2;
 
     bool valid = true;
 
@@ -1542,11 +1540,10 @@ class Interpreter {
       checkPubKeyEncoding(pubKey, verifyFlags);
 
 
-//default to 1 in case of empty Sigs
-      int sigHashType = SighashType.UNSET.value;
-
+// Get signature hash type from the signature
+      // (Not used in this method but kept for documentation purposes)
       if (sigBytes.length > 0) {
-        sigHashType = sigBytes[sigBytes.length - 1];
+        // sigHashType would be sigBytes[sigBytes.length - 1]
       }
 
 
@@ -1575,7 +1572,7 @@ class Interpreter {
         }
 
         pubKeyCount--;
-      } on Exception catch (e) {
+      } on Exception {
 // There is (at least) one exception that could be hit here (EOFException, if the sig is too short)
 // Because I can't verify there aren't more, we use a very generic Exception catch
       }

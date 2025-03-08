@@ -1,7 +1,6 @@
 
 
 import 'dart:core';
-import 'dart:core';
 
 import 'package:dartsv/src/exceptions.dart';
 

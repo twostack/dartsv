@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/transaction/preconditions.dart';
 import 'package:hex/hex.dart';

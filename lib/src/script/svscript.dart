@@ -40,7 +40,7 @@ enum VerifyFlag {
 ///
 class SVScript {
 
-    final String _script = '';
+    // Script representation is stored in _chunks and _byteArray
 
     List<ScriptChunk> _chunks = [];
 
@@ -145,7 +145,7 @@ class SVScript {
 
 
     SVScript.fromASM(String str) {
-      var script = new SVScript();
+      // Initialize chunks list
       _chunks = [];
 
       var tokens = str.split(' ');
@@ -219,7 +219,7 @@ class SVScript {
           index = index + 2; //step by two
         } on FormatException catch (ex) {
           throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, ex.message);
-        }on Exception catch (ex) {
+        } on Exception {
           throw ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, "Unknown error has occurred");
         }
       } else if (opcodenum == OpCodes.OP_PUSHDATA1 || opcodenum == OpCodes.OP_PUSHDATA2 || opcodenum == OpCodes.OP_PUSHDATA4) {
@@ -318,7 +318,7 @@ class SVScript {
           chunk = ScriptChunk(data, data.length, opcode);
 
           _chunks.add(chunk);
-        } on Exception catch (ex) {
+        } on Exception {
           bis.readUint8();
         }
       }
@@ -343,8 +343,7 @@ class SVScript {
         for (var index = 0; index < tokenList.length;) {
             var token = tokenList[index];
 
-            var opcode = token;
-
+            // Check if token is an opcode
             var opcodenum = OpCodes.opcodeMap[token];
 
             if (opcodenum == null) {
@@ -690,7 +689,7 @@ class SVScript {
     var writer = ByteDataWriter(bufferLength : inputScript.length);
 
     int cursor = 0;
-    var reader = ByteDataReader();
+    // Process the input script
     while (cursor < inputScript.length) {
       bool skip = false;
       if (cursor + chunkToRemove.length  <= inputScript.length){

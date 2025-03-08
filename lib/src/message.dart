@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:dartsv/dartsv.dart';
 import 'package:hex/hex.dart';
-import 'package:pointycastle/impl.dart';
 
 import 'encoding/utils.dart';
 

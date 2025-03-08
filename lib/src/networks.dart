@@ -1,6 +1,4 @@
 import 'exceptions.dart';
-import 'dart:typed_data';
-import 'package:hex/hex.dart';
 
 enum NetworkType { MAIN, TEST, REGTEST, SCALINGTEST }
 
@@ -44,8 +42,7 @@ class Networks {
                 return [NetworkType.TEST, NetworkType.REGTEST, NetworkType.SCALINGTEST];
 
             default:
-                throw new AddressFormatException('[$version] is not a valid network type.');
-                break;
+                throw AddressFormatException('[$version] is not a valid network type.');
         }
     }
 
@@ -71,8 +68,7 @@ class Networks {
                 return AddressType.SCRIPT_HASH;
 
             default:
-                throw new AddressFormatException('[$version] is not a valid address type.');
-                break;
+                throw AddressFormatException('[$version] is not a valid address type.');
         }
     }
 
