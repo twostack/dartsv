@@ -346,7 +346,7 @@ class TransactionBuilder {
 
       //only add change output if there is money left over
       var inOutDiff = calcInputTotals() - calcRecipientTotals();
-      if (inOutDiff <= BigInt.zero) {
+      if (_inputs.length > 0 && inOutDiff <= BigInt.zero) {
         _changeOutput = null;
       }else {
         TransactionOutput? changeOutput = getChangeOutput();
