@@ -29,7 +29,8 @@ enum VerifyFlag {
   UTXO_AFTER_GENESIS,
   MINIMALIF,
   NULLFAIL,
-  COMPRESSED_PUBKEYTYPE
+  COMPRESSED_PUBKEYTYPE,
+  AFTER_CHRONICLE  // Chronicle upgrade - reinstated opcodes and new string/numeric ops
 }
 
 

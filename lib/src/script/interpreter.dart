@@ -131,8 +131,8 @@ class Interpreter {
     switch (opcode) {
       case OpCodes.OP_2MUL:
       case OpCodes.OP_2DIV:
-      //disabled codes
-        return true;
+        // Re-enabled in Chronicle upgrade
+        return !verifyFlags.contains(VerifyFlag.AFTER_CHRONICLE);
 
       default:
       //not an opcode that was ever disabled
@@ -225,6 +225,33 @@ class Interpreter {
             ifStack.add(fValue);
             elseStack.add(false);
             continue;
+          case OpCodes.OP_VERIF:
+          case OpCodes.OP_VERNOTIF:
+            if (!verifyFlags.contains(VerifyFlag.AFTER_CHRONICLE)) {
+              // Pre-Chronicle: allow in non-executed branches (after genesis), otherwise error
+              if (verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && !shouldExecute) {
+                break;
+              }
+              throw ScriptException(ScriptError.SCRIPT_ERR_BAD_OPCODE, "OP_VERIF/OP_VERNOTIF disabled pre-Chronicle");
+            }
+            bool verIfValue = false;
+            if (shouldExecute) {
+              if (stack.length < 1)
+                throw ScriptException(ScriptError.SCRIPT_ERR_UNBALANCED_CONDITIONAL, "Attempted OP_VERIF/OP_VERNOTIF on an empty stack");
+              if (txContainingThis == null)
+                throw new ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, "OP_VERIF/OP_VERNOTIF requires transaction context");
+
+              BigInt comparisonValue = castToBigInt(stack.pollLast(), enforceMinimal, nMaxNumSize: maxScriptNumLength);
+              BigInt txVersion = BigInt.from(txContainingThis.version);
+              // OP_VERIF = OP_VER OP_GREATERTHANOREQUAL OP_IF
+              verIfValue = txVersion.compareTo(comparisonValue) >= 0;
+              if (opcode == OpCodes.OP_VERNOTIF) {
+                verIfValue = !verIfValue;
+              }
+            }
+            ifStack.add(verIfValue);
+            elseStack.add(false);
+            continue;
           case OpCodes.OP_ELSE:
           //only one ELSE is allowed in IF after genesis
             if (ifStack.isEmpty || (!elseStack.isEmpty && elseStack.getLast() && verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS)))
@@ -262,6 +289,13 @@ class Interpreter {
             stack.add(castToBuffer(BigInt.from(SVScript.decodeFromOpN(opcode))));
             break;
           case OpCodes.OP_NOP:
+            break;
+          case OpCodes.OP_VER:
+            if (!verifyFlags.contains(VerifyFlag.AFTER_CHRONICLE))
+              throw ScriptException(ScriptError.SCRIPT_ERR_BAD_OPCODE, "OP_VER disabled pre-Chronicle");
+            if (txContainingThis == null)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_UNKNOWN_ERROR, "OP_VER requires transaction context");
+            stack.add(castToBuffer(BigInt.from(txContainingThis.version)));
             break;
           case OpCodes.OP_VERIFY:
             if (stack.size() < 1)
@@ -553,6 +587,68 @@ class Interpreter {
             stack.add(castToBuffer(BigInt.from(stack.getLast().length)));
             break;
 
+          case OpCodes.OP_SUBSTR: // same value as OP_NOP4
+            if (!verifyFlags.contains(VerifyFlag.AFTER_CHRONICLE)) {
+              if (verifyFlags.contains(VerifyFlag.DISCOURAGE_UPGRADABLE_NOPS))
+                throw new ScriptException(ScriptError.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS, "Script used a reserved opcode ${opcode}");
+              break;
+            }
+            if (stack.size() < 3)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION, "Invalid stack operation.");
+
+            int substrLen = castToBigInt(stack.pollLast(), enforceMinimal, nMaxNumSize: maxScriptNumLength).toInt();
+            int substrStart = castToBigInt(stack.pollLast(), enforceMinimal, nMaxNumSize: maxScriptNumLength).toInt();
+            List<int> substrData = List.from(stack.pollLast());
+
+            if (substrData.isEmpty)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION, "OP_SUBSTR on empty string.");
+            if (substrLen < 0)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_SUBSTR_RANGE, "OP_SUBSTR negative length.");
+            if (substrLen > substrData.length)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_SUBSTR_RANGE, "OP_SUBSTR length exceeds string.");
+            if (substrStart + substrLen > substrData.length)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_SUBSTR_RANGE, "OP_SUBSTR range out of bounds.");
+
+            stack.add(substrData.sublist(substrStart, substrStart + substrLen));
+            break;
+
+          case OpCodes.OP_LEFT: // same value as OP_NOP5
+            if (!verifyFlags.contains(VerifyFlag.AFTER_CHRONICLE)) {
+              if (verifyFlags.contains(VerifyFlag.DISCOURAGE_UPGRADABLE_NOPS))
+                throw new ScriptException(ScriptError.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS, "Script used a reserved opcode ${opcode}");
+              break;
+            }
+            if (stack.size() < 2)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION, "Invalid stack operation.");
+
+            int leftLen = castToBigInt(stack.pollLast(), enforceMinimal, nMaxNumSize: maxScriptNumLength).toInt();
+            List<int> leftData = List.from(stack.pollLast());
+
+            if (leftLen < 0 || leftLen > leftData.length)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_SUBSTR_RANGE, "OP_LEFT length out of range.");
+
+            stack.add(leftData.sublist(0, leftLen));
+            break;
+
+          case OpCodes.OP_RIGHT: // same value as OP_NOP6
+            if (!verifyFlags.contains(VerifyFlag.AFTER_CHRONICLE)) {
+              if (verifyFlags.contains(VerifyFlag.DISCOURAGE_UPGRADABLE_NOPS))
+                throw new ScriptException(ScriptError.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS, "Script used a reserved opcode ${opcode}");
+              break;
+            }
+            if (stack.size() < 2)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION, "Invalid stack operation.");
+
+            int rightLen = castToBigInt(stack.pollLast(), enforceMinimal, nMaxNumSize: maxScriptNumLength).toInt();
+            List<int> rightData = List.from(stack.pollLast());
+
+            if (rightLen < 0 || rightLen > rightData.length)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_SUBSTR_RANGE, "OP_RIGHT length out of range.");
+
+            int rightStart = rightData.length - rightLen;
+            stack.add(rightData.sublist(rightStart, rightData.length));
+            break;
+
           case OpCodes.OP_LSHIFT:
           case OpCodes.OP_RSHIFT:
             if (stack.size() < 2)
@@ -709,6 +805,8 @@ class Interpreter {
             break;
           case OpCodes.OP_1ADD:
           case OpCodes.OP_1SUB:
+          case OpCodes.OP_2MUL:
+          case OpCodes.OP_2DIV:
           case OpCodes.OP_NEGATE:
           case OpCodes.OP_ABS:
           case OpCodes.OP_NOT:
@@ -723,6 +821,12 @@ class Interpreter {
                 break;
               case OpCodes.OP_1SUB:
                 numericOPnum = numericOPnum - BigInt.one;
+                break;
+              case OpCodes.OP_2MUL:
+                numericOPnum = numericOPnum * BigInt.two;
+                break;
+              case OpCodes.OP_2DIV:
+                numericOPnum = numericOPnum ~/ BigInt.two;
                 break;
               case OpCodes.OP_NEGATE:
                 numericOPnum = -numericOPnum;
@@ -893,6 +997,33 @@ class Interpreter {
             else
               stack.add(castToBuffer(BigInt.zero));
             break;
+
+          case OpCodes.OP_LSHIFTNUM: // same value as OP_NOP7
+          case OpCodes.OP_RSHIFTNUM: // same value as OP_NOP8
+            if (!verifyFlags.contains(VerifyFlag.AFTER_CHRONICLE)) {
+              if (verifyFlags.contains(VerifyFlag.DISCOURAGE_UPGRADABLE_NOPS))
+                throw new ScriptException(ScriptError.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS, "Script used a reserved opcode ${opcode}");
+              break;
+            }
+            if (stack.size() < 2)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION, "Too few items on stack for SHIFTNUM Op");
+
+            BigInt shiftNumCount = castToBigInt(stack.pollLast(), enforceMinimal, nMaxNumSize: maxScriptNumLength);
+            BigInt shiftNumValue = castToBigInt(stack.pollLast(), enforceMinimal, nMaxNumSize: maxScriptNumLength);
+
+            if (shiftNumCount < BigInt.zero)
+              throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_NUMBER_RANGE, "Negative shift count.");
+
+            BigInt shiftNumResult;
+            if (opcode == OpCodes.OP_LSHIFTNUM) {
+              shiftNumResult = shiftNumValue << shiftNumCount.toInt();
+            } else {
+              shiftNumResult = shiftNumValue >> shiftNumCount.toInt();
+            }
+
+            stack.add(castToBuffer(shiftNumResult));
+            break;
+
           case OpCodes.OP_RIPEMD160:
             if (stack.size() < 1)
               throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_RIPEMD160 on an empty stack");
@@ -980,11 +1111,6 @@ class Interpreter {
             executeCheckSequenceVerify(txContainingThis!, index, stack, verifyFlags);
             break;
           case OpCodes.OP_NOP1:
-          case OpCodes.OP_NOP4:
-          case OpCodes.OP_NOP5:
-          case OpCodes.OP_NOP6:
-          case OpCodes.OP_NOP7:
-          case OpCodes.OP_NOP8:
           case OpCodes.OP_NOP9:
           case OpCodes.OP_NOP10:
             if (verifyFlags.contains(VerifyFlag.DISCOURAGE_UPGRADABLE_NOPS)) {
@@ -993,7 +1119,7 @@ class Interpreter {
             break;
 
           default:
-            if (isInvalidBranchingOpcode(opcode) && verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && !shouldExecute) {
+            if (isInvalidBranchingOpcode(opcode, verifyFlags) && verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && !shouldExecute) {
               break;
             }
             throw new ScriptException(ScriptError.SCRIPT_ERR_BAD_OPCODE,"Script used a reserved or disabled opcode: ${opcode}" );
@@ -1008,7 +1134,8 @@ class Interpreter {
       throw new ScriptException(ScriptError.SCRIPT_ERR_UNBALANCED_CONDITIONAL,"OpCodes.OP_IF/OpCodes.OP_NOTIF without OpCodes.OP_ENDIF");
   }
 
-  static bool isInvalidBranchingOpcode(int opcode) {
+  static bool isInvalidBranchingOpcode(int opcode, Set<VerifyFlag> verifyFlags) {
+    if (verifyFlags.contains(VerifyFlag.AFTER_CHRONICLE)) return false;
     return opcode == OpCodes.OP_VERIF || opcode == OpCodes.OP_VERNOTIF;
   }
 

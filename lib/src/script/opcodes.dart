@@ -145,6 +145,13 @@ class OpCodes {
     'OP_NOP6': 181,
     'OP_NOP7': 182,
     'OP_NOP8': 183,
+
+    // Chronicle upgrade opcodes (share values with NOP4-8)
+    'OP_SUBSTR': 179,
+    'OP_LEFT': 180,
+    'OP_RIGHT': 181,
+    'OP_LSHIFTNUM': 182,
+    'OP_RSHIFTNUM': 183,
     'OP_NOP9': 184,
     'OP_NOP10': 185,
 
@@ -287,6 +294,13 @@ class OpCodes {
   static const int OP_NOP7 = 182;
   static const int OP_NOP8 = 183;
   static const int OP_NOP9 = 184;
+
+// Chronicle upgrade opcodes
+  static const int OP_SUBSTR = 179;
+  static const int OP_LEFT = 180;
+  static const int OP_RIGHT = 181;
+  static const int OP_LSHIFTNUM = 182;
+  static const int OP_RSHIFTNUM = 183;
   static const int OP_NOP10 = 185;
 
 // template matching params
