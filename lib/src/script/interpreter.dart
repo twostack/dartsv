@@ -82,6 +82,9 @@ class Interpreter {
   // Maximum script number length after Genesis
   static final int MAX_SCRIPT_NUM_LENGTH_AFTER_GENESIS = 750 * ONE_KILOBYTE;
 
+  // Maximum script number length after Chronicle (32MB)
+  static final int MAX_SCRIPT_NUM_LENGTH_AFTER_CHRONICLE = 32 * 1024 * 1024;
+
   static final int MAX_SCRIPT_NUM_LENGTH_BEFORE_GENESIS = 4;
   static final int DEFAULT_SCRIPT_NUM_LENGTH_POLICY_AFTER_GENESIS = 250 * 1024;
 
@@ -153,7 +156,8 @@ class Interpreter {
     int lastCodeSepLocation = 0;
     final bool enforceMinimal = verifyFlags.contains(VerifyFlag.MINIMALDATA);
     final bool utxoAfterGenesis = verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS);
-    final int maxScriptNumLength = getMaxScriptNumLength(utxoAfterGenesis);
+    final bool afterChronicle = verifyFlags.contains(VerifyFlag.AFTER_CHRONICLE);
+    final int maxScriptNumLength = getMaxScriptNumLength(utxoAfterGenesis, isChronicleEnabled: afterChronicle);
 
     var altstack = InterpreterStack<List<int>>();
     var ifStack = InterpreterStack<bool>();
@@ -1603,12 +1607,13 @@ class Interpreter {
         || verifyFlags.contains(VerifyFlag.LOW_S);
     final bool enforceMinimal = verifyFlags.contains(VerifyFlag.MINIMALDATA);
     final bool utxoAfterGenesis = verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS);
+    final bool afterChronicle = verifyFlags.contains(VerifyFlag.AFTER_CHRONICLE);
 
     if (
     stack.size() < 1)
       throw new ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_CHECKMULTISIG(VERIFY) on a stack with size < 2");
 
-    int pubKeyCount = castToBigInt(stack.pollLast(), enforceMinimal, nMaxNumSize: getMaxScriptNumLength(utxoAfterGenesis) ).toInt();
+    int pubKeyCount = castToBigInt(stack.pollLast(), enforceMinimal, nMaxNumSize: getMaxScriptNumLength(utxoAfterGenesis, isChronicleEnabled: afterChronicle) ).toInt();
     if (pubKeyCount < 0 || (!verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && pubKeyCount > 20)
         || (verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS) && pubKeyCount > UINT32_MAX))
       throw new ScriptException(ScriptError.SCRIPT_ERR_PUBKEY_COUNT,"OpCodes.OP_CHECKMULTISIG(VERIFY) with pubkey count out of range");
@@ -1627,7 +1632,7 @@ class Interpreter {
       pubkeys.add(pubKey);
     }
 
-    int sigCount = castToBigInt(stack.pollLast(), enforceMinimal, nMaxNumSize: getMaxScriptNumLength(utxoAfterGenesis) ).toInt();
+    int sigCount = castToBigInt(stack.pollLast(), enforceMinimal, nMaxNumSize: getMaxScriptNumLength(utxoAfterGenesis, isChronicleEnabled: afterChronicle) ).toInt();
     if (sigCount < 0 || sigCount > pubKeyCount)
       throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_COUNT,"OpCodes.OP_CHECKMULTISIG(VERIFY) with sig count out of range");
     if (stack.size() < sigCount + 1)
@@ -1831,12 +1836,16 @@ class Interpreter {
       throw new ScriptException(ScriptError.SCRIPT_ERR_UNSATISFIED_LOCKTIME,"Relative locktime requirement not satisfied");
   }
 
-  static int getMaxScriptNumLength(bool isGenesisEnabled) {
+  static int getMaxScriptNumLength(bool isGenesisEnabled, {bool isChronicleEnabled = false}) {
     if (!isGenesisEnabled) {
       return MAX_SCRIPT_NUM_LENGTH_BEFORE_GENESIS;
     }
 
-    return MAX_SCRIPT_NUM_LENGTH_AFTER_GENESIS; // use new limit after genesis
+    if (isChronicleEnabled) {
+      return MAX_SCRIPT_NUM_LENGTH_AFTER_CHRONICLE;
+    }
+
+    return MAX_SCRIPT_NUM_LENGTH_AFTER_GENESIS;
   }
 
   static int getMaxOpsPerScript(bool isGenesisEnabled) {
