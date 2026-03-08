@@ -154,7 +154,8 @@ class Interpreter {
       SVScript script, InterpreterStack<List<int>> stack, BigInt value, Set<VerifyFlag> verifyFlags /*, ScriptStateListener scriptStateListener*/) {
     int opCount = 0;
     int lastCodeSepLocation = 0;
-    final bool enforceMinimal = verifyFlags.contains(VerifyFlag.MINIMALDATA);
+    final bool enforceMinimal = verifyFlags.contains(VerifyFlag.MINIMALDATA)
+        && (txContainingThis == null || txContainingThis.version <= 1);
     final bool utxoAfterGenesis = verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS);
     final bool afterChronicle = verifyFlags.contains(VerifyFlag.AFTER_CHRONICLE);
     final int maxScriptNumLength = getMaxScriptNumLength(utxoAfterGenesis, isChronicleEnabled: afterChronicle);
@@ -191,7 +192,7 @@ class Interpreter {
 
       if (shouldExecute && OpCodes.OP_0 <= opcode && opcode <= OpCodes.OP_PUSHDATA4) {
         // Check minimal push
-        if (verifyFlags.contains(VerifyFlag.MINIMALDATA) && !chunk.checkMinimalPush())
+        if (enforceMinimal && !chunk.checkMinimalPush())
           throw ScriptException(ScriptError.SCRIPT_ERR_MINIMALDATA,"Script included a not minimal push operation.");
 
         if (opcode == OpCodes.OP_0) {
@@ -210,7 +211,7 @@ class Interpreter {
               }
 
               List<int> stacktop = stack.getLast();
-              if (verifyFlags.contains(VerifyFlag.MINIMALIF)) {
+              if (verifyFlags.contains(VerifyFlag.MINIMALIF) && (txContainingThis == null || txContainingThis.version <= 1)) {
                 if (stacktop.length > 1) {
                   throw ScriptException(ScriptError.SCRIPT_ERR_MINIMALIF,"Argument for OpCodes.OP_IF/NOT_IF must be 0x01 or empty");
                 }
@@ -1208,7 +1209,7 @@ class Interpreter {
    */
   void correctlySpends(SVScript scriptSig, SVScript scriptPubKey, Transaction txn, int scriptSigIndex, Set<VerifyFlag> verifyFlags, Coin coinSats) {
 
-    if (verifyFlags.contains(VerifyFlag.SIGPUSHONLY) && !scriptSig.isPushOnly()) {
+    if (txn.version <= 1 && verifyFlags.contains(VerifyFlag.SIGPUSHONLY) && !scriptSig.isPushOnly()) {
       throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_PUSHONLY," - No pushdata operations allowed in scriptSig");
     }
 
@@ -1300,7 +1301,7 @@ class Interpreter {
 // as the non-P2SH evaluation of a P2SH script will obviously not result in
 // a clean stack (the P2SH inputs remain). The same holds for witness
 // evaluation.
-    if (verifyFlags.contains(VerifyFlag.CLEANSTACK)) {
+    if (txn.version <= 1 && verifyFlags.contains(VerifyFlag.CLEANSTACK)) {
 // Disallow CLEANSTACK without P2SH, as otherwise a switch
 // CLEANSTACK->P2SH+CLEANSTACK would be possible, which is not a
 // softfork (and P2SH should be one).
@@ -1343,7 +1344,7 @@ class Interpreter {
 // TODO: Use int for indexes everywhere, we can't have that many inputs/outputs
     bool sigValid = false;
 
-    checkSignatureEncoding(sigBytes, verifyFlags);
+    checkSignatureEncoding(sigBytes, verifyFlags, txVersion: txContainingThis.version);
     checkPubKeyEncoding(pubKeyBuffer, verifyFlags);
 
 // Get signature hash type from the signature
@@ -1388,7 +1389,7 @@ class Interpreter {
     }
 
 
-    if (!sigValid && verifyFlags.contains(VerifyFlag.NULLFAIL) && sigBytes.length > 0) {
+    if (!sigValid && verifyFlags.contains(VerifyFlag.NULLFAIL) && txContainingThis.version <= 1 && sigBytes.length > 0) {
       throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_NULLFAIL,"Failed strict DER Signature coding. ");
     }
 
@@ -1513,7 +1514,7 @@ class Interpreter {
     }
   }
 
-  static void checkSignatureEncoding(List<int> sigBytes, Set<VerifyFlag> flags) {
+  static void checkSignatureEncoding(List<int> sigBytes, Set<VerifyFlag> flags, {int txVersion = 1}) {
 // Empty signature. Not strictly DER encoded, but allowed to provide a
 // compact way to provide an invalid signature for use with CHECK(MULTI)SIG
     if (sigBytes.length == 0) {
@@ -1524,7 +1525,7 @@ class Interpreter {
         !isValidSignatureEncoding(sigBytes)) {
       throw new SignatureEncodingException(ScriptError.SCRIPT_ERR_SIG_DER," - Invalid Signature Encoding");
     }
-    if (flags.contains(VerifyFlag.LOW_S)) {
+    if (flags.contains(VerifyFlag.LOW_S) && txVersion <= 1) {
       checkIsLowDERSignature(sigBytes);
     }
 
@@ -1605,7 +1606,8 @@ class Interpreter {
     verifyFlags.contains(VerifyFlag.STRICTENC)
         || verifyFlags.contains(VerifyFlag.DERSIG)
         || verifyFlags.contains(VerifyFlag.LOW_S);
-    final bool enforceMinimal = verifyFlags.contains(VerifyFlag.MINIMALDATA);
+    final bool enforceMinimal = verifyFlags.contains(VerifyFlag.MINIMALDATA)
+        && txContainingThis.version <= 1;
     final bool utxoAfterGenesis = verifyFlags.contains(VerifyFlag.UTXO_AFTER_GENESIS);
     final bool afterChronicle = verifyFlags.contains(VerifyFlag.AFTER_CHRONICLE);
 
@@ -1674,7 +1676,7 @@ class Interpreter {
 // We could reasonably move this out of the loop, but because signature verification is significantly
 // more expensive than hashing, its not a big deal.
 
-      checkSignatureEncoding(sigBytes, verifyFlags);
+      checkSignatureEncoding(sigBytes, verifyFlags, txVersion: txContainingThis.version);
       checkPubKeyEncoding(pubKey, verifyFlags);
 
 
@@ -1726,7 +1728,7 @@ class Interpreter {
 // If the operation failed, we require that all
 // signatures must be empty vector
     while (sigs.size() > 0) {
-      if (!valid && verifyFlags.contains(VerifyFlag.NULLFAIL) && sigs
+      if (!valid && verifyFlags.contains(VerifyFlag.NULLFAIL) && txContainingThis.version <= 1 && sigs
           .getLast()
           .length > 0) {
         throw new ScriptException(ScriptError.SCRIPT_ERR_SIG_NULLFAIL,"Failed strict DER Signature coding. ");
@@ -1747,7 +1749,7 @@ class Interpreter {
 
 //pop the dummy element (core bug argument)
     List<int> nullDummy = stack.pollLast();
-    if (verifyFlags.contains(VerifyFlag.NULLDUMMY) && nullDummy.length > 0)
+    if (verifyFlags.contains(VerifyFlag.NULLDUMMY) && txContainingThis.version <= 1 && nullDummy.length > 0)
       throw ScriptException(
           ScriptError.SCRIPT_ERR_SIG_NULLDUMMY,"OpCodes.OP_CHECKMULTISIG(VERIFY) with non-null nulldummy: ${nullDummy.toString()}" );
 
