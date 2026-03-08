@@ -151,7 +151,7 @@ class Interpreter {
    * likely to change in future.
    */
   void executeScript(Transaction? txContainingThis, int index,
-      SVScript script, InterpreterStack<List<int>> stack, BigInt value, Set<VerifyFlag> verifyFlags /*, ScriptStateListener scriptStateListener*/) {
+      SVScript script, InterpreterStack<List<int>> stack, BigInt value, Set<VerifyFlag> verifyFlags, {SVScript? lockingScript} /*, ScriptStateListener scriptStateListener*/) {
     int opCount = 0;
     int lastCodeSepLocation = 0;
     final bool enforceMinimal = verifyFlags.contains(VerifyFlag.MINIMALDATA)
@@ -1066,7 +1066,7 @@ class Interpreter {
             try {
               executeCheckSig(
                   txContainingThis,
-                  index, script, stack, lastCodeSepLocation, opcode, Coin.valueOf(value), verifyFlags);
+                  index, script, stack, lastCodeSepLocation, opcode, Coin.valueOf(value), verifyFlags, lockingScript: lockingScript);
             } on SignatureEncodingException catch (ex) {
               stack.add([]); //push false onto stack
               throw ScriptException(ex.error, ex.cause);
@@ -1084,7 +1084,7 @@ class Interpreter {
             try {
               opCount = executeMultiSig(
                   txContainingThis,
-                   index, script, stack, opCount, lastCodeSepLocation, opcode, Coin.valueOf(value), verifyFlags);
+                   index, script, stack, opCount, lastCodeSepLocation, opcode, Coin.valueOf(value), verifyFlags, lockingScript: lockingScript);
             } on SignatureEncodingException catch (ex) {
               stack.add([]); //push false onto stack
               throw ScriptException(ex.error, ex.cause);
@@ -1237,7 +1237,7 @@ class Interpreter {
     InterpreterStack<List<int>> p2shStack = InterpreterStack<List<int>>.fromList(List.empty());
 
     try {
-      executeScript( transaction, scriptSigIndex, scriptSig, stack, coinSats.getValue(), verifyFlags);
+      executeScript( transaction, scriptSigIndex, scriptSig, stack, coinSats.getValue(), verifyFlags, lockingScript: scriptPubKey);
     }catch(ex){
       print(StackTrace.current);
       throw(ex);
@@ -1247,7 +1247,7 @@ class Interpreter {
     }
 
     try {
-      executeScript( transaction, scriptSigIndex, scriptPubKey, stack, coinSats.getValue(), verifyFlags);
+      executeScript( transaction, scriptSigIndex, scriptPubKey, stack, coinSats.getValue(), verifyFlags, lockingScript: scriptPubKey);
     }catch(ex){
       print(StackTrace.current);
 
@@ -1289,7 +1289,7 @@ class Interpreter {
       List<int> scriptPubKeyBytes = stack.pollLast();
       SVScript scriptPubKeyP2SH = SVScript.fromBuffer(Uint8List.fromList(scriptPubKeyBytes));
 
-      executeScript(transaction, scriptSigIndex, scriptPubKeyP2SH, stack, coinSats.getValue(), verifyFlags);
+      executeScript(transaction, scriptSigIndex, scriptPubKeyP2SH, stack, coinSats.getValue(), verifyFlags, lockingScript: scriptPubKeyP2SH);
 
       if (stack.isEmpty) throw new ScriptException(ScriptError.SCRIPT_ERR_EVAL_FALSE, " - P2SH stack empty at end of script execution.");
 
@@ -1321,7 +1321,8 @@ class Interpreter {
       int lastCodeSepLocation,
       int opcode,
       Coin coinValue,
-      Set<VerifyFlag> verifyFlags) {
+      Set<VerifyFlag> verifyFlags,
+      {SVScript? lockingScript}) {
     // Check for strict encoding requirements
     verifyFlags.contains(VerifyFlag.STRICTENC) || verifyFlags.contains(VerifyFlag.LOW_S);
 
@@ -1330,9 +1331,19 @@ class Interpreter {
     List<int> pubKeyBuffer = stack.pollLast();
     List<int> sigBytes = stack.pollLast();
 
-    List<int> prog = script.buffer;
-
-    List<int> connectedScript = prog.getRange(lastCodeSepLocation, prog.length).toList();
+    SVScript scriptForCode;
+    int codeOffset;
+    if (txContainingThis.version > 1 && lockingScript != null && !identical(script, lockingScript)) {
+      // OP_CHECKSIG in unlocking script: use full locking script as scriptCode
+      scriptForCode = lockingScript;
+      codeOffset = 0;
+    } else {
+      // Normal case: use current script from lastCodeSepLocation
+      scriptForCode = script;
+      codeOffset = lastCodeSepLocation;
+    }
+    List<int> prog = scriptForCode.buffer;
+    List<int> connectedScript = prog.getRange(codeOffset, prog.length).toList();
     var outStream = ByteDataWriter();
     try {
       SVScript.writeBytes(outStream, sigBytes);
@@ -1364,7 +1375,11 @@ class Interpreter {
       SVScript subScript = SVScript.fromBuffer(Uint8List.fromList(connectedScript));
 
       Sighash sigHash = new Sighash();
-      String hash = sigHash.hash(txContainingThis, sig.nhashtype, index, subScript, coinValue.getValue());
+      int sighashFlags = ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID;
+      if (verifyFlags.contains(VerifyFlag.AFTER_CHRONICLE)) {
+        sighashFlags |= ScriptFlags.SCRIPT_ENABLE_CHRONICLE;
+      }
+      String hash = sigHash.hash(txContainingThis, sig.nhashtype, index, subScript, coinValue.getValue(), flags: sighashFlags);
 
       var pubKey = SVPublicKey.fromHex(HEX.encode(pubKeyBuffer), strict: false);
       var ecPubKey=  ECPublicKey(pubKey.point, _domainParams);
@@ -1532,13 +1547,18 @@ class Interpreter {
     if (flags.contains(VerifyFlag.STRICTENC)) {
       int sigHashType = sigBytes[sigBytes.length - 1];
 
+      bool usesChronicle = (sigHashType & SighashType.SIGHASH_CHRONICLE.value) != 0;
+      if (usesChronicle && !flags.contains(VerifyFlag.AFTER_CHRONICLE)) {
+        throw new SignatureEncodingException(ScriptError.SCRIPT_ERR_SIG_HASHTYPE,
+            "CHRONICLE sighash flag not allowed pre-Chronicle");
+      }
 
       bool usesForkId = (sigHashType & SighashType.SIGHASH_FORKID.value) != 0;
       bool forkIdEnabled = flags.contains(VerifyFlag.SIGHASH_FORKID);
       if (!forkIdEnabled && usesForkId) {
         throw new SignatureEncodingException(ScriptError.SCRIPT_ERR_ILLEGAL_FORKID,"ForkID is not enabled, yet the flag is set");
       }
-      if (forkIdEnabled && !usesForkId) {
+      if (forkIdEnabled && !usesForkId && !usesChronicle) {
         throw new SignatureEncodingException(ScriptError.SCRIPT_ERR_MUST_USE_FORKID,"ForkID flag is required");
       }
 
@@ -1601,7 +1621,7 @@ class Interpreter {
 
   static int executeMultiSig(Transaction txContainingThis, int index, SVScript script, InterpreterStack<List<int>> stack,
       int opCount, int lastCodeSepLocation, int opcode, Coin coinValue,
-      Set<VerifyFlag> verifyFlags) {
+      Set<VerifyFlag> verifyFlags, {SVScript? lockingScript}) {
     // Check for strict encoding requirements
     verifyFlags.contains(VerifyFlag.STRICTENC)
         || verifyFlags.contains(VerifyFlag.DERSIG)
@@ -1647,9 +1667,18 @@ class Interpreter {
       sigs.add(sig);
     }
 
-    List<int> prog = script.buffer;
-    List<int> connectedScript = List<int>.generate(prog.length, (index) => 0);
-    connectedScript.setRange(0, prog.length, prog, lastCodeSepLocation);
+    SVScript scriptForCode;
+    int codeOffset;
+    if (txContainingThis.version > 1 && lockingScript != null && !identical(script, lockingScript)) {
+      scriptForCode = lockingScript;
+      codeOffset = 0;
+    } else {
+      scriptForCode = script;
+      codeOffset = lastCodeSepLocation;
+    }
+    List<int> prog = scriptForCode.buffer;
+    List<int> connectedScript = List<int>.generate(prog.length - codeOffset, (index) => 0);
+    connectedScript.setRange(0, prog.length - codeOffset, prog, codeOffset);
 
     sigs.iterator.forEach((sig) {
       var outStream = ByteDataWriter();
@@ -1700,7 +1729,11 @@ class Interpreter {
         }
 
         //FIXME: Use Coin instead ?
-        String hash = sigHash.hash(txContainingThis, sighashMode, index, subScript, coinValue.getValue());
+        int sighashFlags = ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID;
+        if (verifyFlags.contains(VerifyFlag.AFTER_CHRONICLE)) {
+          sighashFlags |= ScriptFlags.SCRIPT_ENABLE_CHRONICLE;
+        }
+        String hash = sigHash.hash(txContainingThis, sighashMode, index, subScript, coinValue.getValue(), flags: sighashFlags);
         var svPubKey = SVPublicKey.fromBuffer(pubKey);
         var publicKey =  ECPublicKey(svPubKey.point, _domainParams);
         _dsaSigner.init(false, PublicKeyParameter(publicKey));

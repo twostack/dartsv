@@ -43,6 +43,9 @@ enum SighashType {
     /// subsequent to the Bitcoin-Cash fork in 2017.
     SIGHASH_FORKID(0x00000040),
 
+    /// Chronicle upgrade flag that selects the Original Transaction Digest Algorithm (OTDA/legacy digest)
+    /// instead of BIP143, even when FORKID is present.
+    SIGHASH_CHRONICLE(0x00000020),
 
     /// This flag is used in combination with any of the *ALL*, *NONE* or *SINGLE* flags.
     ///
@@ -67,11 +70,11 @@ enum SighashType {
     const SighashType(this.value);
 
   static bool hasValue(int sigHashType) {
-    for (SighashType t in values) {
-      if (t.value == sigHashType) return true;
-    }
-
-    return false;
+    int baseType = sigHashType & 0x1f;
+    if (baseType < 1 || baseType > 3) return false; // must be ALL, NONE, or SINGLE
+    int flags = sigHashType & ~0x1f;
+    int knownFlags = SIGHASH_CHRONICLE.value | SIGHASH_FORKID.value | SIGHASH_ANYONECANPAY.value;
+    return (flags & ~knownFlags) == 0; // no unknown flag bits set
   } // Caution: Using this type in isolation is non-standard. Treated similar to ALL.
 }
 
@@ -135,17 +138,13 @@ class Sighash {
             sighashType = (newForkValue << 8) | (sighashType & 0xff);
         }
 
-        if ((sighashType & SighashType.SIGHASH_FORKID.value != 0) && (flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID != 0)) {
+        bool hasForkId = (sighashType & SighashType.SIGHASH_FORKID.value) != 0;
+        bool chronicleEnabled = (flags & ScriptFlags.SCRIPT_ENABLE_CHRONICLE) != 0;
+        bool hasChronicle = chronicleEnabled && (sighashType & SighashType.SIGHASH_CHRONICLE.value) != 0;
+        bool forkIdEnabled = (flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID) != 0;
 
-            //remove up to first CODE_SEP
-            // SVScript stripped = stripUptoFirstCodeSep(subscriptCopy);
-            //
-            // var sighashPreImage = this._sigHashPreImageForForkid(txnCopy, sighashType, inputNumber, stripped, satoshis);
-            //
-            // this._preImage = Uint8List.fromList(sighashPreImage);
-            // var ret = sha256Twice(sighashPreImage);
-            // return HEX.encode(ret.reversed.toList());
-
+        if (hasForkId && forkIdEnabled && !hasChronicle) {
+            // BIP143 path (current behavior)
             this._preImage = this._sigHashPreImageForForkid(txnCopy, sighashType, inputNumber, subscriptCopy, satoshis);
             var ret = sha256Twice(_preImage!.toList());
             return HEX.encode(ret.reversed.toList());
@@ -382,7 +381,12 @@ class Sighash {
 
         this._sighashType = sighashType;
 
-        if ((sighashType & SighashType.SIGHASH_FORKID.value != 0) && (flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID != 0)) {
+        bool hasForkId = (sighashType & SighashType.SIGHASH_FORKID.value) != 0;
+        bool chronicleEnabled = (flags & ScriptFlags.SCRIPT_ENABLE_CHRONICLE) != 0;
+        bool hasChronicle = chronicleEnabled && (sighashType & SighashType.SIGHASH_CHRONICLE.value) != 0;
+        bool forkIdEnabled = (flags & ScriptFlags.SCRIPT_ENABLE_SIGHASH_FORKID) != 0;
+
+        if (hasForkId && forkIdEnabled && !hasChronicle) {
             //remove everything up to first OpCodeSeparator
             int firstOpCodeSep = 0;
             int chunkIndex = 0;
@@ -399,8 +403,64 @@ class Sighash {
             this._preImage = this._sigHashPreImageForForkid(txnCopy, sighashType, inputNumber, newSubScript, satoshis);
             return _preImage;
 
-        }else{
-            throw SignatureException("This preImage calculation can only be done with ForkId enabled");
+        } else if (hasChronicle) {
+            // CHRONICLE flag: produce legacy/OTDA preimage
+            this._subScript = subscriptCopy.removeCodeseparators();
+
+            //blank out the txn input scripts
+            txnCopy.inputs.forEach((input) {
+                input.script = SVScript.fromString("");
+            });
+
+            //setup the input we wish to sign
+            var tmpInput = txnCopy.inputs[inputNumber];
+            tmpInput = TransactionInput(tmpInput.prevTxnId, tmpInput.prevTxnOutputIndex, tmpInput.sequenceNumber, scriptBuilder: DefaultUnlockBuilder.fromScript(tmpInput.script!));
+            tmpInput.script = this._subScript!;
+            txnCopy.inputs[inputNumber] = tmpInput;
+
+            txnCopy.serialize();
+
+            if ((sighashType & 31) == SighashType.SIGHASH_NONE.value ||
+                (sighashType & 31) == SighashType.SIGHASH_SINGLE.value) {
+                var ndx = 0;
+                txnCopy.inputs.forEach((elem) {
+                    if (ndx != inputNumber) {
+                        txnCopy.inputs[ndx].sequenceNumber = 0;
+                    }
+                    ndx++;
+                });
+            }
+
+            if ((sighashType & 31) == SighashType.SIGHASH_NONE.value) {
+                txnCopy.outputs.removeWhere((elem) => true);
+            } else if ((sighashType & 31) == SighashType.SIGHASH_SINGLE.value) {
+                if (inputNumber >= txnCopy.outputs.length) {
+                    return null;
+                }
+                var txout = TransactionOutput(txnCopy.outputs[inputNumber].satoshis, txnCopy.outputs[inputNumber].script);
+                txnCopy.outputs.removeWhere((elem) => true);
+                for (var ndx = 0; ndx < inputNumber + 1; ndx++) {
+                    var txOutput = TransactionOutput(BigInt.parse(_BITS_64_ON, radix: 16), SVScript.fromString(""));
+                    txnCopy.outputs.add(txOutput);
+                }
+                txnCopy.outputs[inputNumber] = txout;
+            }
+
+            if (this._sighashType & SighashType.SIGHASH_ANYONECANPAY.value > 0) {
+                var keepTxn = this._txn!.inputs[inputNumber];
+                txnCopy.inputs.removeWhere((elem) => true);
+                txnCopy.inputs.add(keepTxn);
+            }
+
+            String txnHex = txnCopy.serialize();
+            var writer = ByteDataWriter();
+            writer.write(HEX.decode(txnHex));
+            writer.writeInt32(this._sighashType, Endian.little);
+            _preImage = writer.toBytes();
+            return _preImage;
+
+        } else {
+            throw SignatureException("This preImage calculation can only be done with ForkId or Chronicle enabled");
         }
 
     }

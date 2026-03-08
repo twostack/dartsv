@@ -595,4 +595,10 @@ SVPublicKey get publicKey => _publicKey!;
 
     return forkId == SighashType.SIGHASH_FORKID.value;
   }
+
+  static bool hasChronicle(List<int> sigBytes) {
+    if (sigBytes.isEmpty) return false;
+    return (sigBytes[sigBytes.length - 1] & SighashType.SIGHASH_CHRONICLE.value) ==
+        SighashType.SIGHASH_CHRONICLE.value;
+  }
 }

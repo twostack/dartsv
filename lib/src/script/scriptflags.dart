@@ -184,6 +184,9 @@ class ScriptFlags {
     /// This is per (input!) UTXO flag
     static final SCRIPT_UTXO_AFTER_GENESIS = (1 << 19);
 
+    /// Do we accept SIGHASH_CHRONICLE (0x20) flag to select legacy/OTDA digest
+    static const SCRIPT_ENABLE_CHRONICLE = (1 << 20);
+
     /// *Below flags apply in the context of BIP 68*
     ///
     /// If this flag set, CTxIn::nSequence is NOT interpreted as a relative lock-time.
