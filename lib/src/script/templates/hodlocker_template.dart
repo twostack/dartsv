@@ -3,7 +3,6 @@ import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/script/script_template.dart';
 import 'package:dartsv/src/transaction/hodl_lockbuilder.dart';
 import 'package:hex/hex.dart';
-import 'package:convert/convert.dart';
 
 /// Implementation of the HODLocker script template for time-locked funds
 class HODLockerTemplate implements ScriptTemplate {
@@ -91,7 +90,7 @@ class HODLockerTemplate implements ScriptTemplate {
 
     final locker = HodlLockBuilder.fromHex(script.toString());
 
-    final scriptPubkeyHash = hex.encode(locker.pubKeyHash ?? [00]);
+    final scriptPubkeyHash = HEX.encode(locker.pubKeyHash ?? [00]);
 
     // Check if any of the available keys match the hash
     for (var key in availableKeys) {

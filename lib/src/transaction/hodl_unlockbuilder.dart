@@ -2,8 +2,8 @@
 
 import 'dart:typed_data';
 
-import 'package:convert/convert.dart';
 import 'package:dartsv/dartsv.dart';
+import 'package:hex/hex.dart';
 
 class HodlUnlockBuilder extends UnlockingScriptBuilder{
 
@@ -17,8 +17,8 @@ class HodlUnlockBuilder extends UnlockingScriptBuilder{
   SVScript getScriptSig() {
 
     return ScriptBuilder()
-        .addData(Uint8List.fromList(hex.decode(_spendingSig.toTxFormat())))
-        .addData(Uint8List.fromList(hex.decode(_pubKey.toHex())))
+        .addData(Uint8List.fromList(HEX.decode(_spendingSig.toTxFormat())))
+        .addData(Uint8List.fromList(HEX.decode(_pubKey.toHex())))
         .addData(Uint8List.fromList(_txPreimage))
         .build();
   }

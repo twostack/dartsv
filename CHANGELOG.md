@@ -1,3 +1,15 @@
+## 2.5.0
+Chronicle Upgrade Support
+
+- SIGHASH_CHRONICLE (0x20): opt-in per-signature flag for legacy/OTDA digest selection
+- Reinstated opcodes: OP_VER, OP_VERIF, OP_VERNOTIF, OP_SUBSTR, OP_LEFT, OP_RIGHT, OP_2MUL, OP_2DIV, OP_LSHIFTNUM, OP_RSHIFTNUM
+- MAX_SCRIPT_NUM_LENGTH increased from 750KB to 32MB
+- Malleability relaxation for tx version > 1 (MINIMALDATA, LOW_S, NULLFAIL, NULLDUMMY, MINIMALIF, CLEANSTACK, SIGPUSHONLY)
+- scriptCode derivation from locking script for OP_CHECKSIG in unlocking scripts (tx version > 1)
+- Wallet support enhancements
+- Script template system with key-matching and error diagnostics
+- Allow change output on unsigned transaction build
+
 ## 2.1.0
  Bugfix : xpriv network byte decoding
  Bugfix : Script Interpreter fixes. Some of the OP_CODES were not properly processed 

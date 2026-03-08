@@ -2,7 +2,6 @@ import 'dart:typed_data';
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/script/script_template.dart';
 import 'package:hex/hex.dart';
-import 'package:convert/convert.dart';
 
 /// Implementation of the P2PKH (Pay to Public Key Hash) script template
 class P2PKHTemplate implements ScriptTemplate {
@@ -48,7 +47,7 @@ class P2PKHTemplate implements ScriptTemplate {
 
     final locker = P2PKHLockBuilder.fromScript(script);
 
-    final scriptPubkeyHash = hex.encode(locker.pubkeyHash!);
+    final scriptPubkeyHash = HEX.encode(locker.pubkeyHash!);
 
     // Check if any of the available keys match the hash
     for (var key in availableKeys) {
