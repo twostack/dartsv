@@ -78,6 +78,8 @@ class ScriptException implements Exception {
 
     ScriptException(this.error, this.cause);
 
+    @override
+    String toString() => 'ScriptException($error): $cause';
 }
 
 class SignatureException implements Exception {

@@ -75,30 +75,34 @@ void main() {
     };
 
     test('can perform a multisig spend', () {
-      /*FIXME: Previously calculate Sigs and Sig Lengths are off
       var unlockBuilder = P2MSUnlockBuilder();
-      var transaction = TransactionBuilder()
+      var spendingTx = TransactionBuilder()
           .spendFromUtxoMap(simpleUtxoWith100000Satoshis, unlockBuilder)
-          .spendToLockBuilder(P2PKHLockBuilder.fromAddress(toAddress), BigInt.from(500000) )
+          .spendToLockBuilder(P2PKHLockBuilder.fromAddress(toAddress), BigInt.from(90000) )
           .sendChangeToPKH(changeAddress)
           .withFeePerKb(50)
           .build(false);
 
-      transaction.version = 1;
+      spendingTx.version = 2;
 
-      var signer1 = TransactionSigner(SighashType.SIGHASH_ALL, private1);
-      var signer2 = TransactionSigner(SighashType.SIGHASH_ALL, private2);
+      var signer1 = TransactionSigner(SighashType.SIGHASH_ALL.value | SighashType.SIGHASH_FORKID.value, private1);
+      var signer2 = TransactionSigner(SighashType.SIGHASH_ALL.value | SighashType.SIGHASH_FORKID.value, private2);
 
       var utxo = TransactionOutput(BigInt.from(100000), lockBuilder.getScriptPubkey());
-      signer1.sign(transaction, utxo, 0);
-      signer2.sign(transaction, utxo, 0);
+      var signedTx1 = signer1.sign(spendingTx, utxo, 0); //internally adds
+      var signedTx2 = signer2.sign(signedTx1, utxo, 0);
 
       expect(unlockBuilder.signatures.length, equals(2));
-      expect(unlockBuilder.getScriptSig().toString(), equals('OP_0 71 0x30440220506a721a4aca80943146700333be6f5f0abd96798b4b5e21d14a45f6f3e1c96d022074be7308c17a86d327ad6f9b59116f45edff218187e5a6bcff6c58150ec94f9700 71 0x304402205133d18807f1261bd0712a6d334cf85a286fe3aaec08efbce824a31efe60c0a9022048d52308728a602a046adceb990188062955a0f20f390895066325406b41644700'));
 
-      //Interpreter().verifyScript(scriptSig, scriptPubkey) FIXME: for another day
+      var scriptSig = spendingTx.inputs[0].script;
+      var scriptPubKey = lockBuilder.getScriptPubkey();
+      var txSpend = signedTx2;
+      var scriptFlags = Set<VerifyFlag>()..addAll([VerifyFlag.SIGHASH_FORKID, VerifyFlag.UTXO_AFTER_GENESIS]);
 
-       */
+      var interp = Interpreter();
+
+      expect(() => interp.correctlySpends(scriptSig!, scriptPubKey, txSpend,  0, scriptFlags, Coin.ofSat( BigInt.from(100000))), returnsNormally);
+
     });
 
     test('can reconstruct P2MS unlocking script', (){

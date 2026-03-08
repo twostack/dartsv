@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/script/script_template.dart';
 import 'package:hex/hex.dart';
+import 'package:convert/convert.dart';
 
 /// Implementation of the P2PKH (Pay to Public Key Hash) script template
 class P2PKHTemplate implements ScriptTemplate {
@@ -39,16 +40,21 @@ class P2PKHTemplate implements ScriptTemplate {
   @override
   bool canBeSatisfiedBy(List<SVPublicKey> availableKeys, SVScript script) {
     if (!matches(script)) return false;
+
+    if (availableKeys.length <= 0) return false;
     
     // Extract the public key hash from the script
     final pubKeyHash = extractScriptInfo(script)['pubKeyHash'] as Uint8List;
-    
+
+    final locker = P2PKHLockBuilder.fromScript(script);
+
+    final scriptPubkeyHash = hex.encode(locker.pubkeyHash!);
+
     // Check if any of the available keys match the hash
     for (var key in availableKeys) {
       // Get the public key hash from the address
       final keyHashHex = key.toAddress(NetworkType.MAIN).pubkeyHash160;
-      final keyHash = Uint8List.fromList(HEX.decode(keyHashHex));
-      if (HEX.encode(keyHash) == HEX.encode(pubKeyHash)) {
+      if (scriptPubkeyHash == keyHashHex) {
         return true;
       }
     }

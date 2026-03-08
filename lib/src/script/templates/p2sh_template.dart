@@ -65,7 +65,12 @@ class P2SHTemplate implements ScriptTemplate {
   }
 
   bool canBeSatisfiedBy(List<SVPublicKey> availableKeys, SVScript script) {
-    // This is complex for P2SH as it depends on the redeem script
+
+    if (!matches(script)) return false;
+
+    if (availableKeys.length <= 0) return false;
+
+    // FIXME: This is complex for P2SH as it depends on the redeem script
     // For simplicity, we'll return false for now
     return false;
   }

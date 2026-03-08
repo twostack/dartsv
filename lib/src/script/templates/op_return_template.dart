@@ -44,6 +44,9 @@ class OpReturnTemplate implements ScriptTemplate {
 
   @override
   bool canBeSatisfiedBy(List<SVPublicKey> availableKeys, SVScript script) {
+
+    if (!matches(script)) return false;
+
     // OP_RETURN scripts cannot be spent
     return false;
   }

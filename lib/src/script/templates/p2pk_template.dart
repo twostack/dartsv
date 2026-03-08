@@ -58,18 +58,19 @@ LockingScriptBuilder createBuilder(Map<String, dynamic> params) {
   }
 
   bool canBeSatisfiedBy(List<SVPublicKey> availableKeys, SVScript script) {
+
     if (!matches(script)) {
       return false;
     }
 
-    // Extract the public key from the script
-    final chunks = script.chunks;
-    final pubKeyBytes = chunks[0].buf!;
-    final scriptPubKey = SVPublicKey.fromBuffer(pubKeyBytes);
+    if (availableKeys.length <= 0) return false;
+
+    final locker = P2PKLockBuilder.fromScript(script);
+    final scriptPubKey = locker.signerPubKey?.toHex() ?? "";
 
     // Check if any of the available keys match the script's public key
     for (var key in availableKeys) {
-      if (key.toHex() == scriptPubKey.toHex()) {
+      if (key.toHex() == scriptPubKey) {
         return true;
       }
     }

@@ -122,6 +122,9 @@ class ScriptPattern {
     // Must have at least one chunk
     if (chunks.isEmpty) return false;
 
+    if (chunks.length == 1 && chunks[0].equalsOpCode(OpCodes.OP_0)) return true;
+
+
     // First chunks must be OP_FALSE and OP_RETURN
     return chunks[0].equalsOpCode(OpCodes.OP_FALSE) &&
         chunks[1].equalsOpCode(OpCodes.OP_RETURN);

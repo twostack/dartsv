@@ -698,8 +698,14 @@ class Interpreter {
           case OpCodes.OP_EQUALVERIFY:
             if (stack.size() < 2)
               throw ScriptException(ScriptError.SCRIPT_ERR_INVALID_STACK_OPERATION,"Attempted OpCodes.OP_EQUALVERIFY on a stack with size < 2");
-            if (!ListEquality().equals(stack.pollLast(), stack.pollLast()))
-              throw new ScriptException(ScriptError.SCRIPT_ERR_EQUALVERIFY,"OpCodes.OP_EQUALVERIFY: non-equal data");
+            var _evA = stack.pollLast();
+            var _evB = stack.pollLast();
+            if (!ListEquality().equals(_evA, _evB)) {
+              var _hexA = _evA.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+              var _hexB = _evB.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+              throw new ScriptException(ScriptError.SCRIPT_ERR_EQUALVERIFY,
+                  "OpCodes.OP_EQUALVERIFY: non-equal data\n  got:      $_hexA (${_evA.length}B)\n  expected: $_hexB (${_evB.length}B)\n  stack remaining: ${stack.size()} items");
+            }
             break;
           case OpCodes.OP_1ADD:
           case OpCodes.OP_1SUB:

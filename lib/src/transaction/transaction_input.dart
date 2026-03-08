@@ -138,18 +138,6 @@ class TransactionInput {
         return sequenceNumber != MAX_SEQ_NUMBER;
     }
 
-    /// Returns the number of satoshis this input is spending.
-    // BigInt get satoshis => _spendingAmount == null ? BigInt.zero : _spendingAmount!;
-
-    /// Sets the number of satoshis this input is spending.
-    ///
-    /// *NOTE:* A transaction input *must* spend all the satoshis from a UTXO;
-    /// change [TransactionOutput]s must be generated as needed, and the difference
-    /// between satoshis "consumed" by and input and those "locked" by the
-    /// spending transaction's outputs goes to the miner as a fee reward.
-    // set satoshis(BigInt value) {
-    //     _spendingAmount = value;
-    // }
 
     /// Returns the scriptSig (Input Script / Unlocking Script)
     SVScript? get script => _unlockingScriptBuilder?.getScriptSig();

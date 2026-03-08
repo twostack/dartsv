@@ -46,26 +46,31 @@ class P2MSTemplate implements ScriptTemplate {
 
   @override
   bool canBeSatisfiedBy(List<SVPublicKey> availableKeys, SVScript script) {
+
+
     if (!matches(script)) return false;
 
-    final info = extractScriptInfo(script);
-    final requiredKeys = info['publicKeys'] as List<SVPublicKey>;
-    final threshold = info['threshold'] as int;
+    if (availableKeys.length <= 0) return false;
 
-    // Count how many of the required keys we have available
+    final locker = P2MSLockBuilder.fromScript(script);
+
+    final scriptPubKeys = locker.publicKeys;
+
+
+    // Count if any of our public keys match any of the required keys
     int matchCount = 0;
-    for (var requiredKey in requiredKeys) {
+    for (var scriptPubKey in scriptPubKeys) {
       for (var availableKey in availableKeys) {
         // Compare public keys by their hex representation instead of using point.equals
-        if (requiredKey.toString() == availableKey.toString()) {
+        if (scriptPubKey.toHex() == availableKey.toHex()) {
           matchCount++;
           break;
         }
       }
     }
 
-    // We can satisfy the script if we have at least the threshold number of keys
-    return matchCount >= threshold;
+    // We can satisfy at least part of the script if we have one of the public keys
+    return matchCount > 0;
   }
 
   @override

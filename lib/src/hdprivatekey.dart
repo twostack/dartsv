@@ -165,6 +165,7 @@ class HDPrivateKey extends CKDSerializer{
         hdPrivateKey.childNumber = this.childNumber;
         hdPrivateKey.chainCode = this.chainCode;
         hdPrivateKey.versionBytes = this.versionBytes;
+        hdPrivateKey.networkType = this.networkType;
 
         return hdPrivateKey;
     }

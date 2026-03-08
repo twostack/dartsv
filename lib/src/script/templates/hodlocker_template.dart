@@ -1,7 +1,9 @@
 import 'dart:typed_data';
 import 'package:dartsv/dartsv.dart';
 import 'package:dartsv/src/script/script_template.dart';
+import 'package:dartsv/src/transaction/hodl_lockbuilder.dart';
 import 'package:hex/hex.dart';
+import 'package:convert/convert.dart';
 
 /// Implementation of the HODLocker script template for time-locked funds
 class HODLockerTemplate implements ScriptTemplate {
@@ -82,9 +84,24 @@ class HODLockerTemplate implements ScriptTemplate {
 
   @override
   bool canBeSatisfiedBy(List<SVPublicKey> availableKeys, SVScript script) {
-    // This would require checking if any of the available keys hash to the pubKeyHash
-    // in the script and if the current block height is greater than the lockHeight.
-    // For simplicity, we'll return false for now.
+
+    if (!matches(script)) return false;
+
+    if (availableKeys.length <= 0) return false;
+
+    final locker = HodlLockBuilder.fromHex(script.toString());
+
+    final scriptPubkeyHash = hex.encode(locker.pubKeyHash ?? [00]);
+
+    // Check if any of the available keys match the hash
+    for (var key in availableKeys) {
+      // Get the public key hash from the address
+      final keyHashHex = key.toAddress(NetworkType.MAIN).pubkeyHash160; //the network type won't make a difference here
+      if (scriptPubkeyHash == keyHashHex) {
+        return true;
+      }
+    }
+
     return false;
   }
 
