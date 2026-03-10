@@ -51,7 +51,16 @@ class BoolItem extends LinkedListEntry<BoolItem> {
   BoolItem(this.option);
 }
 
+/// Callback for script execution tracing.
+/// [chunkIndex] is the chunk number, [opcode] the opcode value,
+/// [stack] and [altstack] are snapshots of the current state.
+typedef ScriptTraceCallback = void Function(
+    int chunkIndex, int opcode, List<List<int>> stack, List<List<int>> altstack);
+
 class Interpreter {
+
+  /// Optional trace callback. When set, called after each executed chunk.
+  ScriptTraceCallback? traceCallback;
 
   // Maximum script number length after Genesis
   //consensus.h in node client
@@ -167,6 +176,7 @@ class Interpreter {
     bool nonTopLevelReturnAfterGenesis = false;
 
     int nextLocationInScript = 0;
+    int chunkIndex = 0;
     for (ScriptChunk chunk in script.chunks) {
       int opcode = chunk.opcodenum;
 
@@ -559,7 +569,7 @@ class Interpreter {
             List<int> splitBytes = stack.pollLast();
 
             if (splitPos > splitBytes.length || splitPos < 0)
-              throw new ScriptException(ScriptError.SCRIPT_ERR_SPLIT_RANGE,"Invalid OpCodes.OP_SPLIT range.");
+              throw new ScriptException(ScriptError.SCRIPT_ERR_SPLIT_RANGE,"Invalid OpCodes.OP_SPLIT range. splitPos=$splitPos, dataLen=${splitBytes.length}");
 
             Uint8List splitOut1 = Uint8List(splitPos);
             Uint8List splitOut2 = Uint8List(splitBytes.length - splitPos);
@@ -1130,6 +1140,14 @@ class Interpreter {
             throw new ScriptException(ScriptError.SCRIPT_ERR_BAD_OPCODE,"Script used a reserved or disabled opcode: ${opcode}" );
         }
       }
+
+      // Trace callback for debugging
+      if (traceCallback != null && shouldExecute) {
+        traceCallback!(chunkIndex, opcode,
+            stack.iterator.toList().map((e) => List<int>.from(e)).toList(),
+            altstack.iterator.toList().map((e) => List<int>.from(e)).toList());
+      }
+      chunkIndex++;
 
       if (stack.size() + altstack.size() > MAX_STACK_SIZE || stack.size() + altstack.size() < 0)
         throw new ScriptException(ScriptError.SCRIPT_ERR_STACK_SIZE,"Stack size exceeded range");

@@ -1,3 +1,9 @@
+## 2.6.0
+Script Interpreter Enhancements
+
+- Add `ScriptTraceCallback` for step-by-step script execution tracing and debugging
+- Improved `OP_SPLIT` error messages to include `splitPos` and `dataLen` for easier diagnosis
+
 ## 2.5.0
 Chronicle Upgrade Support
 
