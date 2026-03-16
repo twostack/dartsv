@@ -5,70 +5,64 @@ import 'package:dartsv/src/transaction/default_builder.dart';
 import 'package:dartsv/src/transaction/signed_unlock_builder.dart';
 import 'package:hex/hex.dart';
 
-class TransactionSigner {
-  int sigHashType;
-  SVPrivateKey signingKey;
+/// Contract for signing transaction inputs.
+///
+/// The only method consumers call is [sign]. Implementations decide
+/// where the private key lives — in memory, in a hardware device, or
+/// behind a callback into a secure context.
+abstract class TransactionSigner {
+  int get sigHashType;
 
-  TransactionSigner(this.sigHashType, this.signingKey);
+  /// Sign a single input of [unsignedTxn] that spends [utxo] at [inputIndex].
+  ///
+  /// The implementation computes the sighash, produces an [SVSignature],
+  /// and attaches it to the input's [UnlockingScriptBuilder].
+  Transaction sign(Transaction unsignedTxn, TransactionOutput utxo, int inputIndex);
 
-  /** Signs the provided transaction, and populates the corresponding input's
-   *  LockingScriptBuilder with the signature. Responsibility for what to
-   *  do with the Signature (populate appropriate template) is left to the
-   *  LockingScriptBuilder instance
-   *
-   *
-   * @param unsignedTxn  - Unsigned Transaction
-   * @param utxo - Funding transaction's Output to sign over
-   * @param inputIndex - Input of the current Transaction we are signing for
-   * @param signingKey - Private key to sign with
-   * @param sigHashType - Flags that govern which SigHash algorithm is applied
-   * @return Signed Transaction
-   * @throws TransactionException
-   * @throws IOException
-   * @throws SigHashException
-   * @throws SignatureDecodeException
-   */
-  Transaction sign(Transaction unsignedTxn,
-      TransactionOutput utxo,
-      int inputIndex) {
+  /// Sign a raw sighash preimage. Utility used by some unlock builders.
+  SVSignature signPreimage(Uint8List preImage);
+}
 
-    //FIXME: This is a test work-around for why I can't sign an unsigned raw txn
-    //FIXME: This should account for ANYONECANPAY mask that limits outputs to sign over
-    //      NOTE: Stripping Subscript should be done inside SIGHASH class
+/// Default implementation that holds the private key in memory.
+class DefaultTransactionSigner extends TransactionSigner {
+  @override
+  final int sigHashType;
+  final SVPrivateKey signingKey;
+
+  DefaultTransactionSigner(this.sigHashType, this.signingKey);
+
+  @override
+  Transaction sign(Transaction unsignedTxn, TransactionOutput utxo, int inputIndex) {
     SVScript subscript = utxo.script;
     var sigHash = Sighash();
 
-    //NOTE: Return hash in LittleEndian (already double-sha256 applied)
     var hash = sigHash.hash(unsignedTxn, sigHashType, inputIndex, subscript, utxo.satoshis);
     var reversedHash = HEX.encode(HEX.decode(hash).reversed.toList());
     var preImage = sigHash.preImage;
 
-    if (preImage == null) throw SignatureException(
-        "Preimage calcumation failed");
+    if (preImage == null) throw SignatureException("Preimage calculation failed");
 
     var sig = SVSignature.fromPrivateKey(signingKey);
     sig.nhashtype = sigHashType;
     sig.sign(reversedHash);
 
     TransactionInput input = unsignedTxn.inputs[inputIndex];
-    if (input != null){
-      UnlockingScriptBuilder scriptBuilder = input.scriptBuilder!; //force failure on null script
+    if (input != null) {
+      UnlockingScriptBuilder scriptBuilder = input.scriptBuilder!;
       scriptBuilder.signatures.add(sig);
     } else {
-      throw new TransactionException(
+      throw TransactionException(
           "Trying to sign a Transaction Input that is missing a SignedUnlockBuilder");
     }
 
-    return unsignedTxn; //signature has been added
+    return unsignedTxn;
   }
 
-  static SVSignature signPreimage(SVPrivateKey signingKey, Uint8List preImage, int sigHashType) {
-
+  @override
+  SVSignature signPreimage(Uint8List preImage) {
     var hash = sha256Twice(preImage.toList());
     var hashHex = HEX.encode(hash);
 
-    //FIXME: This kind of required round-tripping into the base class of TransactionSignature smells funny
-    //       We should have a cleaner constructor for TransactionSignature
     var sig = SVSignature.fromPrivateKey(signingKey);
     sig.nhashtype = sigHashType;
     sig.sign(hashHex);
@@ -76,4 +70,15 @@ class TransactionSigner {
     return sig;
   }
 
+  /// Static utility for signing a preimage with an explicit key and sighash type.
+  static SVSignature signPreimageWithKey(SVPrivateKey key, Uint8List preImage, int sigHashType) {
+    var hash = sha256Twice(preImage.toList());
+    var hashHex = HEX.encode(hash);
+
+    var sig = SVSignature.fromPrivateKey(key);
+    sig.nhashtype = sigHashType;
+    sig.sign(hashHex);
+
+    return sig;
+  }
 }

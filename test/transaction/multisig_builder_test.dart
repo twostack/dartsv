@@ -85,8 +85,8 @@ void main() {
 
       spendingTx.version = 2;
 
-      var signer1 = TransactionSigner(SighashType.SIGHASH_ALL.value | SighashType.SIGHASH_FORKID.value, private1);
-      var signer2 = TransactionSigner(SighashType.SIGHASH_ALL.value | SighashType.SIGHASH_FORKID.value, private2);
+      var signer1 = DefaultTransactionSigner(SighashType.SIGHASH_ALL.value | SighashType.SIGHASH_FORKID.value, private1);
+      var signer2 = DefaultTransactionSigner(SighashType.SIGHASH_ALL.value | SighashType.SIGHASH_FORKID.value, private2);
 
       var utxo = TransactionOutput(BigInt.from(100000), lockBuilder.getScriptPubkey());
       var signedTx1 = signer1.sign(spendingTx, utxo, 0); //internally adds
