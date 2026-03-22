@@ -1,3 +1,13 @@
+## 3.0.0
+
+### Breaking Changes
+- `TransactionSigner` is now an abstract class; use `DefaultTransactionSigner` as the concrete implementation
+- Enables custom signer implementations (hardware wallets, callback-based signing, plugin delegates)
+
+### Added
+- `DefaultTransactionSigner` — drop-in replacement for the previous concrete `TransactionSigner`
+- `ScriptTraceCallback` for step-by-step script execution tracing and debugging
+
 ## 2.6.0
 Script Interpreter Enhancements
 
