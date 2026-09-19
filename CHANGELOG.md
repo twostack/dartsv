@@ -1,3 +1,10 @@
+## 3.1.0
+Script Interpreter Fixes
+
+### Fixed
+- `SVScript.removeAllInstancesOf` (FindAndDelete) is a single linear pass. It previously allocated a fresh script-sized buffer for every opcode it copied, exhausting the heap on scripts of a few hundred KB. An empty chunk now removes nothing.
+- The 1000-element stack limit (`MAX_STACK_SIZE`) now applies only before Genesis. It is pre-Genesis consensus; after Genesis BSV bounds stack memory by policy instead, so large post-Genesis scripts are no longer rejected with `SCRIPT_ERR_STACK_SIZE`. Pre-Genesis behaviour is unchanged.
+
 ## 3.0.0
 
 ### Breaking Changes
