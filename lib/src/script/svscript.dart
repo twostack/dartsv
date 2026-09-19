@@ -686,19 +686,25 @@ class SVScript {
      * Returns the script bytes of inputScript with all instances of the specified script object removed
      */
   static List<int> removeAllInstancesOf( List<int> inputScript, List<int> chunkToRemove) {
-    // We usually don't end up removing anything
-    var writer = ByteDataWriter(bufferLength : inputScript.length);
-
+    // Linear single pass into one output buffer. (The previous ByteDataWriter
+    // version allocated a script-sized buffer per opcode, which exhausted the
+    // heap on scripts of a few hundred KB.)
+    final out = Uint8List(inputScript.length);
+    int n = 0;
     int cursor = 0;
-    // Process the input script
     while (cursor < inputScript.length) {
       bool skip = false;
-      if (cursor + chunkToRemove.length  <= inputScript.length){
-        var sublistExtract = inputScript.sublist(cursor, cursor + chunkToRemove.length);
-        skip = ListEquality().equals(sublistExtract, chunkToRemove);
+      if (chunkToRemove.isNotEmpty && cursor + chunkToRemove.length <= inputScript.length) {
+        skip = true;
+        for (int i = 0; i < chunkToRemove.length; i++) {
+          if (inputScript[cursor + i] != chunkToRemove[i]) {
+            skip = false;
+            break;
+          }
+        }
       }
 
-
+      final start = cursor;
       int opcode = inputScript[cursor++] & 0xFF;
       int additionalBytes = 0;
       if (opcode >= 0 && opcode < OpCodes.OP_PUSHDATA1) {
@@ -711,15 +717,13 @@ class SVScript {
         additionalBytes = readUint32(inputScript, cursor) + 4;
       }
       if (!skip) {
-        writer.writeUint8(opcode);
-        // Arrays.copyOfRange( inputScript, cursor, cursor + additionalBytes);
-        // List<int> rangeCopy = List<int>.generate(cursor + additionalBytes, (i) => 0);
-        // rangeCopy.setRange(0, cursor + additionalBytes, inputScript, cursor);
-        writer.write(inputScript.sublist(cursor, cursor + additionalBytes));
+        final len = 1 + additionalBytes;
+        out.setRange(n, n + len, inputScript, start);
+        n += len;
       }
       cursor += additionalBytes;
     }
-    return writer.toBytes();
+    return out.sublist(0, n);
   }
 
 

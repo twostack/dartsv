@@ -1149,7 +1149,9 @@ class Interpreter {
       }
       chunkIndex++;
 
-      if (stack.size() + altstack.size() > MAX_STACK_SIZE || stack.size() + altstack.size() < 0)
+      // The 1000-element stack limit is pre-Genesis consensus; after Genesis
+      // BSV bounds stack *memory* by policy instead.
+      if ((!utxoAfterGenesis && stack.size() + altstack.size() > MAX_STACK_SIZE) || stack.size() + altstack.size() < 0)
         throw new ScriptException(ScriptError.SCRIPT_ERR_STACK_SIZE,"Stack size exceeded range");
     }
 
