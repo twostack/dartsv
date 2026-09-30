@@ -1,3 +1,9 @@
+## 3.1.1
+Script Interpreter Fix
+
+### Fixed
+- Chronicle scriptCode for a signature check in the unlocking script. After Chronicle (`VerifyFlag.AFTER_CHRONICLE`), `OP_CHECKSIG`, `OP_CHECKSIGVERIFY`, `OP_CHECKMULTISIG` and `OP_CHECKMULTISIGVERIFY` executing in the unlocking script now sign the unlocking script from its most recent `OP_CODESEPARATOR` to its end, followed by the whole locking script, as SV node 1.2.0 does. Previously the interpreter used the locking script alone for version-2 transactions and the unlocking-script tail alone for version 1. The rule no longer depends on the transaction version. Checks in the locking script, and all checks without `AFTER_CHRONICLE`, are unchanged.
+
 ## 3.1.0
 Script Interpreter Fixes
 
