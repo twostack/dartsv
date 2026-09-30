@@ -1333,6 +1333,33 @@ class Interpreter {
   }
 
 
+  /// The scriptCode a signature check signs, before signature removal.
+  ///
+  /// In the locking script, and in the unlocking script before Chronicle, it
+  /// is the currently executing script from just after its most recent
+  /// OP_CODESEPARATOR ([lastCodeSepLocation] is that byte offset, 0 if none).
+  ///
+  /// After Chronicle, a check executing in the UNLOCKING script signs that
+  /// same tail of the unlocking script followed by the WHOLE locking script.
+  /// This is the SV node 1.2.0 rule (EvalScript appends the locking script,
+  /// `scriptCode += *checksigData`, when `IsChronicle(flags)`), and the rule
+  /// bsv-blockchain/go-sdk#366 adopted. It is gated by the Chronicle
+  /// activation alone, not by the transaction version.
+  ///
+  /// [lockingScript] is the script [script] is being evaluated against; the
+  /// caller passes the locking script itself when evaluating the locking
+  /// script, so the unlocking script is the case where they differ.
+  static List<int> scriptCodeFor(SVScript script, int lastCodeSepLocation, Set<VerifyFlag> verifyFlags,
+      SVScript? lockingScript) {
+    final prog = script.buffer;
+    final tail = prog.sublist(lastCodeSepLocation, prog.length);
+    final inUnlockingScript = lockingScript != null && !identical(script, lockingScript);
+    if (inUnlockingScript && verifyFlags.contains(VerifyFlag.AFTER_CHRONICLE)) {
+      return [...tail, ...lockingScript.buffer];
+    }
+    return List<int>.from(tail);
+  }
+
   static void executeCheckSig(
       Transaction txContainingThis,
       int index,
@@ -1351,19 +1378,7 @@ class Interpreter {
     List<int> pubKeyBuffer = stack.pollLast();
     List<int> sigBytes = stack.pollLast();
 
-    SVScript scriptForCode;
-    int codeOffset;
-    if (txContainingThis.version > 1 && lockingScript != null && !identical(script, lockingScript)) {
-      // OP_CHECKSIG in unlocking script: use full locking script as scriptCode
-      scriptForCode = lockingScript;
-      codeOffset = 0;
-    } else {
-      // Normal case: use current script from lastCodeSepLocation
-      scriptForCode = script;
-      codeOffset = lastCodeSepLocation;
-    }
-    List<int> prog = scriptForCode.buffer;
-    List<int> connectedScript = prog.getRange(codeOffset, prog.length).toList();
+    List<int> connectedScript = scriptCodeFor(script, lastCodeSepLocation, verifyFlags, lockingScript);
     var outStream = ByteDataWriter();
     try {
       SVScript.writeBytes(outStream, sigBytes);
@@ -1687,18 +1702,7 @@ class Interpreter {
       sigs.add(sig);
     }
 
-    SVScript scriptForCode;
-    int codeOffset;
-    if (txContainingThis.version > 1 && lockingScript != null && !identical(script, lockingScript)) {
-      scriptForCode = lockingScript;
-      codeOffset = 0;
-    } else {
-      scriptForCode = script;
-      codeOffset = lastCodeSepLocation;
-    }
-    List<int> prog = scriptForCode.buffer;
-    List<int> connectedScript = List<int>.generate(prog.length - codeOffset, (index) => 0);
-    connectedScript.setRange(0, prog.length - codeOffset, prog, codeOffset);
+    List<int> connectedScript = scriptCodeFor(script, lastCodeSepLocation, verifyFlags, lockingScript);
 
     sigs.iterator.forEach((sig) {
       var outStream = ByteDataWriter();
