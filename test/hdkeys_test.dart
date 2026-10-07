@@ -230,6 +230,20 @@ void main() {
         expect(seededKey.xpubkey, equals(vector2mpublic));
     });
 
+    test('should derive child private keys whose most significant byte is zero', () {
+        var seededKey = HDPrivateKey.fromSeed(vector1Master, NetworkType.MAIN);
+
+        // m/121 from test vector 1 seed has a leading zero byte (~1 in 256 children do)
+        var child = seededKey.deriveChildNumber(121);
+        expect(child.privateKey.toHex().substring(0, 2), equals('00'));
+        expect(child.publicKey.toHex(), equals(seededKey.hdPublicKey.deriveChildNumber(121).publicKey.toHex()));
+        expect(HDPrivateKey.fromXpriv(child.xprivkey).xprivkey, equals(child.xprivkey));
+
+        // hardened derivation beneath it, cross-checked against an independent BIP32 implementation
+        var deep = seededKey.deriveChildKey("m/121/0'/5");
+        expect(deep.privateKey.toHex(), equals('ad07fb0d75953b408a482f1c027813128f6642ae8264686b6d3c56916b1890e5'));
+    });
+
 
 //  test('should use full 32 bytes for private key data that is hashed (as per bip32)', () {
 //      // https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki

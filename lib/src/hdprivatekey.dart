@@ -196,9 +196,10 @@ class HDPrivateKey extends CKDSerializer{
         var normalisedKey = Uint8List.fromList(privateKey);
         var childKey = (BigInt.parse(HEX.encode(lhs), radix: 16) + BigInt.parse(HEX.encode(normalisedKey), radix: 16)) % _domainParams.n;
 
+        //ser256(k): left-pad to 32 bytes, encodeBigIntSV() is minimal-length and drops leading zero bytes
+        var childKeyBytes = encodeBigIntSV(childKey);
         var paddedKey = Uint8List(33);
-        paddedKey[0] = 0;
-        paddedKey.setRange(1, 33, encodeBigIntSV(childKey));
+        paddedKey.setRange(33 - childKeyBytes.length, 33, childKeyBytes);
 
         var dk = HDPrivateKey._(NetworkType.MAIN, KeyType.PRIVATE);
         dk = this._copyParams(dk);
