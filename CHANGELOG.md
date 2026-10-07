@@ -1,3 +1,9 @@
+## 3.1.2
+HD Key Derivation Fix
+
+### Fixed
+- `HDPrivateKey.deriveChildKey` and `deriveChildNumber` no longer throw `Bad state: Too few elements` when the derived child private key's most significant byte is zero (about 1 in 256 derivations). The key is now left-padded to 32 bytes, as BIP32 specifies. The failure was always a thrown error, never a wrong key, so keys derived by earlier versions are unaffected.
+
 ## 3.1.1
 Script Interpreter Fix
 
