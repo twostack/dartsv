@@ -130,6 +130,21 @@ main() {
     });
 
 
+    test('the message length is a varint: long messages hash as the standard writes them, and sign', () {
+        // sha256d(varint(24) "Bitcoin Signed Message:\n" varint(n) message), computed apart.
+        expect(HEX.encode(Message(utf8.encode('a' * 5)).magicHash()),
+            'a10305dcab91b446839a7adb6a73063b5333899689444d67bda7e35a1cf3442c');
+        expect(HEX.encode(Message(utf8.encode('a' * 300)).magicHash()),
+            '3ec158a43b80359df647352dac1d37dbf26a94e5f06e5790760290c75cd11dc0');
+        expect(HEX.encode(Message(utf8.encode('a' * 70000)).magicHash()),
+            '2eeb385515dadd60d8d040b37f1f9294ee25b8ae1472f0a1a639e9973c780f51');
+        var privateKey = SVPrivateKey.fromWIF('5KYZdUEo39z3FPrtuX2QbbwGnNP5zTd7yyr2SC1j299sBCnWjss');
+        for (var n in [252, 253, 255, 256, 600]) {
+            var message = Message(utf8.encode('b' * n));
+            expect(message.verifyFromAddress(privateKey.toAddress(), message.sign(privateKey)), isTrue, reason: '$n bytes');
+        }
+    });
+
     test('will verify with an uncompressed pubkey using verifyFromPublicKey()', () {
         var privateKey = SVPrivateKey.fromWIF('5KYZdUEo39z3FPrtuX2QbbwGnNP5zTd7yyr2SC1j299sBCnWjss');
         var message = new Message(utf8.encode('This is an example of a signed message.'));

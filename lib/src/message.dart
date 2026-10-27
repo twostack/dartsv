@@ -33,10 +33,11 @@ class Message {
     /// Returns the double-sha256 of the buffer constructed as shown above
     List<int> magicHash() {
 
-        var prefix1 = MAGIC_BYTES.length;
-        var prefix2 = this._message!.length;
-        var buf = HEX.encode([prefix1] + utf8.encode(MAGIC_BYTES) + [prefix2] + this._message!);
-        var hash = sha256Twice(HEX.decode(buf));
+        // Both lengths are varints: a message of 253 bytes or more takes a
+        // 0xfd (or longer) prefix, as every other Bitcoin Signed Message
+        // implementation writes it.
+        var buf = calcVarInt(MAGIC_BYTES.length) + utf8.encode(MAGIC_BYTES) + calcVarInt(this._message!.length) + this._message!;
+        var hash = sha256Twice(buf);
         return hash;
     }
 
