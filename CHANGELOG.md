@@ -1,3 +1,9 @@
+## 3.1.3
+Signed Message Fix
+
+### Fixed
+- `Message.sign`, `verifyFromAddress` and `verifyFromPublicKey` no longer throw `FormatException: Non-byte integer detected` for a message of 256 bytes or more. The message length in the signed hash is now a varint, as the Bitcoin Signed Message standard and other implementations write it. Messages of 252 bytes or fewer hash as before; a signature made by an earlier version over a message of 253 to 255 bytes no longer verifies, because that hash was not the standard's.
+
 ## 3.1.2
 HD Key Derivation Fix
 
