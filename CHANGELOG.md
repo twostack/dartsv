@@ -1,3 +1,9 @@
+## 3.1.4
+Mainnet Address Fix
+
+### Fixed
+- `Address.fromBase58` (and `Address(...)`) no longer refuses valid mainnet addresses shorter than 34 characters. A mainnet address is 26 to 34 characters long, because each leading zero byte of the hash adds a leading '1'; about 3 in 100 are 33 characters. The check now looks at the decoded bytes (a version byte and a 20-byte hash) instead of the length of the text. Testnet addresses, always 34 characters, were never affected.
+
 ## 3.1.3
 Signed Message Fix
 

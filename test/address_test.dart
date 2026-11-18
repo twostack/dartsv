@@ -239,5 +239,37 @@ void main() {
       expect(address.toBase58(), equals("16VZnHwRhwrExfeHFHGjwrgEMq8VcYPs9r"));
   });
 
+  // A mainnet address is 26 to 34 characters: each leading zero byte of the
+  // hash adds a '1'. Only 25 and 34 used to be accepted.
+  test('reads mainnet addresses shorter than 34 characters', () {
+      for (var hash in [
+          '00' + '3c3fa3d4adcaf8f52d5b1843975e1225482699',
+          '0000' + '3c3fa3d4adcaf8f52d5b1843975e12254826',
+          '0000000000000000000000000000000000000000',
+      ]) {
+          var text = Address.fromPubkeyHash(hash, NetworkType.MAIN).toBase58();
+          var read = Address.fromBase58(text);
+          expect(read.pubkeyHash160, equals(hash));
+          expect(read.networkType, equals(NetworkType.MAIN));
+      }
+      expect(Address.fromPubkeyHash('00' * 20, NetworkType.MAIN).toBase58().length, lessThan(30));
+  });
+
+  test('every address it writes, it reads back', () {
+      for (var i = 0; i < 1000; i++) {
+          var key = SVPrivateKey();
+          for (var net in [NetworkType.MAIN, NetworkType.TEST]) {
+              var text = key.publicKey.toAddress(net).toBase58();
+              expect(Address.fromBase58(text).toBase58(), equals(text), reason: text);
+          }
+      }
+  });
+
+  test('refuses a checked base58 string that is not 21 bytes', () {
+      // A valid base58check payload of a version byte and 19 bytes.
+      var short = Address.fromPubkeyHash('3c3fa3d4adcaf8f52d5b1843975e1225482699', NetworkType.MAIN).toBase58();
+      expect(() => Address.fromBase58(short), throwsA(TypeMatcher<AddressFormatException>()));
+  });
+
 }
 

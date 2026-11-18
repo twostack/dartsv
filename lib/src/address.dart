@@ -96,13 +96,11 @@ class Address {
   /// Typically, if someone is sharing their bitcoin address with you, this is the method
   /// you would use to instantiate an [Address] object for use with [Transaction] objects.
   ///
+  /// The length is checked on the decoded bytes (a version byte and a 20-byte
+  /// hash), not on the text: a mainnet address is 26 to 34 characters long,
+  /// because each leading zero byte of the hash adds a leading '1'.
   Address.fromBase58(String base58Address) {
-      if (base58Address.length == 25 || base58Address.length == 34){
-        _fromBase58(base58Address);
-      }else {
-        throw AddressFormatException( 'Address should be 25 bytes long. Only [${base58Address.length}] bytes long.');
-      }
-
+      _fromBase58(base58Address);
   }
 
   Address.fromPubkeyHash(String pubkeyHashHex, NetworkType networkType){
@@ -185,6 +183,9 @@ class Address {
       address = address.trim();
 
       var versionAndDataBytes = bs58check.decodeChecked(address);
+      if (versionAndDataBytes.length != 21) {
+        throw AddressFormatException('An address is a version byte and a 20-byte hash; this one decodes to ${versionAndDataBytes.length} bytes.');
+      }
       var versionByte = versionAndDataBytes[0].toUnsigned(8);
 
       _version = versionByte & 0xFF;
